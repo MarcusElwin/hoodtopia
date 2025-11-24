@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { AIChatButton } from "@/components/ai/chat-button";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -19,6 +20,7 @@ interface ProductDetailPageProps {
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = use(params);
   const { data: product, isLoading, error } = trpc.products.bySlug.useQuery(slug);
+  const { formatPrice } = useCurrency();
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);

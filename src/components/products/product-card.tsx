@@ -1,32 +1,62 @@
 "use client";
 
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { type Product, type ProductVariant } from "@/db/schema";
+import { useCurrency } from "@/lib/currency";
 
 interface ProductCardProps {
   product: Product & { variants: ProductVariant[] };
 }
 
+// Simple hash function to get consistent "random" index based on product id
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
 export function ProductCard({ product }: ProductCardProps) {
-  // Get unique colors for color swatches
-  const colors = product.variants.reduce(
-    (acc, v) => {
-      if (!acc.find((c) => c.color === v.color)) {
-        acc.push({ color: v.color, colorHex: v.colorHex });
-      }
-      return acc;
-    },
-    [] as { color: string; colorHex: string }[]
-  );
+  const { formatPrice } = useCurrency();
+
+  // Get unique colors with their variant images
+  const colorVariants = useMemo(() => {
+    return product.variants.reduce(
+      (acc, v) => {
+        if (!acc.find((c) => c.color === v.color)) {
+          acc.push({
+            color: v.color,
+            colorHex: v.colorHex,
+            imageUrl: v.imageUrl
+          });
+        }
+        return acc;
+      },
+      [] as { color: string; colorHex: string; imageUrl: string | null }[]
+    );
+  }, [product.variants]);
+
+  // Pick a consistent "random" color based on product ID
+  const displayVariant = useMemo(() => {
+    if (colorVariants.length === 0) return null;
+    const index = hashCode(product.id) % colorVariants.length;
+    return colorVariants[index];
+  }, [colorVariants, product.id]);
+
+  const displayImage = displayVariant?.imageUrl || product.imageUrl;
 
   return (
     <Link href={`/products/${product.slug}`} className="group block">
       <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
         {/* Product Image */}
         <Image
-          src={product.imageUrl}
-          alt={product.name}
+          src={displayImage}
+          alt={`${product.name} - ${displayVariant?.color || ''}`}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -52,7 +82,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
           <span className="text-sm font-semibold whitespace-nowrap">
-            ${(product.basePrice / 100).toFixed(2)}
+            {formatPrice(product.basePrice)}
           </span>
         </div>
 
@@ -63,17 +93,21 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Color Swatches */}
         <div className="flex items-center gap-1.5 pt-1">
-          {colors.slice(0, 5).map((c) => (
+          {colorVariants.slice(0, 5).map((c) => (
             <div
               key={c.color}
-              className="h-3 w-3 rounded-full border border-border/50"
+              className={`h-3 w-3 rounded-full border ${
+                displayVariant?.color === c.color
+                  ? "border-primary ring-1 ring-primary"
+                  : "border-border/50"
+              }`}
               style={{ backgroundColor: c.colorHex }}
               title={c.color}
             />
           ))}
-          {colors.length > 5 && (
+          {colorVariants.length > 5 && (
             <span className="text-xs text-muted-foreground">
-              +{colors.length - 5}
+              +{colorVariants.length - 5}
             </span>
           )}
         </div>

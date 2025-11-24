@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Hoodtopia Logo Sticker Pack",
+    "slug": "logo-sticker-pack",
+    "success": true,
+    "path": "/images/accessories/logo-sticker-pack.jpg"
+  },
+  {
+    "name": "Holographic Hoodie Stickers",
+    "slug": "holographic-stickers",
+    "success": true,
+    "path": "/images/accessories/holographic-stickers.jpg"
+  },
+  {
+    "name": "Enamel Pin Set",
+    "slug": "enamel-pin-set",
+    "success": true,
+    "path": "/images/accessories/enamel-pin-set.jpg"
+  },
+  {
+    "name": "Hoodie Love Pin",
+    "slug": "hoodie-love-pin",
+    "success": true,
+    "path": "/images/accessories/hoodie-love-pin.jpg"
+  },
+  {
+    "name": "Iron-On Patch Collection",
+    "slug": "iron-on-patches",
+    "success": true,
+    "path": "/images/accessories/iron-on-patches.jpg"
+  },
+  {
+    "name": "Chenille Letter Patch",
+    "slug": "chenille-letter-patch",
+    "success": true,
+    "path": "/images/accessories/chenille-letter-patch.jpg"
+  }
+]

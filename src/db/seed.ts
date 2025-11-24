@@ -117,6 +117,112 @@ const productData = [
   },
 ];
 
+// Accessory products (no color variants, single items)
+const accessoryData = [
+  {
+    name: "Hoodtopia Logo Sticker Pack",
+    slug: "logo-sticker-pack",
+    description:
+      "Express yourself with our premium vinyl sticker pack. Includes 5 unique Hoodtopia designs - perfect for laptops, water bottles, or anywhere you want to show your style.",
+    basePrice: 999, // $9.99
+    category: "stickers",
+    featured: false,
+    material: "Premium waterproof vinyl",
+    features: JSON.stringify([
+      "5 unique designs",
+      "Waterproof & UV resistant",
+      "Dishwasher safe",
+      "Easy peel backing",
+      "3-4 inch sizes",
+    ]),
+  },
+  {
+    name: "Holographic Hoodie Stickers",
+    slug: "holographic-stickers",
+    description:
+      "Eye-catching holographic stickers that shimmer and shine. Features hoodie-themed designs with a premium iridescent finish.",
+    basePrice: 1299, // $12.99
+    category: "stickers",
+    featured: false,
+    material: "Holographic vinyl",
+    features: JSON.stringify([
+      "3 holographic designs",
+      "Rainbow shimmer effect",
+      "Scratch resistant",
+      "Indoor/outdoor use",
+      "Premium adhesive",
+    ]),
+  },
+  {
+    name: "Enamel Pin Set",
+    slug: "enamel-pin-set",
+    description:
+      "Collectible enamel pins to customize your hoodie or bag. This set includes 3 beautifully crafted pins with secure butterfly clutch backs.",
+    basePrice: 1999, // $19.99
+    category: "pins",
+    featured: true,
+    material: "Hard enamel with gold plating",
+    features: JSON.stringify([
+      "3 unique pin designs",
+      "Hard enamel finish",
+      "Gold-plated metal",
+      "Butterfly clutch backs",
+      "Collectible quality",
+    ]),
+  },
+  {
+    name: "Hoodie Love Pin",
+    slug: "hoodie-love-pin",
+    description:
+      "Show your hoodie love with this adorable enamel pin featuring a heart-shaped hoodie design. Perfect for true hoodie enthusiasts.",
+    basePrice: 899, // $8.99
+    category: "pins",
+    featured: false,
+    material: "Soft enamel with silver plating",
+    features: JSON.stringify([
+      "Heart-hoodie design",
+      "Soft enamel fill",
+      "Silver-plated metal",
+      "Rubber clutch back",
+      "1.25 inch size",
+    ]),
+  },
+  {
+    name: "Iron-On Patch Collection",
+    slug: "iron-on-patches",
+    description:
+      "Transform your hoodie with our embroidered iron-on patches. Set of 4 unique designs that add instant personality to any garment.",
+    basePrice: 1499, // $14.99
+    category: "patches",
+    featured: true,
+    material: "Embroidered twill with iron-on backing",
+    features: JSON.stringify([
+      "4 embroidered patches",
+      "Iron-on application",
+      "Can also be sewn",
+      "Durable construction",
+      "Various sizes included",
+    ]),
+  },
+  {
+    name: "Chenille Letter Patch",
+    slug: "chenille-letter-patch",
+    description:
+      "Varsity-style chenille patch featuring the iconic 'H' for Hoodtopia. Add a retro collegiate vibe to your favorite hoodie.",
+    basePrice: 1299, // $12.99
+    category: "patches",
+    featured: false,
+    material: "Chenille with felt backing",
+    features: JSON.stringify([
+      "Varsity 'H' design",
+      "Soft chenille texture",
+      "Sew-on application",
+      "4 inch height",
+      "Classic letterman style",
+    ]),
+  },
+];
+
 // Color options
 export const colors = [
   { name: "Black", hex: "#000000" },
@@ -133,7 +239,7 @@ export const colors = [
 export const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
 
 // Export product data for image generation script
-export { productData };
+export { productData, accessoryData };
 
 async function seed() {
   console.log("🌱 Starting seed...\n");
@@ -218,8 +324,69 @@ async function seed() {
     console.log(`  ✓ ${product.name}: ${colors.length * sizes.length} variants`);
   }
 
+  // Insert accessories
+  console.log("\n🎁 Inserting accessories...");
+  const insertedAccessories: schema.Product[] = [];
+
+  for (const accessory of accessoryData) {
+    const id = uuidv4();
+    const slug = accessory.slug;
+    const imageUrl = `/images/accessories/${slug}.jpg`;
+
+    db.insert(schema.products)
+      .values({
+        id,
+        name: accessory.name,
+        slug,
+        description: accessory.description,
+        basePrice: accessory.basePrice,
+        imageUrl,
+        category: accessory.category,
+        featured: accessory.featured,
+        material: accessory.material,
+        features: accessory.features,
+      })
+      .run();
+
+    insertedAccessories.push({
+      id,
+      name: accessory.name,
+      slug,
+      description: accessory.description,
+      basePrice: accessory.basePrice,
+      imageUrl,
+      category: accessory.category,
+      featured: accessory.featured,
+      material: accessory.material,
+      features: accessory.features,
+      createdAt: new Date(),
+    });
+
+    // Accessories have a single "One Size" variant
+    const variantId = uuidv4();
+    const sku = `${slug.toUpperCase().slice(0, 6)}-OS`;
+
+    db.insert(schema.productVariants)
+      .values({
+        id: variantId,
+        productId: id,
+        color: "Default",
+        colorHex: "#a855f7", // Purple for Hoodtopia brand
+        size: "One Size",
+        stock: Math.floor(Math.random() * 100) + 20,
+        imageUrl,
+        sku,
+      })
+      .run();
+
+    variantCount++;
+    console.log(`  ✓ ${accessory.name}`);
+  }
+
   console.log(`\n✅ Seed complete!`);
-  console.log(`   Products: ${insertedProducts.length}`);
+  console.log(`   Hoodies: ${insertedProducts.length}`);
+  console.log(`   Accessories: ${insertedAccessories.length}`);
+  console.log(`   Total Products: ${insertedProducts.length + insertedAccessories.length}`);
   console.log(`   Variants: ${variantCount}`);
   console.log(`   Colors: ${colors.length}`);
   console.log(`   Sizes: ${sizes.length}`);

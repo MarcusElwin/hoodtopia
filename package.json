@@ -12,6 +12,8 @@
     "db:seed": "npx tsx src/db/seed.ts",
     "generate:images": "npx tsx src/scripts/generate-images.ts --all",
     "generate:images:test": "npx tsx src/scripts/generate-images.ts --test",
+    "generate:accessories": "npx tsx src/scripts/generate-accessory-images.ts",
+    "generate:accessories:test": "npx tsx src/scripts/generate-accessory-images.ts --test",
     "test": "vitest"
   },
   "dependencies": {

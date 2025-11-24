@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { HoodtopiaLogo } from "@/components/ui/logo";
+import { CurrencyPicker, CurrencyPickerCompact } from "@/components/ui/currency-picker";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
@@ -59,6 +60,11 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Currency Picker */}
+          <div className="hidden sm:block">
+            <CurrencyPicker />
+          </div>
+
           {/* Cart Button */}
           <Link href="/cart">
             <Button variant="ghost" size="icon" className="relative">
@@ -119,6 +125,10 @@ export function Header() {
                   <ShoppingCart className="h-4 w-4" />
                   Cart {itemCount > 0 && `(${itemCount})`}
                 </Link>
+                <div className="pt-4 border-t mt-4">
+                  <p className="text-sm text-muted-foreground mb-2">Currency</p>
+                  <CurrencyPickerCompact />
+                </div>
               </nav>
             </SheetContent>
           </Sheet>

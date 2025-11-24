@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
+import { CurrencyProvider } from "@/lib/currency";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
@@ -33,9 +34,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <TRPCProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <CurrencyProvider>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </CurrencyProvider>
         </TRPCProvider>
       </body>
     </html>
