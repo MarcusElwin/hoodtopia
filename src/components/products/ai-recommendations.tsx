@@ -30,12 +30,12 @@ export function AIRecommendations() {
     e.preventDefault();
     if (!prompt.trim() || recommendMutation.isPending) return;
 
-    recommendMutation.mutate({ query: prompt });
+    recommendMutation.mutate(prompt);
   };
 
   const handleExampleClick = (example: string) => {
     setPrompt(example);
-    recommendMutation.mutate({ query: example });
+    recommendMutation.mutate(example);
   };
 
   // Get recommended products

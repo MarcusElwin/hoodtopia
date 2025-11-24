@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -54,14 +54,25 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   }, [product]);
 
   // Set defaults when product loads
-  useMemo(() => {
+  useEffect(() => {
     if (colors.length > 0 && !selectedColor) {
       setSelectedColor(colors[0].color);
     }
+  }, [colors, selectedColor]);
+
+  useEffect(() => {
     if (sizes.length > 0 && !selectedSize) {
       setSelectedSize(sizes[0]);
     }
-  }, [colors, sizes, selectedColor, selectedSize]);
+  }, [sizes, selectedSize]);
+
+  // Get current image based on selected color
+  const currentImage = useMemo(() => {
+    if (!product || !selectedColor) return product?.imageUrl || "";
+    // Find a variant with the selected color to get its image
+    const colorVariant = product.variants.find((v) => v.color === selectedColor);
+    return colorVariant?.imageUrl || product.imageUrl;
+  }, [product, selectedColor]);
 
   // Get selected variant
   const selectedVariant = useMemo(() => {
@@ -140,12 +151,13 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           {/* Product Image */}
           <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
             <Image
-              src={product.imageUrl}
-              alt={product.name}
+              src={currentImage}
+              alt={`${product.name} - ${selectedColor || ""}`}
               fill
-              className="object-cover"
+              className="object-cover transition-opacity duration-300"
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
+              key={currentImage}
             />
             {product.featured && (
               <Badge className="absolute top-4 left-4">Featured</Badge>

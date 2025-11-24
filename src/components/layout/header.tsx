@@ -5,6 +5,7 @@ import { ShoppingCart, Sparkles, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { HoodtopiaLogo } from "@/components/ui/logo";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
@@ -18,10 +19,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">H</span>
-          </div>
+        <Link href="/" className="flex items-center gap-2.5">
+          <HoodtopiaLogo className="h-9 w-9" />
           <span className="text-xl font-bold tracking-tight">Hoodtopia</span>
           <Badge variant="secondary" className="hidden sm:flex gap-1 text-xs">
             <Sparkles className="h-3 w-3" />
@@ -42,7 +41,19 @@ export function Header() {
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <Sparkles className="h-3 w-3 text-primary" />
-            AI Recommendations
+            AI Picks
+          </Link>
+          <Link
+            href="/#best-sellers"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Best Sellers
+          </Link>
+          <Link
+            href="/our-story"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Our Story
           </Link>
         </nav>
 
@@ -84,7 +95,21 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Sparkles className="h-4 w-4 text-primary" />
-                  AI Recommendations
+                  AI Picks
+                </Link>
+                <Link
+                  href="/#best-sellers"
+                  className="text-lg font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Best Sellers
+                </Link>
+                <Link
+                  href="/our-story"
+                  className="text-lg font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Our Story
                 </Link>
                 <Link
                   href="/cart"

@@ -153,7 +153,7 @@ async function seed() {
     const id = uuidv4();
     const slug = product.slug;
     // Default image URL (will be replaced by Gemini-generated images)
-    const imageUrl = `/images/products/${slug}-black.png`;
+    const imageUrl = `/images/products/${slug}-black.jpg`;
 
     db.insert(schema.products)
       .values({
@@ -197,7 +197,7 @@ async function seed() {
         const variantId = uuidv4();
         const colorSlug = color.name.toLowerCase().replace(/ /g, "-");
         const sku = `${product.slug.toUpperCase().slice(0, 3)}-${colorSlug.toUpperCase().slice(0, 3)}-${size}`;
-        const imageUrl = `/images/products/${product.slug}-${colorSlug}.png`;
+        const imageUrl = `/images/products/${product.slug}-${colorSlug}.jpg`;
 
         db.insert(schema.productVariants)
           .values({

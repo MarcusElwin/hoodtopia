@@ -1,0 +1,290 @@
+[
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-black.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-navy.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-heather-gray.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-forest-green.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-burgundy.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-royal-blue.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-charcoal.jpg"
+  },
+  {
+    "product": "Classic Comfort Hoodie",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/classic-comfort-hoodie-cream.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-black.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-navy.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-heather-gray.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-forest-green.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-burgundy.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-royal-blue.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-charcoal.jpg"
+  },
+  {
+    "product": "Tech Fleece Pro",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/tech-fleece-pro-cream.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-black.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-navy.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-heather-gray.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-forest-green.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-burgundy.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-royal-blue.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-charcoal.jpg"
+  },
+  {
+    "product": "Athletic Performance Hoodie",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/athletic-performance-hoodie-cream.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-black.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-navy.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-heather-gray.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-forest-green.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-burgundy.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-royal-blue.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-charcoal.jpg"
+  },
+  {
+    "product": "Oversized Street Hoodie",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/oversized-street-hoodie-cream.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/premium-zip-up-black.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/premium-zip-up-navy.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/premium-zip-up-heather-gray.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/premium-zip-up-forest-green.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/premium-zip-up-burgundy.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/premium-zip-up-royal-blue.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/premium-zip-up-charcoal.jpg"
+  },
+  {
+    "product": "Premium Zip-Up",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/premium-zip-up-cream.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Black",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-black.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Navy",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-navy.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Heather Gray",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-heather-gray.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Forest Green",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-forest-green.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Burgundy",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-burgundy.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Royal Blue",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-royal-blue.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Charcoal",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-charcoal.jpg"
+  },
+  {
+    "product": "Heavyweight Winter Hoodie",
+    "color": "Cream",
+    "success": true,
+    "path": "/images/products/heavyweight-winter-hoodie-cream.jpg"
+  }
+]
