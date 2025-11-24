@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
   const { data: cart, isLoading } = trpc.cart.get.useQuery();
+  const { formatPrice } = useCurrency();
 
   const updateQuantityMutation = trpc.cart.updateQuantity.useMutation({
     onSuccess: () => {
@@ -111,7 +113,7 @@ export default function CartPage() {
                       {item.variant.color} / {item.variant.size}
                     </p>
                     <p className="font-semibold mt-2">
-                      ${(item.priceAtAdd / 100).toFixed(2)}
+                      {formatPrice(item.priceAtAdd)}
                     </p>
                   </div>
 
@@ -198,7 +200,7 @@ export default function CartPage() {
                     <span className="text-muted-foreground">
                       Subtotal ({cart?.itemCount} items)
                     </span>
-                    <span>${((cart?.subtotal || 0) / 100).toFixed(2)}</span>
+                    <span>{formatPrice(cart?.subtotal || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
@@ -214,7 +216,7 @@ export default function CartPage() {
 
                 <div className="flex justify-between text-lg font-semibold mb-6">
                   <span>Total</span>
-                  <span>${((cart?.subtotal || 0) / 100).toFixed(2)}</span>
+                  <span>{formatPrice(cart?.subtotal || 0)}</span>
                 </div>
 
                 <Button className="w-full h-12 text-base" size="lg">

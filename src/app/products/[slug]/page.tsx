@@ -176,7 +176,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {product.name}
               </h1>
               <p className="text-2xl font-semibold mt-4">
-                ${(product.basePrice / 100).toFixed(2)}
+                {formatPrice(product.basePrice)}
               </p>
             </div>
 

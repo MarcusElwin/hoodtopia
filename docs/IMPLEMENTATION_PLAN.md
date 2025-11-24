@@ -47,7 +47,7 @@
 ### Frontend
 | Technology | Purpose |
 |------------|---------|
-| **Next.js 14** | React framework with App Router |
+| **Next.js 16** | React framework with App Router + Turbopack |
 | **TypeScript** | Type safety |
 | **Tailwind CSS** | Utility-first styling |
 | **shadcn/ui** | UI component library |
@@ -1116,7 +1116,7 @@ describe("GenerativeProductCard", () => {
 
 ### Seed Data Details
 
-**Products (6 items):**
+**Hoodie Products (6 items):**
 
 | Name | Price | Category | Material | Key Features |
 |------|-------|----------|----------|--------------|
@@ -1127,7 +1127,18 @@ describe("GenerativeProductCard", () => {
 | Premium Zip-Up | $99.99 | premium | Premium cotton blend | YKK zipper, Two side pockets, Minimalist design |
 | Heavyweight Winter Hoodie | $109.99 | outdoor | Double-layered fleece | Wind-resistant, Extra thick, Adjustable hood |
 
-**Colors (8 options):**
+**Accessory Products (6 items):**
+
+| Name | Price | Category | Material | Key Features |
+|------|-------|----------|----------|--------------|
+| Hoodtopia Logo Sticker Pack | $9.99 | stickers | Premium waterproof vinyl | 5 unique designs, Waterproof, UV resistant |
+| Holographic Hoodie Stickers | $12.99 | stickers | Holographic vinyl | 3 holographic designs, Rainbow shimmer |
+| Enamel Pin Set | $19.99 | pins | Hard enamel, gold plating | 3 unique pins, Butterfly clutch backs |
+| Hoodie Love Pin | $8.99 | pins | Soft enamel, silver plating | Heart-hoodie design, Rubber clutch |
+| Iron-On Patch Collection | $14.99 | patches | Embroidered twill | 4 patches, Iron-on or sew-on |
+| Chenille Letter Patch | $12.99 | patches | Chenille with felt backing | Varsity 'H' design, Sew-on |
+
+**Colors (8 options for hoodies):**
 - Black (#000000)
 - Navy (#1e3a5f)
 - Heather Gray (#9ca3af)
@@ -1137,8 +1148,12 @@ describe("GenerativeProductCard", () => {
 - Charcoal (#374151)
 - Cream (#fef3c7)
 
-**Sizes (6 options):**
-- XS, S, M, L, XL, XXL
+**Sizes:**
+- Hoodies: XS, S, M, L, XL, XXL
+- Accessories: One Size
+
+**Total Products: 12** (6 hoodies + 6 accessories)
+**Total Variants: 294** (288 hoodie variants + 6 accessory variants)
 
 ---
 
@@ -1432,11 +1447,21 @@ hoodtopia/
 │   │   ├── layout.tsx
 │   │   ├── page.tsx
 │   │   ├── globals.css
+│   │   ├── icon.svg             # Favicon
+│   │   ├── apple-icon.tsx       # Apple touch icon
 │   │   ├── products/
 │   │   │   ├── page.tsx
-│   │   │   └── [id]/
+│   │   │   └── [slug]/
 │   │   │       └── page.tsx
 │   │   ├── cart/
+│   │   │   └── page.tsx
+│   │   ├── our-story/
+│   │   │   └── page.tsx
+│   │   ├── sustainability/
+│   │   │   └── page.tsx
+│   │   ├── careers/
+│   │   │   └── page.tsx
+│   │   ├── contact/
 │   │   │   └── page.tsx
 │   │   └── api/
 │   │       └── trpc/
@@ -1448,55 +1473,54 @@ hoodtopia/
 │   │   │   ├── button.tsx
 │   │   │   ├── card.tsx
 │   │   │   ├── dialog.tsx
+│   │   │   ├── currency-picker.tsx  # Country/currency selector
+│   │   │   ├── logo.tsx         # Custom Hoodtopia logo
 │   │   │   └── ...
 │   │   ├── layout/
-│   │   │   ├── header.tsx
-│   │   │   └── footer.tsx
+│   │   │   ├── header.tsx       # With nav, currency picker, cart
+│   │   │   └── footer.tsx       # 4-column e-commerce footer
 │   │   ├── home/
 │   │   │   ├── hero.tsx
-│   │   │   └── featured-products.tsx
+│   │   │   ├── featured-products.tsx
+│   │   │   ├── featured-accessories.tsx
+│   │   │   └── best-sellers.tsx
 │   │   ├── products/
-│   │   │   ├── product-card.tsx
+│   │   │   ├── product-card.tsx     # With random color display
 │   │   │   ├── generative-product-card.tsx
-│   │   │   ├── product-grid.tsx
-│   │   │   └── variant-selector.tsx
-│   │   ├── cart/
-│   │   │   ├── cart-sheet.tsx
-│   │   │   ├── cart-item.tsx
-│   │   │   └── cart-summary.tsx
+│   │   │   └── product-grid.tsx
+│   │   ├── providers/
+│   │   │   └── trpc-provider.tsx
 │   │   └── ai/
+│   │       ├── chat-button.tsx
 │   │       ├── chat-dialog.tsx
-│   │       ├── chat-message.tsx
-│   │       ├── chat-input.tsx
-│   │       ├── recommendation-panel.tsx
-│   │       └── confidence-indicator.tsx
+│   │       └── recommendation-panel.tsx
 │   │
 │   ├── server/
 │   │   ├── trpc.ts              # tRPC setup
 │   │   ├── root.ts              # Root router
 │   │   └── routers/
-│   │       ├── products.ts
+│   │       ├── products.ts      # featured, featuredAccessories, list, bySlug, etc.
 │   │       ├── cart.ts
 │   │       └── ai.ts
 │   │
 │   ├── services/
-│   │   ├── ai.ts                # GPT-5.1 AI functions (chat, recommend, search)
-│   │   ├── image-gen.ts         # Gemini 2.5 Pro image generation
-│   │   ├── schemas.ts           # Zod schemas for structured outputs
+│   │   ├── ai.ts                # OpenAI AI functions (chat, recommend)
 │   │   └── __tests__/
 │   │       └── ai.test.ts
 │   │
 │   ├── db/
 │   │   ├── index.ts             # DB connection
 │   │   ├── schema.ts            # Drizzle schema
-│   │   └── seed.ts              # Seed script
+│   │   └── seed.ts              # Seed script (hoodies + accessories)
 │   │
 │   ├── scripts/
-│   │   └── generate-images.ts   # Gemini image generation script
+│   │   ├── generate-images.ts           # Gemini hoodie image generation
+│   │   └── generate-accessory-images.ts # Gemini accessory image generation
 │   │
 │   ├── lib/
 │   │   ├── utils.ts             # Utility functions
-│   │   └── trpc.ts              # tRPC client
+│   │   ├── trpc.ts              # tRPC client
+│   │   └── currency.tsx         # Currency context & formatting
 │   │
 │   └── types/
 │       └── index.ts             # Shared types
@@ -1508,15 +1532,17 @@ hoodtopia/
 │
 ├── public/
 │   └── images/
-│       └── products/            # Product images
+│       ├── products/            # Hoodie images
+│       └── accessories/         # Accessory images
 │
-├── drizzle/
-│   └── migrations/              # DB migrations
+├── db/
+│   └── hoodtopia.db             # SQLite database
 │
 ├── .env.example
 ├── .env.local
+├── .nvmrc                       # Node 20
 ├── drizzle.config.ts
-├── next.config.js
+├── next.config.ts
 ├── package.json
 ├── tailwind.config.ts
 ├── tsconfig.json
@@ -1528,52 +1554,59 @@ hoodtopia/
 
 ## Implementation Checklist
 
-### Phase 1: Setup ⬜
-- [ ] Initialize Next.js project with TypeScript and Tailwind
-- [ ] Install all dependencies
-- [ ] Configure shadcn/ui
-- [ ] Create environment file structure
-- [ ] Setup Drizzle configuration
+### Phase 1: Setup ✅
+- [x] Initialize Next.js project with TypeScript and Tailwind
+- [x] Install all dependencies
+- [x] Configure shadcn/ui
+- [x] Create environment file structure
+- [x] Setup Drizzle configuration
+- [x] Create `.nvmrc` for Node 20
 
-### Phase 2: Database & Image Generation ⬜
-- [ ] Define schema in `src/db/schema.ts`
-- [ ] Create DB connection in `src/db/index.ts`
-- [ ] Write seed script with 6 products
-- [ ] Generate 288 variants (6 products × 8 colors × 6 sizes)
-- [ ] Create Gemini 2.5 Pro image generation script
-- [ ] Generate 48 product images (6 products × 8 colors)
-- [ ] Run migrations and seed
+### Phase 2: Database & Image Generation ✅
+- [x] Define schema in `src/db/schema.ts`
+- [x] Create DB connection in `src/db/index.ts`
+- [x] Write seed script with 6 hoodie products
+- [x] Add 6 accessory products (stickers, pins, patches)
+- [x] Generate 288 hoodie variants (6 products × 8 colors × 6 sizes)
+- [x] Generate 6 accessory variants (One Size each)
+- [x] Create Gemini 3 Pro image generation script for hoodies
+- [x] Create Gemini 3 Pro image generation script for accessories
+- [x] Generate 48 hoodie images (6 products × 8 colors)
+- [x] Run migrations and seed
 
-### Phase 3: tRPC Layer ⬜
-- [ ] Setup tRPC context and router
-- [ ] Implement products router (list, byId, search, featured)
-- [ ] Implement cart router (get, addItem, updateQuantity, removeItem, clear)
-- [ ] Implement AI router (chat, recommend, search)
-- [ ] Create tRPC API handler
+### Phase 3: tRPC Layer ✅
+- [x] Setup tRPC context and router
+- [x] Implement products router (list, byId, bySlug, search, featured, featuredAccessories, categories)
+- [x] Implement cart router (get, addItem, updateQuantity, removeItem, clear)
+- [x] Implement AI router (chat, recommend)
+- [x] Create tRPC API handler
 
-### Phase 4: AI Service (GPT-5.1 + Zod) ⬜
-- [ ] Define Zod schemas in `src/services/schemas.ts`
-- [ ] Create system prompt builder
-- [ ] Implement `chatWithAssistant` using GPT-5.1 Responses API
-- [ ] Implement `getProductRecommendations` with zodResponseFormat
-- [ ] Implement `searchProductsWithAI` with zodResponseFormat
-- [ ] Add error handling and fallbacks with Zod validation
+### Phase 4: AI Service (GPT-5.1 + Zod) ✅
+- [x] Create system prompt builder with product catalog
+- [x] Implement `chatWithAssistant` using OpenAI
+- [x] Implement `getProductRecommendations` with structured output
+- [x] Add error handling and fallbacks
 
-### Phase 5: Components ⬜
-- [ ] Layout: Header, Footer
-- [ ] Home: HeroSection, FeaturedProducts, AIBadge
-- [ ] Products: ProductCard, GenerativeProductCard, ProductGrid, VariantSelector
-- [ ] Cart: CartSheet, CartItem, CartSummary, QuantitySelector
-- [ ] AI: ChatDialog, ChatMessage, ChatInput, RecommendationPanel, ConfidenceIndicator
+### Phase 5: Components ✅
+- [x] Layout: Header (with navigation, currency picker, cart), Footer (4-column e-commerce style)
+- [x] Home: HeroSection, FeaturedProducts, FeaturedAccessories, BestSellers
+- [x] Products: ProductCard (with random color display), ProductGrid, VariantSelector
+- [x] Cart: CartPage with items, quantity controls, summary
+- [x] AI: AIChatButton, AIChatDialog, AIRecommendationPanel
+- [x] UI: CurrencyPicker, CurrencyPickerCompact, HoodtopiaLogo
 
-### Phase 6: Pages ⬜
-- [ ] Homepage with hero and featured products
-- [ ] Products page with tabs (Browse All, AI Recommendations)
-- [ ] Product detail page with variant selection
-- [ ] Cart page with full functionality
+### Phase 6: Pages ✅
+- [x] Homepage with hero, featured hoodies, featured accessories, best sellers
+- [x] Products page with tabs (Browse All, AI Recommendations)
+- [x] Product detail page with variant selection (color changes image)
+- [x] Cart page with full functionality
+- [x] Our Story page
+- [x] Sustainability page
+- [x] Careers page
+- [x] Contact page
 
 ### Phase 7: Testing ⬜
-- [ ] Setup Vitest configuration
+- [x] Setup Vitest configuration
 - [ ] Write AI service unit tests
 - [ ] Test structured output parsing
 - [ ] Test product matching logic
@@ -1583,12 +1616,23 @@ hoodtopia/
 - [ ] Create PRESENTATION_GUIDE.md
 - [ ] Create DEMO_SCRIPT.md
 
+### Phase 9: Additional Features ✅
+- [x] Custom Hoodtopia logo SVG component
+- [x] Custom favicon and Apple touch icon
+- [x] Country/currency picker (US, Sweden, Japan, UK, Germany)
+- [x] Multi-currency price display (USD, SEK, JPY, GBP, EUR)
+- [x] Product cards show varied colors (hash-based pseudo-random)
+- [x] Product detail images change with color selection
+- [x] Featured Accessories section on homepage
+- [x] Best Sellers section with anchor link
+- [x] Professional e-commerce footer with newsletter signup
+
 ### Final Polish ⬜
-- [ ] Mobile responsiveness check
-- [ ] Dark theme consistency
-- [ ] Loading states for AI operations
+- [x] Mobile responsiveness (responsive header, mobile menu)
+- [x] Dark theme consistency
+- [x] Loading states for AI operations
 - [ ] Error boundaries and fallbacks
-- [ ] TypeScript compilation (zero errors)
+- [x] TypeScript compilation (zero errors)
 - [ ] All tests passing
 
 ---

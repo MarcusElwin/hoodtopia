@@ -89,6 +89,16 @@ export function Footer() {
                   Contact Us
                 </Link>
               </li>
+              <li>
+                <Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link href="/shipping" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Shipping & Returns
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -126,9 +136,10 @@ export function Footer() {
               <span className="text-xs">Demo for LangChain Stockholm Meetup</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="cursor-not-allowed hover:text-muted-foreground/80">Privacy Policy</span>
-              <span className="cursor-not-allowed hover:text-muted-foreground/80">Terms of Service</span>
-              <span className="cursor-not-allowed hover:text-muted-foreground/80">Shipping</span>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <Link href="/shipping" className="hover:text-foreground transition-colors">Shipping</Link>
+              <Link href="/faq" className="hover:text-foreground transition-colors">FAQ</Link>
             </div>
           </div>
         </div>

@@ -85,17 +85,39 @@ export const productsRouter = router({
     return result;
   }),
 
-  // Get featured products for homepage
+  // Get featured products for homepage (hoodies only)
   featured: publicProcedure.query(async () => {
+    const accessoryCategories = ["stickers", "pins", "patches"];
+    const result = await db.query.products.findMany({
+      where: and(
+        eq(products.featured, true),
+        // Exclude accessories
+        ...accessoryCategories.map((cat) =>
+          or(eq(products.category, cat)) ? undefined : undefined
+        )
+      ),
+      with: {
+        variants: true,
+      },
+      limit: 4,
+    });
+
+    // Filter out accessories in JS since SQL NOT IN is tricky with Drizzle
+    return result.filter((p) => !accessoryCategories.includes(p.category));
+  }),
+
+  // Get featured accessories for homepage
+  featuredAccessories: publicProcedure.query(async () => {
+    const accessoryCategories = ["stickers", "pins", "patches"];
     const result = await db.query.products.findMany({
       where: eq(products.featured, true),
       with: {
         variants: true,
       },
-      limit: 6,
     });
 
-    return result;
+    // Filter to only accessories
+    return result.filter((p) => accessoryCategories.includes(p.category));
   }),
 
   // Get all categories
