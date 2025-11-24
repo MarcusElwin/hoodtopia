@@ -221,6 +221,125 @@ const accessoryData = [
       "Classic letterman style",
     ]),
   },
+  {
+    name: "Mini Hoodie Keychain",
+    slug: "mini-hoodie-keychain",
+    description:
+      "An adorable miniature hoodie keychain that's the perfect accessory for your keys, bag, or backpack. Super soft and squeezable!",
+    basePrice: 1499, // $14.99
+    category: "accessories",
+    featured: true,
+    material: "Soft plush with metal clasp",
+    features: JSON.stringify([
+      "3 inch mini hoodie",
+      "Ultra-soft plush material",
+      "Sturdy metal lobster clasp",
+      "Squeezable & cuddly",
+      "Purple Hoodtopia color",
+    ]),
+  },
+  {
+    name: "Cozy Club Socks",
+    slug: "cozy-club-socks",
+    description:
+      "Complete your cozy look with our ultra-soft crew socks featuring fun hoodie-inspired patterns. Because comfort shouldn't stop at your ankles.",
+    basePrice: 1699, // $16.99
+    category: "apparel",
+    featured: false,
+    material: "80% combed cotton, 17% polyester, 3% spandex",
+    features: JSON.stringify([
+      "Hoodie pattern design",
+      "Cushioned footbed",
+      "Reinforced heel & toe",
+      "Stay-up ribbed cuff",
+      "One size fits most",
+    ]),
+  },
+  {
+    name: "Rainbow Drawstring Set",
+    slug: "rainbow-drawstring-set",
+    description:
+      "Upgrade your hoodie's look with our premium replacement drawstrings. Set includes 4 vibrant colors to match any mood or outfit.",
+    basePrice: 1199, // $11.99
+    category: "accessories",
+    featured: false,
+    material: "Braided cotton cord with metal aglets",
+    features: JSON.stringify([
+      "4 color options included",
+      "Premium braided cotton",
+      "Metal aglet tips",
+      "Universal 52 inch length",
+      "Easy to install",
+    ]),
+  },
+  {
+    name: "Hoodtopia Canvas Tote",
+    slug: "canvas-tote-bag",
+    description:
+      "A sturdy canvas tote bag featuring our iconic hoodie illustration. Perfect for groceries, books, or carrying your favorite hoodie when it gets too warm.",
+    basePrice: 2499, // $24.99
+    category: "bags",
+    featured: true,
+    material: "12oz organic cotton canvas",
+    features: JSON.stringify([
+      "Large 15x16 inch size",
+      "Reinforced handles",
+      "Interior pocket",
+      "Screen-printed design",
+      "Eco-friendly materials",
+    ]),
+  },
+  {
+    name: "Hoodie Care Kit",
+    slug: "hoodie-care-kit",
+    description:
+      "Keep your hoodies looking fresh with our essential care kit. Includes fabric refresher spray, travel lint roller, and a microfiber cleaning cloth.",
+    basePrice: 1999, // $19.99
+    category: "care",
+    featured: false,
+    material: "Various",
+    features: JSON.stringify([
+      "Fabric refresher spray (4oz)",
+      "Travel-size lint roller",
+      "Microfiber cloth",
+      "Care instruction card",
+      "Reusable zip pouch",
+    ]),
+  },
+  {
+    name: "Glow-in-Dark Pin",
+    slug: "glow-pin",
+    description:
+      "A magical glow-in-the-dark enamel pin shaped like a cozy hoodie. Charges in light and glows bright green in the dark!",
+    basePrice: 1099, // $10.99
+    category: "pins",
+    featured: false,
+    material: "Hard enamel with glow pigment",
+    features: JSON.stringify([
+      "Glows in the dark",
+      "Hoodie silhouette design",
+      "Charges in any light",
+      "1.5 inch size",
+      "Double-post back",
+    ]),
+  },
+  {
+    name: "Hoodie Shaped Mug",
+    slug: "hoodie-mug",
+    description:
+      "Start your mornings right with this adorable hoodie-shaped ceramic mug. The handle looks like a sleeve, and it even has a tiny pocket detail!",
+    basePrice: 2199, // $21.99
+    category: "home",
+    featured: true,
+    material: "Ceramic with food-safe glaze",
+    features: JSON.stringify([
+      "14oz capacity",
+      "Hoodie sleeve handle",
+      "Raised pocket detail",
+      "Microwave safe",
+      "Dishwasher safe",
+    ]),
+  },
 ];
 
 // Color options
@@ -364,7 +483,8 @@ async function seed() {
 
     // Accessories have a single "One Size" variant
     const variantId = uuidv4();
-    const sku = `${slug.toUpperCase().slice(0, 6)}-OS`;
+    // Use full slug (with hyphens replaced) to ensure unique SKUs
+    const sku = `ACC-${slug.replace(/-/g, "").toUpperCase().slice(0, 12)}-OS`;
 
     db.insert(schema.productVariants)
       .values({

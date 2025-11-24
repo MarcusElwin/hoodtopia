@@ -1127,7 +1127,7 @@ describe("GenerativeProductCard", () => {
 | Premium Zip-Up | $99.99 | premium | Premium cotton blend | YKK zipper, Two side pockets, Minimalist design |
 | Heavyweight Winter Hoodie | $109.99 | outdoor | Double-layered fleece | Wind-resistant, Extra thick, Adjustable hood |
 
-**Accessory Products (6 items):**
+**Accessory Products (13 items):**
 
 | Name | Price | Category | Material | Key Features |
 |------|-------|----------|----------|--------------|
@@ -1137,6 +1137,13 @@ describe("GenerativeProductCard", () => {
 | Hoodie Love Pin | $8.99 | pins | Soft enamel, silver plating | Heart-hoodie design, Rubber clutch |
 | Iron-On Patch Collection | $14.99 | patches | Embroidered twill | 4 patches, Iron-on or sew-on |
 | Chenille Letter Patch | $12.99 | patches | Chenille with felt backing | Varsity 'H' design, Sew-on |
+| Mini Hoodie Keychain | $14.99 | accessories | Soft plush, metal clasp | 3-inch mini hoodie, Squeezable |
+| Cozy Club Socks | $16.99 | apparel | 80% cotton blend | Hoodie pattern, Cushioned footbed |
+| Rainbow Drawstring Set | $11.99 | accessories | Braided cotton, metal aglets | 4 colors included, Universal length |
+| Hoodtopia Canvas Tote | $24.99 | bags | 12oz organic cotton canvas | 15x16 inch, Screen-printed design |
+| Hoodie Care Kit | $19.99 | care | Various | Spray, lint roller, cloth, pouch |
+| Glow-in-Dark Pin | $10.99 | pins | Hard enamel, glow pigment | Glows in the dark, Hoodie silhouette |
+| Hoodie Shaped Mug | $21.99 | home | Ceramic, food-safe glaze | 14oz, Sleeve handle, Pocket detail |
 
 **Colors (8 options for hoodies):**
 - Black (#000000)
@@ -1152,8 +1159,8 @@ describe("GenerativeProductCard", () => {
 - Hoodies: XS, S, M, L, XL, XXL
 - Accessories: One Size
 
-**Total Products: 12** (6 hoodies + 6 accessories)
-**Total Variants: 294** (288 hoodie variants + 6 accessory variants)
+**Total Products: 19** (6 hoodies + 13 accessories)
+**Total Variants: 301** (288 hoodie variants + 13 accessory variants)
 
 ---
 
@@ -1463,6 +1470,14 @@ hoodtopia/
 │   │   │   └── page.tsx
 │   │   ├── contact/
 │   │   │   └── page.tsx
+│   │   ├── privacy/
+│   │   │   └── page.tsx         # Privacy Policy
+│   │   ├── terms/
+│   │   │   └── page.tsx         # Terms of Service
+│   │   ├── shipping/
+│   │   │   └── page.tsx         # Shipping & Returns
+│   │   ├── faq/
+│   │   │   └── page.tsx         # FAQ with accordion
 │   │   └── api/
 │   │       └── trpc/
 │   │           └── [trpc]/
@@ -1566,11 +1581,11 @@ hoodtopia/
 - [x] Define schema in `src/db/schema.ts`
 - [x] Create DB connection in `src/db/index.ts`
 - [x] Write seed script with 6 hoodie products
-- [x] Add 6 accessory products (stickers, pins, patches)
+- [x] Add 13 accessory products (stickers, pins, patches, keychain, socks, tote, mug, care kit, drawstrings)
 - [x] Generate 288 hoodie variants (6 products × 8 colors × 6 sizes)
-- [x] Generate 6 accessory variants (One Size each)
+- [x] Generate 13 accessory variants (One Size each)
 - [x] Create Gemini 3 Pro image generation script for hoodies
-- [x] Create Gemini 3 Pro image generation script for accessories
+- [x] Create Gemini 3 Pro image generation script for accessories (13 prompts)
 - [x] Generate 48 hoodie images (6 products × 8 colors)
 - [x] Run migrations and seed
 
@@ -1604,6 +1619,10 @@ hoodtopia/
 - [x] Sustainability page
 - [x] Careers page
 - [x] Contact page
+- [x] Privacy Policy page
+- [x] Terms of Service page
+- [x] Shipping & Returns page
+- [x] FAQ page with accordion component
 
 ### Phase 7: Testing ⬜
 - [x] Setup Vitest configuration
@@ -1626,6 +1645,8 @@ hoodtopia/
 - [x] Featured Accessories section on homepage
 - [x] Best Sellers section with anchor link
 - [x] Professional e-commerce footer with newsletter signup
+- [x] Privacy Policy, Terms of Service, Shipping & FAQ pages
+- [x] Expanded accessory catalog (13 items: keychain, socks, tote, mug, care kit, glow pin, drawstrings)
 
 ### Final Polish ⬜
 - [x] Mobile responsiveness (responsive header, mobile menu)

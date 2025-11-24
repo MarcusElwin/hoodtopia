@@ -87,28 +87,24 @@ export const productsRouter = router({
 
   // Get featured products for homepage (hoodies only)
   featured: publicProcedure.query(async () => {
-    const accessoryCategories = ["stickers", "pins", "patches"];
+    // Hoodie categories (main products)
+    const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
     const result = await db.query.products.findMany({
-      where: and(
-        eq(products.featured, true),
-        // Exclude accessories
-        ...accessoryCategories.map((cat) =>
-          or(eq(products.category, cat)) ? undefined : undefined
-        )
-      ),
+      where: eq(products.featured, true),
       with: {
         variants: true,
       },
       limit: 4,
     });
 
-    // Filter out accessories in JS since SQL NOT IN is tricky with Drizzle
-    return result.filter((p) => !accessoryCategories.includes(p.category));
+    // Filter to only hoodies
+    return result.filter((p) => hoodieCategories.includes(p.category));
   }),
 
   // Get featured accessories for homepage
   featuredAccessories: publicProcedure.query(async () => {
-    const accessoryCategories = ["stickers", "pins", "patches"];
+    // Hoodie categories to exclude
+    const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
     const result = await db.query.products.findMany({
       where: eq(products.featured, true),
       with: {
@@ -116,8 +112,8 @@ export const productsRouter = router({
       },
     });
 
-    // Filter to only accessories
-    return result.filter((p) => accessoryCategories.includes(p.category));
+    // Filter to only accessories (anything not a hoodie)
+    return result.filter((p) => !hoodieCategories.includes(p.category));
   }),
 
   // Get all categories

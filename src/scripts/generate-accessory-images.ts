@@ -127,6 +127,124 @@ Photography requirements:
 
 Style reference: Varsity letterman patch product photography.`,
   },
+  {
+    slug: "mini-hoodie-keychain",
+    name: "Mini Hoodie Keychain",
+    prompt: `Professional e-commerce product photograph of an adorable miniature plush hoodie keychain on a clean white surface.
+
+A tiny 3-inch soft plush hoodie in purple color with a shiny silver/chrome lobster clasp attached. The mini hoodie has cute details like a tiny hood, kangaroo pocket, and ribbed cuffs. Looks squeezable and cuddly.
+
+Photography requirements:
+- Clean white to light gray gradient background
+- Professional soft lighting showing plush texture
+- Three-quarter angle to show the hoodie shape and clasp
+- Sharp focus with visible soft fabric texture
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Cute plush keychain product photography like Sanrio or Pusheen merchandise.`,
+  },
+  {
+    slug: "cozy-club-socks",
+    name: "Cozy Club Socks",
+    prompt: `Professional e-commerce product photograph of a pair of cozy crew socks laid flat on a light surface.
+
+Purple and cream colored socks with cute hoodie pattern - tiny hoodie silhouettes and 'Stay Cozy' text knitted into the design. Ribbed cuff visible, cushioned look. Premium quality appearance.
+
+Photography requirements:
+- Clean white or light marble background
+- Professional soft lighting
+- Flat lay view showing both socks
+- Sharp focus with visible knit texture and pattern
+- Photorealistic, high-end commercial quality
+- No people, no feet, just the socks
+
+Style reference: Premium sock brand photography like Bombas or Happy Socks.`,
+  },
+  {
+    slug: "rainbow-drawstring-set",
+    name: "Rainbow Drawstring Set",
+    prompt: `Professional e-commerce product photograph of 4 colorful braided drawstring cords arranged in a artistic layout on a dark surface.
+
+Four hoodie replacement drawstrings in different colors: purple, teal, coral pink, and mustard yellow. Each cord has shiny metal aglet tips. Braided cotton texture visible.
+
+Photography requirements:
+- Dark slate or charcoal background
+- Professional lighting showing cord texture and metal aglets
+- Artistic curved arrangement
+- Sharp focus with visible braided texture
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Premium accessories flat lay photography.`,
+  },
+  {
+    slug: "canvas-tote-bag",
+    name: "Hoodtopia Canvas Tote",
+    prompt: `Professional e-commerce product photograph of a natural canvas tote bag standing upright on a clean surface.
+
+Cream/natural colored canvas tote with a cute illustrated hoodie design printed on the front in purple ink. Sturdy handles, slightly slouchy shape showing it's soft canvas. The print shows a cozy hoodie with sparkles around it and 'Hoodtopia' text below.
+
+Photography requirements:
+- Clean white or light gray gradient background
+- Professional soft lighting
+- Three-quarter view showing bag shape and print
+- Sharp focus with visible canvas texture
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Eco-friendly tote bag product photography.`,
+  },
+  {
+    slug: "hoodie-care-kit",
+    name: "Hoodie Care Kit",
+    prompt: `Professional e-commerce product photograph of a hoodie care kit contents arranged in a flat lay on a light surface.
+
+Contents include: a small spray bottle with purple liquid and 'Fabric Fresh' label, a mini lint roller with purple handle, a folded gray microfiber cloth, and a small care instruction card. All items arranged in/around a small zippered pouch.
+
+Photography requirements:
+- Clean white or light marble background
+- Professional soft lighting
+- Top-down flat lay arrangement
+- Sharp focus on all items
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Skincare or grooming kit flat lay photography.`,
+  },
+  {
+    slug: "glow-pin",
+    name: "Glow-in-Dark Pin",
+    prompt: `Professional e-commerce product photograph showing a split image: on the left side, an enamel pin in normal lighting; on the right side, the same pin glowing bright green in darkness.
+
+The pin is shaped like a cute hoodie silhouette. In normal light it appears white/cream colored with silver metal outline. The glowing side shows it emitting bright green phosphorescent glow.
+
+Photography requirements:
+- Split composition showing lit and dark versions
+- Professional lighting on lit side, dark background on glow side
+- Sharp focus showing enamel detail and glow effect
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Glow-in-the-dark product reveal photography.`,
+  },
+  {
+    slug: "hoodie-mug",
+    name: "Hoodie Shaped Mug",
+    prompt: `Professional e-commerce product photograph of a creative ceramic mug designed to look like a hoodie.
+
+Purple ceramic mug where the handle is shaped like a hoodie sleeve, the body has a raised kangaroo pocket detail on the front, and the rim has a subtle hood shape. Glossy glaze finish. Adorable and unique design.
+
+Photography requirements:
+- Clean white or light gray gradient background
+- Professional soft lighting showing ceramic glaze
+- Three-quarter angle showing handle and pocket detail
+- Sharp focus with visible ceramic texture
+- Photorealistic, high-end commercial quality
+- No people, no faces
+
+Style reference: Novelty mug product photography like those on Uncommon Goods.`,
+  },
 ];
 
 interface GenerationResult {
