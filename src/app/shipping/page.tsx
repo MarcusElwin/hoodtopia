@@ -68,7 +68,7 @@ export default function ShippingPage() {
               holidays will be processed on the next business day.
             </p>
             <p>
-              Once your order ships, you'll receive a confirmation email with tracking information.
+              Once your order ships, you&apos;ll receive a confirmation email with tracking information.
               You can track your package at any time through the link provided.
             </p>
             <h3 className="text-lg font-medium text-foreground mt-6 mb-2">Delivery Times by Region</h3>
@@ -113,7 +113,7 @@ export default function ShippingPage() {
               </div>
               <h3 className="font-semibold text-lg mb-2">Easy Exchanges</h3>
               <p className="text-sm text-muted-foreground">
-                Wrong size? Exchange for free - we'll ship the new size right away.
+                Wrong size? Exchange for free - we&apos;ll ship the new size right away.
               </p>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function ShippingPage() {
               </ol>
               <h4 className="font-medium text-foreground mt-6">Non-Returnable Items:</h4>
               <ul className="list-disc list-inside space-y-2">
-                <li>Items marked as "Final Sale"</li>
+                <li>Items marked as &quot;Final Sale&quot;</li>
                 <li>Gift cards</li>
                 <li>Personalized or custom items</li>
                 <li>Items without original tags</li>

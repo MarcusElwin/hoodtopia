@@ -64,7 +64,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-2xl font-semibold mb-4">Product Information</h2>
             <p className="text-muted-foreground leading-relaxed">
               We strive to display product colors and images as accurately as possible. However,
-              we cannot guarantee that your device's display will accurately reflect actual product
+              we cannot guarantee that your device&apos;s display will accurately reflect actual product
               colors. All product descriptions and pricing are subject to change without notice.
             </p>
           </section>

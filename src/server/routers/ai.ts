@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc";
-import { db, products } from "@/db";
+import { db } from "@/db";
 import {
   chatWithAssistant,
   getProductRecommendations,

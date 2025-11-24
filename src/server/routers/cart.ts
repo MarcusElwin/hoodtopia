@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
-import { db, carts, cartItems, products, productVariants } from "@/db";
+import { db, carts, cartItems, products } from "@/db";
 
 // For demo purposes, we use a fixed session ID
 // In production, you'd get this from cookies/auth

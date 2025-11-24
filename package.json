@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx tsx src/db/seed.ts",
@@ -14,7 +16,9 @@
     "generate:images:test": "npx tsx src/scripts/generate-images.ts --test",
     "generate:accessories": "npx tsx src/scripts/generate-accessory-images.ts",
     "generate:accessories:test": "npx tsx src/scripts/generate-accessory-images.ts --test",
-    "test": "vitest"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "ci": "npm run lint && npm run typecheck && npm run test:run && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",

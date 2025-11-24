@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Metadata } from "next";
+import Link from "next/link";
 import { ChevronDown, Sparkles, Truck, CreditCard, Shirt, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -164,22 +164,22 @@ export default function FAQPage() {
             </div>
             <h3 className="text-xl font-semibold mb-2">Still Have Questions?</h3>
             <p className="text-muted-foreground mb-6">
-              Can't find what you're looking for? Our support team is here to help.
+              Can&apos;t find what you&apos;re looking for? Our support team is here to help.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
+              <Link
                 href="/contact"
                 className="inline-flex items-center justify-center px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
               >
                 Contact Support
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/products?tab=ai"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md border font-medium hover:bg-secondary transition-colors"
               >
                 <Sparkles className="h-4 w-4" />
                 Ask Our AI
-              </a>
+              </Link>
             </div>
           </div>
         </div>
