@@ -92,6 +92,19 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   }),
 }));
 
+// User preferences table
+export const userPreferences = sqliteTable("user_preferences", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  preferences: text("preferences").notNull(), // JSON stringified preferences
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Type exports
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
@@ -101,3 +114,5 @@ export type Cart = typeof carts.$inferSelect;
 export type NewCart = typeof carts.$inferInsert;
 export type CartItem = typeof cartItems.$inferSelect;
 export type NewCartItem = typeof cartItems.$inferInsert;
+export type UserPreference = typeof userPreferences.$inferSelect;
+export type NewUserPreference = typeof userPreferences.$inferInsert;

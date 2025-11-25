@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Sparkles, Send, Loader2, ThumbsUp, ThumbsDown, ShoppingCart, Check, GitCompare } from "lucide-react";
+import { Sparkles, Send, Loader2, ThumbsUp, ThumbsDown, ShoppingCart, Check, GitCompare, Save, BookmarkCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
@@ -37,10 +37,23 @@ export function AIRecommendations() {
   // Track products selected for comparison
   const [selectedForComparison, setSelectedForComparison] = useState<Set<string>>(new Set());
   const [showComparison, setShowComparison] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
   const { data: allProducts } = trpc.products.list.useQuery();
   const { formatPrice } = useCurrency();
   const { getPersonalizationContext } = useBrowseHistory();
+  const utils = trpc.useUtils();
+
+  // Load saved preferences on mount
+  const { data: savedPreferences } = trpc.preferences.get.useQuery();
+
+  const savePreferencesMutation = trpc.preferences.save.useMutation({
+    onSuccess: () => {
+      utils.preferences.get.invalidate();
+      setShowSaveSuccess(true);
+      setTimeout(() => setShowSaveSuccess(false), 3000);
+    },
+  });
 
   // Cycle through placeholder prompts with animation
   useEffect(() => {
@@ -52,7 +65,7 @@ export function AIRecommendations() {
 
     return () => clearInterval(interval);
   }, [hasSearched, prompt]);
-  const utils = trpc.useUtils();
+
   const addToCartMutation = trpc.cart.addItem.useMutation({
     onSuccess: () => {
       utils.cart.get.invalidate();
@@ -189,6 +202,21 @@ export function AIRecommendations() {
       setShowComparison(true);
     }
   };
+
+  const handleSavePreferences = () => {
+    if (!prompt.trim()) return;
+
+    savePreferencesMutation.mutate({
+      preferences: conversationHistory.join(" → ") || prompt,
+    });
+  };
+
+  // Pre-fill prompt from saved preferences on mount
+  useEffect(() => {
+    if (savedPreferences && !hasSearched && !prompt) {
+      setPrompt(savedPreferences.preferences.description);
+    }
+  }, [savedPreferences, hasSearched, prompt]);
 
   // Get recommended products
   const recommendedProducts =
@@ -363,18 +391,42 @@ export function AIRecommendations() {
                 <h3 className="text-base font-semibold">
                   Recommended for you ({recommendedProducts.length})
                 </h3>
-                {selectedForComparison.size > 0 && (
+                <div className="flex gap-2">
+                  {/* Save Preferences Button */}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleCompare}
-                    disabled={selectedForComparison.size < 2}
+                    onClick={handleSavePreferences}
+                    disabled={savePreferencesMutation.isPending || !prompt.trim()}
                     className="gap-2"
                   >
-                    <GitCompare className="h-4 w-4" />
-                    Compare ({selectedForComparison.size})
+                    {showSaveSuccess ? (
+                      <>
+                        <BookmarkCheck className="h-4 w-4 text-green-500" />
+                        Saved!
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Save Preferences
+                      </>
+                    )}
                   </Button>
-                )}
+
+                  {/* Compare Button */}
+                  {selectedForComparison.size > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCompare}
+                      disabled={selectedForComparison.size < 2}
+                      className="gap-2"
+                    >
+                      <GitCompare className="h-4 w-4" />
+                      Compare ({selectedForComparison.size})
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {recommendedProducts.map((product) => {
