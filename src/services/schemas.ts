@@ -23,7 +23,8 @@ export const RecommendationsResponseSchema = z.object({
     .describe("1-3 product recommendations"),
   followUpQuestion: z
     .string()
-    .optional()
+    .nullable()
+    .default(null)
     .describe("Optional follow-up question to refine recommendations"),
 });
 
@@ -37,7 +38,8 @@ export const SearchResultsSchema = z.object({
     .describe("Whether the query is relevant to hoodies/our products"),
   searchIntent: z
     .string()
-    .optional()
+    .nullable()
+    .default(null)
     .describe("Interpreted user intent from search query"),
 });
 

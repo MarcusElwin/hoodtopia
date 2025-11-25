@@ -93,8 +93,8 @@ export default function CartPage() {
                     className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md bg-secondary"
                   >
                     <Image
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
+                      src={item.variant.imageUrl || item.product.imageUrl}
+                      alt={`${item.product.name} - ${item.variant.color}`}
                       fill
                       className="object-cover"
                       sizes="96px"

@@ -1,5 +1,4 @@
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { ChatOpenAI } from "@langchain/openai";
 import {
   RecommendationsResponseSchema,
   SearchResultsSchema,
@@ -8,13 +7,16 @@ import {
   type RecommendationWithProduct,
 } from "./schemas";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 // Model to use - GPT-5.1 for best structured outputs support
 const MODEL = "gpt-5.1";
+
+// Initialize LangChain ChatOpenAI client
+const chatModel = new ChatOpenAI({
+  model: MODEL,
+  apiKey: process.env.OPENAI_API_KEY,
+  temperature: 0.7,
+});
+
 
 // ============================================
 // SYSTEM PROMPT BUILDER
@@ -71,20 +73,17 @@ export async function chatWithAssistant(
   products: ProductForAI[]
 ): Promise<string> {
   try {
-    const response = await openai.responses.create({
-      model: MODEL,
-      input: [
-        { role: "system", content: buildSystemPrompt(products) },
-        ...messages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      ],
-      temperature: 0.7,
-      max_output_tokens: 500,
-    });
+    const formattedMessages = [
+      { role: "system" as const, content: buildSystemPrompt(products) },
+      ...messages.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    ];
 
-    return response.output_text || "I apologize, I couldn't generate a response. Please try again.";
+    const response = await chatModel.invoke(formattedMessages);
+
+    return response.content as string || "I apologize, I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("Chat error:", error);
     throw new Error("Failed to get AI response");
@@ -111,12 +110,10 @@ export async function getProductRecommendations(
     }));
 
   try {
-    const response = await openai.responses.parse({
-      model: MODEL,
-      input: [
-        {
-          role: "system",
-          content: `You are a product recommendation engine for Hoodtopia hoodie store.
+    // Use LangChain's with_structured_output for structured responses
+    const structuredModel = chatModel.withStructuredOutput(RecommendationsResponseSchema);
+
+    const systemPrompt = `You are a product recommendation engine for Hoodtopia hoodie store.
 
 Available products:
 ${JSON.stringify(productContext, null, 2)}
@@ -126,28 +123,21 @@ Analyze the user's preferences and return 1-3 product recommendations.
 - Match product names EXACTLY as they appear in the list
 - Provide a confidence score (0-1) based on how well the product matches
 - Highlight specific features that match the request
-- Optionally suggest a follow-up question to refine recommendations`,
-        },
-        { role: "user", content: preferences },
-      ],
-      text: {
-        format: zodTextFormat(
-          RecommendationsResponseSchema,
-          "product_recommendations"
-        ),
-      },
-    });
+- Optionally suggest a follow-up question to refine recommendations`;
 
-    const result = response.output_parsed;
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: preferences },
+    ]);
 
-    if (!result) {
+    if (!result || !result.recommendations) {
       throw new Error("Failed to parse AI response");
     }
 
     // Match AI product names to actual database products
     const recommendationsWithProducts: RecommendationWithProduct[] =
       result.recommendations
-        .map((rec) => {
+        .map((rec: { productName: string; reason: string; confidence: number; highlightedFeatures: string[] }) => {
           const matchedProduct = products.find(
             (p) => p.name.toLowerCase() === rec.productName.toLowerCase()
           );
@@ -156,7 +146,7 @@ Analyze the user's preferences and return 1-3 product recommendations.
             product: matchedProduct,
           };
         })
-        .filter((rec) => rec.product); // Filter out any hallucinated products
+        .filter((rec: { product?: ProductForAI }) => rec.product); // Filter out any hallucinated products
 
     return {
       recommendations: recommendationsWithProducts,
@@ -178,12 +168,10 @@ export async function searchProductsWithAI(
   const productNames = products.map((p) => p.name);
 
   try {
-    const response = await openai.responses.parse({
-      model: MODEL,
-      input: [
-        {
-          role: "system",
-          content: `You are a search engine for Hoodtopia hoodie store.
+    // Use LangChain's with_structured_output for structured responses
+    const structuredModel = chatModel.withStructuredOutput(SearchResultsSchema);
+
+    const systemPrompt = `You are a search engine for Hoodtopia hoodie store.
 
 Available products: ${productNames.join(", ")}
 
@@ -196,16 +184,12 @@ Consider semantic meaning, not just keyword matching.
 For example:
 - "warm" → products with thermal/winter features
 - "gym" → athletic/performance products
-- "casual" → everyday comfort products`,
-        },
-        { role: "user", content: query },
-      ],
-      text: {
-        format: zodTextFormat(SearchResultsSchema, "search_results"),
-      },
-    });
+- "casual" → everyday comfort products`;
 
-    const result = response.output_parsed;
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: query },
+    ]);
 
     if (!result || !result.isRelevant) {
       return [];
@@ -214,7 +198,7 @@ For example:
     // Match to actual products
     return products.filter((p) =>
       result.productNames.some(
-        (name) => name.toLowerCase() === p.name.toLowerCase()
+        (name: string) => name.toLowerCase() === p.name.toLowerCase()
       )
     );
   } catch (error) {
