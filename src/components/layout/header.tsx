@@ -45,6 +45,13 @@ export function Header() {
             AI Picks
           </Link>
           <Link
+            href="/custom-designer"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <Sparkles className="h-3 w-3 text-primary" />
+            Custom Design
+          </Link>
+          <Link
             href="/#best-sellers"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >

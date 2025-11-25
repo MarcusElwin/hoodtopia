@@ -118,3 +118,22 @@ export type CartRecommendationsResponse = z.infer<typeof CartRecommendationsResp
 export interface CartRecommendationWithProduct extends CartRecommendationItem {
   product?: ProductForAI;
 }
+
+// Custom design input schema
+export const CustomDesignInputSchema = z.object({
+  type: z.enum(["image", "text"]),
+  imageData: z.string().optional(),
+  description: z.string().optional(),
+  baseColor: z.string().default("Black"),
+  hoodieType: z.string().default("pullover"),
+});
+
+export type CustomDesignInput = z.infer<typeof CustomDesignInputSchema>;
+
+// Custom design refinement schema
+export const CustomDesignRefinementSchema = z.object({
+  generationId: z.string(),
+  feedback: z.string().min(1, "Feedback is required"),
+});
+
+export type CustomDesignRefinement = z.infer<typeof CustomDesignRefinementSchema>;
