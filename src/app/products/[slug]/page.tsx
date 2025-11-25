@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -55,34 +55,29 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     return uniqueSizes.sort((a, b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
   }, [product]);
 
-  // Set defaults when product loads
-  useEffect(() => {
-    if (colors.length > 0 && !selectedColor) {
-      setSelectedColor(colors[0].color);
-    }
-  }, [colors, selectedColor]);
+  // Initialize defaults when product changes (derived state pattern)
+  const defaultColor = colors.length > 0 ? colors[0].color : null;
+  const defaultSize = sizes.length > 0 ? sizes[0] : null;
 
-  useEffect(() => {
-    if (sizes.length > 0 && !selectedSize) {
-      setSelectedSize(sizes[0]);
-    }
-  }, [sizes, selectedSize]);
+  // Only use state if user hasn't made a selection, otherwise use defaults
+  const actualSelectedColor = selectedColor ?? defaultColor;
+  const actualSelectedSize = selectedSize ?? defaultSize;
 
   // Get current image based on selected color
   const currentImage = useMemo(() => {
-    if (!product || !selectedColor) return product?.imageUrl || "";
+    if (!product || !actualSelectedColor) return product?.imageUrl || "";
     // Find a variant with the selected color to get its image
-    const colorVariant = product.variants.find((v) => v.color === selectedColor);
+    const colorVariant = product.variants.find((v) => v.color === actualSelectedColor);
     return colorVariant?.imageUrl || product.imageUrl;
-  }, [product, selectedColor]);
+  }, [product, actualSelectedColor]);
 
   // Get selected variant
   const selectedVariant = useMemo(() => {
-    if (!product || !selectedColor || !selectedSize) return null;
+    if (!product || !actualSelectedColor || !actualSelectedSize) return null;
     return product.variants.find(
-      (v) => v.color === selectedColor && v.size === selectedSize
+      (v) => v.color === actualSelectedColor && v.size === actualSelectedSize
     );
-  }, [product, selectedColor, selectedSize]);
+  }, [product, actualSelectedColor, actualSelectedSize]);
 
   // Parse features
   const features = useMemo(() => {
@@ -154,7 +149,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
             <Image
               src={currentImage}
-              alt={`${product.name} - ${selectedColor || ""}`}
+              alt={`${product.name} - ${actualSelectedColor || ""}`}
               fill
               className="object-cover transition-opacity duration-300"
               priority
@@ -191,7 +186,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Color</span>
                 <span className="text-sm text-muted-foreground capitalize">
-                  {selectedColor}
+                  {actualSelectedColor}
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -200,14 +195,14 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     key={c.color}
                     onClick={() => setSelectedColor(c.color)}
                     className={`relative h-10 w-10 rounded-full border-2 transition-all ${
-                      selectedColor === c.color
+                      actualSelectedColor === c.color
                         ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background"
                         : "border-border hover:border-foreground/50"
                     }`}
                     style={{ backgroundColor: c.colorHex }}
                     title={c.color}
                   >
-                    {selectedColor === c.color && (
+                    {actualSelectedColor === c.color && (
                       <Check
                         className={`absolute inset-0 m-auto h-5 w-5 ${
                           ["White", "Cream", "Beige"].includes(c.color)
@@ -230,7 +225,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     key={size}
                     onClick={() => setSelectedSize(size)}
                     className={`h-10 min-w-[44px] px-4 rounded-md border text-sm font-medium transition-all ${
-                      selectedSize === size
+                      actualSelectedSize === size
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border hover:border-foreground/50"
                     }`}
