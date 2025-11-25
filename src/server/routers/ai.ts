@@ -6,6 +6,7 @@ import {
   getProductRecommendations,
   searchProductsWithAI,
 } from "@/services/ai";
+import { PersonalizationContextSchema } from "@/services/schemas";
 
 // Message schema for chat
 const MessageSchema = z.object({
@@ -34,7 +35,12 @@ export const aiRouter = router({
 
   // Get AI-powered product recommendations
   recommend: publicProcedure
-    .input(z.string()) // User preferences as natural language
+    .input(
+      z.object({
+        preferences: z.string(),
+        personalizationContext: PersonalizationContextSchema.optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       // Get all products for context
       const allProducts = await db.query.products.findMany({
@@ -42,8 +48,9 @@ export const aiRouter = router({
       });
 
       const recommendations = await getProductRecommendations(
-        input,
-        allProducts
+        input.preferences,
+        allProducts,
+        input.personalizationContext
       );
 
       return recommendations;

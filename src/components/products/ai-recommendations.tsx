@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Sparkles, Send, Loader2, ThumbsUp, ThumbsDown, ShoppingCart, Check } from "lucide-react";
+import { Sparkles, Send, Loader2, ThumbsUp, ThumbsDown, ShoppingCart, Check, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
+import { useBrowseHistory } from "@/hooks/use-browse-history";
+import { ProductComparison } from "./product-comparison";
 
 const EXAMPLE_PROMPTS = [
   "I need a warm hoodie for hiking in cold weather",
@@ -32,9 +34,13 @@ export function AIRecommendations() {
   // Track selections per product: { productId: { color, size } }
   const [selections, setSelections] = useState<Record<string, { color: string | null; size: string | null }>>({});
   const [currentPlaceholderIndex, setCurrentPlaceholderIndex] = useState(0);
+  // Track products selected for comparison
+  const [selectedForComparison, setSelectedForComparison] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
 
   const { data: allProducts } = trpc.products.list.useQuery();
   const { formatPrice } = useCurrency();
+  const { getPersonalizationContext } = useBrowseHistory();
 
   // Cycle through placeholder prompts with animation
   useEffect(() => {
@@ -66,13 +72,27 @@ export function AIRecommendations() {
     if (!prompt.trim() || recommendMutation.isPending) return;
 
     setConversationHistory([...conversationHistory, prompt]);
-    recommendMutation.mutate(prompt);
+
+    // Get personalization context from browse history
+    const personalizationContext = getPersonalizationContext();
+
+    recommendMutation.mutate({
+      preferences: prompt,
+      personalizationContext,
+    });
   };
 
   const handleExampleClick = (example: string) => {
     setPrompt(example);
     setConversationHistory([example]);
-    recommendMutation.mutate(example);
+
+    // Get personalization context from browse history
+    const personalizationContext = getPersonalizationContext();
+
+    recommendMutation.mutate({
+      preferences: example,
+      personalizationContext,
+    });
   };
 
   const handleRefinement = (feedback: string) => {
@@ -80,7 +100,14 @@ export function AIRecommendations() {
 
     const refinementPrompt = `${conversationHistory.join(" → ")} → ${feedback}`;
     setConversationHistory([...conversationHistory, feedback]);
-    recommendMutation.mutate(refinementPrompt);
+
+    // Get personalization context from browse history
+    const personalizationContext = getPersonalizationContext();
+
+    recommendMutation.mutate({
+      preferences: refinementPrompt,
+      personalizationContext,
+    });
   };
 
   const handleColorSelect = (productId: string, color: string) => {
@@ -139,6 +166,28 @@ export function AIRecommendations() {
         ? `I like ${productName}, show me more like this`
         : `Not interested in ${productName}, show me different options`;
     handleRefinement(feedbackText);
+  };
+
+  const toggleProductForComparison = (productId: string) => {
+    setSelectedForComparison((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        // Limit to 3 products
+        if (newSet.size >= 3) {
+          return prev;
+        }
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCompare = () => {
+    if (selectedForComparison.size >= 2) {
+      setShowComparison(true);
+    }
   };
 
   // Get recommended products
@@ -314,6 +363,18 @@ export function AIRecommendations() {
                 <h3 className="text-base font-semibold">
                   Recommended for you ({recommendedProducts.length})
                 </h3>
+                {selectedForComparison.size > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCompare}
+                    disabled={selectedForComparison.size < 2}
+                    className="gap-2"
+                  >
+                    <GitCompare className="h-4 w-4" />
+                    Compare ({selectedForComparison.size})
+                  </Button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {recommendedProducts.map((product) => {
@@ -349,7 +410,18 @@ export function AIRecommendations() {
                   const displayImage = selectedVariant?.imageUrl || product!.imageUrl;
 
                   return (
-                    <div key={product!.id} className="space-y-2">
+                    <div key={product!.id} className="space-y-2 relative">
+                      {/* Comparison Checkbox */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedForComparison.has(product!.id)}
+                          onChange={() => toggleProductForComparison(product!.id)}
+                          className="h-5 w-5 rounded border-2 border-background shadow-lg cursor-pointer accent-primary"
+                          title="Select for comparison"
+                        />
+                      </div>
+
                       {/* Custom Product Image that updates with color selection */}
                       <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
                         <Image
@@ -494,6 +566,20 @@ export function AIRecommendations() {
         </div>
       )}
       </div>
+
+      {/* Product Comparison Modal */}
+      {showComparison && (
+        <ProductComparison
+          products={recommendedProducts
+            .filter((p): p is NonNullable<typeof p> => p !== null && selectedForComparison.has(p.id))}
+          onClose={() => setShowComparison(false)}
+          aiInsight={
+            recommendedProducts.length > 0
+              ? `Based on your preferences, here's how these ${selectedForComparison.size} products compare. Each has unique features suited to different needs.`
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

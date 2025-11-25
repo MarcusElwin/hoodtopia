@@ -72,3 +72,14 @@ export interface ProductForAI {
 export interface RecommendationWithProduct extends RecommendationItem {
   product?: ProductForAI;
 }
+
+// Personalization context schema
+export const PersonalizationContextSchema = z.object({
+  viewedProducts: z.array(z.string()).describe("Names of recently viewed products"),
+  viewedCategories: z.array(z.string()).describe("Categories user has browsed"),
+  timeSpent: z.number().describe("Total time spent browsing in seconds"),
+  mostViewedProduct: z.string().nullable().default(null).describe("Most frequently viewed product"),
+  preferredCategory: z.string().nullable().default(null).describe("Most viewed category"),
+});
+
+export type PersonalizationContext = z.infer<typeof PersonalizationContextSchema>;

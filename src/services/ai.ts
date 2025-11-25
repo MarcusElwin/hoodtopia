@@ -5,6 +5,7 @@ import {
   type Message,
   type ProductForAI,
   type RecommendationWithProduct,
+  type PersonalizationContext,
 } from "./schemas";
 
 // Model to use - GPT-5.1 for best structured outputs support
@@ -91,11 +92,12 @@ export async function chatWithAssistant(
 }
 
 /**
- * Get structured product recommendations using Zod schema
+ * Get structured product recommendations using Zod schema with personalization
  */
 export async function getProductRecommendations(
   preferences: string,
-  products: ProductForAI[]
+  products: ProductForAI[],
+  personalizationContext?: PersonalizationContext
 ): Promise<{
   recommendations: RecommendationWithProduct[];
   followUpQuestion?: string;
@@ -113,10 +115,30 @@ export async function getProductRecommendations(
     // Use LangChain's with_structured_output for structured responses
     const structuredModel = chatModel.withStructuredOutput(RecommendationsResponseSchema);
 
+    // Build personalization context section
+    let personalizationSection = "";
+    if (personalizationContext && personalizationContext.viewedProducts.length > 0) {
+      personalizationSection = `
+
+## User's Browsing History (Use for Personalization)
+- Recently viewed products: ${personalizationContext.viewedProducts.join(", ")}
+- Categories browsed: ${personalizationContext.viewedCategories.join(", ")}
+- Most viewed product: ${personalizationContext.mostViewedProduct || "N/A"}
+- Preferred category: ${personalizationContext.preferredCategory || "N/A"}
+- Time spent browsing: ${Math.round(personalizationContext.timeSpent / 60)} minutes
+
+**Personalization Instructions:**
+- Weight recommendations toward their browsing history
+- If they viewed products in a category, prioritize similar items
+- Reference their viewed products in recommendations when relevant
+- Consider their browsing patterns as signals of interest`;
+    }
+
     const systemPrompt = `You are a product recommendation engine for Hoodtopia hoodie store.
 
 Available products:
 ${JSON.stringify(productContext, null, 2)}
+${personalizationSection}
 
 Analyze the user's preferences and return 1-3 product recommendations.
 - Only recommend products from the available list
