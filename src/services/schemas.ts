@@ -63,9 +63,16 @@ export interface ProductForAI {
   slug: string;
   description: string;
   basePrice: number;
+  imageUrl: string;
   category: string;
   material: string | null;
   features: string | null;
+  variants?: Array<{
+    id: string;
+    color: string;
+    size: string;
+    stock: number;
+  }>;
 }
 
 // Recommendation with matched product
@@ -83,3 +90,31 @@ export const PersonalizationContextSchema = z.object({
 });
 
 export type PersonalizationContext = z.infer<typeof PersonalizationContextSchema>;
+
+// Cart recommendation item
+export const CartRecommendationItemSchema = z.object({
+  productName: z.string().describe("Exact product name from catalog"),
+  reason: z.string().describe("Why this complements items in cart"),
+  complementType: z.enum(["accessory", "matching", "complete-look"]).describe("Type of complement"),
+  confidence: z.number().min(0).max(1).describe("Confidence score 0-1"),
+});
+
+// Cart recommendations response
+export const CartRecommendationsResponseSchema = z.object({
+  recommendations: z
+    .array(CartRecommendationItemSchema)
+    .min(3)
+    .max(5)
+    .describe("3-5 complementary product recommendations"),
+  cartAnalysis: z
+    .string()
+    .describe("Brief analysis of cart contents and recommendation strategy"),
+});
+
+export type CartRecommendationItem = z.infer<typeof CartRecommendationItemSchema>;
+export type CartRecommendationsResponse = z.infer<typeof CartRecommendationsResponseSchema>;
+
+// Cart recommendation with matched product
+export interface CartRecommendationWithProduct extends CartRecommendationItem {
+  product?: ProductForAI;
+}

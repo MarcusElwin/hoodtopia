@@ -2,10 +2,12 @@ import { ChatOpenAI } from "@langchain/openai";
 import {
   RecommendationsResponseSchema,
   SearchResultsSchema,
+  CartRecommendationsResponseSchema,
   type Message,
   type ProductForAI,
   type RecommendationWithProduct,
   type PersonalizationContext,
+  type CartRecommendationWithProduct,
 } from "./schemas";
 
 // Model to use - GPT-5.1 for best structured outputs support
@@ -226,5 +228,98 @@ For example:
   } catch (error) {
     console.error("Search error:", error);
     throw new Error("Failed to perform AI search");
+  }
+}
+
+/**
+ * Get cart-based product recommendations (complementary items)
+ */
+export async function getCartRecommendations(
+  cartProducts: ProductForAI[],
+  allProducts: ProductForAI[]
+): Promise<{
+  recommendations: CartRecommendationWithProduct[];
+  cartAnalysis: string;
+}> {
+  const cartContext = cartProducts.map((p) => ({
+    name: p.name,
+    price: `$${(p.basePrice / 100).toFixed(2)}`,
+    category: p.category,
+    description: p.description,
+    features: p.features ? JSON.parse(p.features) : [],
+  }));
+
+  const availableProducts = allProducts
+    .filter((p) => !cartProducts.some((cp) => cp.id === p.id))
+    .map((p) => ({
+      name: p.name,
+      price: `$${(p.basePrice / 100).toFixed(2)}`,
+      category: p.category,
+      description: p.description,
+      features: p.features ? JSON.parse(p.features) : [],
+    }));
+
+  try {
+    const structuredModel = chatModel.withStructuredOutput(CartRecommendationsResponseSchema);
+
+    const systemPrompt = `You are a cart recommendation engine for Hoodtopia hoodie store.
+
+Items currently in cart:
+${JSON.stringify(cartContext, null, 2)}
+
+Available products to recommend:
+${JSON.stringify(availableProducts, null, 2)}
+
+## Your Goal
+Analyze the cart contents and suggest 3-5 complementary products that:
+1. Complete the customer's look
+2. Match their style preferences (based on cart)
+3. Are accessories or matching items
+4. Stay under $30 price point
+
+## Recommendation Rules
+- **Accessories**: If cart has hoodies, suggest matching beanies, scarves, gloves
+- **Color Matching**: Suggest items in similar or complementary colors
+- **Style Consistency**: Match the vibe (athletic, casual, minimalist, etc.)
+- **Price Conscious**: Keep recommendations affordable (under $30)
+- **Diversity**: Include different types of complementary items
+
+## Complement Types
+- "accessory": Beanies, scarves, gloves that match the hoodie(s)
+- "matching": Similar style hoodies in different colors/patterns
+- "complete-look": Items that complete an outfit ensemble
+
+Provide a brief cart analysis explaining your recommendation strategy.`;
+
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Analyze my cart and suggest complementary products" },
+    ]);
+
+    if (!result || !result.recommendations) {
+      throw new Error("Failed to parse AI response");
+    }
+
+    // Match AI product names to actual database products
+    const recommendationsWithProducts: CartRecommendationWithProduct[] =
+      result.recommendations
+        .map((rec) => {
+          const matchedProduct = allProducts.find(
+            (p) => p.name.toLowerCase() === rec.productName.toLowerCase()
+          );
+          return {
+            ...rec,
+            product: matchedProduct,
+          };
+        })
+        .filter((rec) => rec.product);
+
+    return {
+      recommendations: recommendationsWithProducts,
+      cartAnalysis: result.cartAnalysis,
+    };
+  } catch (error) {
+    console.error("Cart recommendation error:", error);
+    throw new Error("Failed to get cart recommendations");
   }
 }
