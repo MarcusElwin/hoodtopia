@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { ne } from "drizzle-orm";
 import { router, publicProcedure } from "../trpc";
-import { db } from "@/db";
+import { db, products } from "@/db";
 import {
   chatWithAssistant,
   getProductRecommendations,
@@ -23,8 +24,9 @@ export const aiRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Get all products for context
+      // Get all products for context (exclude custom designs)
       const allProducts = await db.query.products.findMany({
+        where: ne(products.category, "custom"),
         with: { variants: true },
       });
 
@@ -42,8 +44,9 @@ export const aiRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Get all products for context
+      // Get all products for context (exclude custom designs)
       const allProducts = await db.query.products.findMany({
+        where: ne(products.category, "custom"),
         with: { variants: true },
       });
 
@@ -58,8 +61,9 @@ export const aiRouter = router({
 
   // AI-powered semantic search
   search: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-    // Get all products for context
+    // Get all products for context (exclude custom designs)
     const allProducts = await db.query.products.findMany({
+      where: ne(products.category, "custom"),
       with: { variants: true },
     });
 

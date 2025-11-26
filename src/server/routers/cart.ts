@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
 import { db, carts, cartItems, products } from "@/db";
@@ -198,8 +198,9 @@ export const cartRouter = router({
       };
     }
 
-    // Get all products for recommendations with variants
+    // Get all products for recommendations with variants (exclude custom designs)
     const allProducts = await db.query.products.findMany({
+      where: ne(products.category, "custom"),
       with: {
         variants: true,
       },
