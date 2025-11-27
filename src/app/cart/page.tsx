@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
+import { CartRecommendations } from "@/components/cart/cart-recommendations";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
@@ -93,8 +94,8 @@ export default function CartPage() {
                     className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md bg-secondary"
                   >
                     <Image
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
+                      src={item.variant.imageUrl || item.product.imageUrl}
+                      alt={`${item.product.name} - ${item.variant.color}`}
                       fill
                       className="object-cover"
                       sizes="96px"
@@ -228,6 +229,13 @@ export default function CartPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* AI Cart Recommendations */}
+        {!isEmpty && (
+          <div className="mt-8 lg:max-w-[66.666667%]">
+            <CartRecommendations />
           </div>
         )}
       </div>

@@ -1,26 +1,32 @@
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { ChatOpenAI } from "@langchain/openai";
 import {
   RecommendationsResponseSchema,
   SearchResultsSchema,
+  CartRecommendationsResponseSchema,
   type Message,
   type ProductForAI,
   type RecommendationWithProduct,
+  type PersonalizationContext,
+  type CartRecommendationWithProduct,
 } from "./schemas";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { type ProfileConfig } from "@/lib/shopper-profiles";
 
 // Model to use - GPT-5.1 for best structured outputs support
 const MODEL = "gpt-5.1";
+
+// Initialize LangChain ChatOpenAI client
+const chatModel = new ChatOpenAI({
+  model: MODEL,
+  apiKey: process.env.OPENAI_API_KEY,
+  temperature: 0.7,
+});
+
 
 // ============================================
 // SYSTEM PROMPT BUILDER
 // ============================================
 
-function buildSystemPrompt(products: ProductForAI[]): string {
+function buildSystemPrompt(products: ProductForAI[], profile?: ProfileConfig | null): string {
   const productCatalog = products
     .map((p) => {
       const features = p.features ? JSON.parse(p.features).join(", ") : "N/A";
@@ -32,13 +38,71 @@ function buildSystemPrompt(products: ProductForAI[]): string {
     })
     .join("\n\n");
 
-  return `You are a helpful AI shopping assistant for Hoodtopia, a premium online hoodie store.
-
-## Your Personality
+  // Build personality instructions based on profile
+  let personalityInstructions = `## Your Personality
 - Friendly, knowledgeable, and genuinely helpful
 - Passionate about helping customers find their perfect hoodie
 - You explain your reasoning - don't just list products
-- Ask clarifying questions when helpful
+- Ask clarifying questions when helpful`;
+
+  if (profile) {
+    const profilePersonality = {
+      minimalist: `## Shopper Profile: The Minimalist 🎯
+**Adapt your style:**
+- Be EXTREMELY concise (1-2 sentences max)
+- Focus ONLY on essentials - no fluff
+- Direct recommendations with clear reasoning
+- Skip detailed explanations
+- One product at a time
+- Example: "Classic Comfort Hoodie, $59.99. Perfect for everyday wear. Add to cart?"`,
+
+      researcher: `## Shopper Profile: The Researcher 📊
+**Adapt your style:**
+- Provide detailed, data-driven responses
+- Include ALL specifications and materials
+- Compare products with specific metrics
+- Cite exact features and differences
+- Be thorough and comprehensive
+- Use numbers and percentages
+- Example: "The Tech Fleece Pro uses 85% polyester vs 60% in the Classic. Weight: 14oz vs 12oz. Warmth rating: 8/10 vs 6/10."`,
+
+      trendsetter: `## Shopper Profile: The Trendsetter ✨
+**Adapt your style:**
+- Be enthusiastic and style-focused!
+- Mention trends and aesthetics
+- Use expressive language (but professional)
+- Suggest outfit combinations
+- Focus on visual appeal and social proof
+- Talk about what's "in" or "trending"
+- Example: "The Oversized Street Hoodie is HUGE right now! 🔥 Perfect with high-waisted jeans. Very Instagram-worthy!"`,
+
+      budget_hunter: `## Shopper Profile: The Budget Hunter 💰
+**Adapt your style:**
+- ALWAYS mention prices first
+- Highlight value and savings
+- Compare cost-per-wear
+- Mention if something is a good deal
+- Be practical and cost-conscious
+- Suggest bundles or savings opportunities
+- Example: "Best value: Classic Comfort at $59.99 (cheapest option). Lasts 5+ years = $12/year. Great deal!"`,
+
+      explorer: `## Shopper Profile: The Explorer 🚀
+**Adapt your style:**
+- Be playful and encouraging!
+- Suggest unexpected combinations
+- Ask open-ended questions
+- Introduce variety and surprise
+- Mix different categories
+- Encourage discovery
+- Example: "How about trying something unexpected? The Performance Hoodie pairs surprisingly well with our vintage patches! Want to see more unique combos?"`,
+    }[profile.id];
+
+    personalityInstructions = profilePersonality || personalityInstructions;
+  }
+
+  return `You are a helpful AI shopping assistant for Hoodtopia, a premium online hoodie store.
+
+${personalityInstructions}
 
 ## Available Products
 ${productCatalog}
@@ -50,13 +114,7 @@ ${productCatalog}
 4. For sizing questions, ask about fit preference (relaxed, fitted, true-to-size)
 5. Highlight specific features that match their requirements
 6. Be honest about limitations - if nothing fits perfectly, say so
-7. Prices are in USD
-
-## Response Guidelines
-- Keep responses concise but helpful (2-4 sentences for simple queries)
-- Use bullet points when comparing multiple products
-- Always mention price when recommending products
-- End with a question to continue the conversation when appropriate`;
+7. Prices are in USD`;
 }
 
 // ============================================
@@ -68,23 +126,21 @@ ${productCatalog}
  */
 export async function chatWithAssistant(
   messages: Message[],
-  products: ProductForAI[]
+  products: ProductForAI[],
+  profile?: ProfileConfig | null
 ): Promise<string> {
   try {
-    const response = await openai.responses.create({
-      model: MODEL,
-      input: [
-        { role: "system", content: buildSystemPrompt(products) },
-        ...messages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      ],
-      temperature: 0.7,
-      max_output_tokens: 500,
-    });
+    const formattedMessages = [
+      { role: "system" as const, content: buildSystemPrompt(products, profile) },
+      ...messages.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    ];
 
-    return response.output_text || "I apologize, I couldn't generate a response. Please try again.";
+    const response = await chatModel.invoke(formattedMessages);
+
+    return (response.content as string) || "I apologize, I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("Chat error:", error);
     throw new Error("Failed to get AI response");
@@ -92,11 +148,12 @@ export async function chatWithAssistant(
 }
 
 /**
- * Get structured product recommendations using Zod schema
+ * Get structured product recommendations using Zod schema with personalization
  */
 export async function getProductRecommendations(
   preferences: string,
-  products: ProductForAI[]
+  products: ProductForAI[],
+  personalizationContext?: PersonalizationContext
 ): Promise<{
   recommendations: RecommendationWithProduct[];
   followUpQuestion?: string;
@@ -111,43 +168,54 @@ export async function getProductRecommendations(
     }));
 
   try {
-    const response = await openai.responses.parse({
-      model: MODEL,
-      input: [
-        {
-          role: "system",
-          content: `You are a product recommendation engine for Hoodtopia hoodie store.
+    // Use LangChain's with_structured_output for structured responses
+    const structuredModel = chatModel.withStructuredOutput(RecommendationsResponseSchema);
+
+    // Build personalization context section
+    let personalizationSection = "";
+    if (personalizationContext && personalizationContext.viewedProducts.length > 0) {
+      personalizationSection = `
+
+## User's Browsing History (Use for Personalization)
+- Recently viewed products: ${personalizationContext.viewedProducts.join(", ")}
+- Categories browsed: ${personalizationContext.viewedCategories.join(", ")}
+- Most viewed product: ${personalizationContext.mostViewedProduct || "N/A"}
+- Preferred category: ${personalizationContext.preferredCategory || "N/A"}
+- Time spent browsing: ${Math.round(personalizationContext.timeSpent / 60)} minutes
+
+**Personalization Instructions:**
+- Weight recommendations toward their browsing history
+- If they viewed products in a category, prioritize similar items
+- Reference their viewed products in recommendations when relevant
+- Consider their browsing patterns as signals of interest`;
+    }
+
+    const systemPrompt = `You are a product recommendation engine for Hoodtopia hoodie store.
 
 Available products:
 ${JSON.stringify(productContext, null, 2)}
+${personalizationSection}
 
 Analyze the user's preferences and return 1-3 product recommendations.
 - Only recommend products from the available list
 - Match product names EXACTLY as they appear in the list
 - Provide a confidence score (0-1) based on how well the product matches
 - Highlight specific features that match the request
-- Optionally suggest a follow-up question to refine recommendations`,
-        },
-        { role: "user", content: preferences },
-      ],
-      text: {
-        format: zodTextFormat(
-          RecommendationsResponseSchema,
-          "product_recommendations"
-        ),
-      },
-    });
+- Optionally suggest a follow-up question to refine recommendations`;
 
-    const result = response.output_parsed;
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: preferences },
+    ]);
 
-    if (!result) {
+    if (!result || !result.recommendations) {
       throw new Error("Failed to parse AI response");
     }
 
     // Match AI product names to actual database products
     const recommendationsWithProducts: RecommendationWithProduct[] =
       result.recommendations
-        .map((rec) => {
+        .map((rec: { productName: string; reason: string; confidence: number; highlightedFeatures: string[] }) => {
           const matchedProduct = products.find(
             (p) => p.name.toLowerCase() === rec.productName.toLowerCase()
           );
@@ -156,11 +224,11 @@ Analyze the user's preferences and return 1-3 product recommendations.
             product: matchedProduct,
           };
         })
-        .filter((rec) => rec.product); // Filter out any hallucinated products
+        .filter((rec: { product?: ProductForAI }) => rec.product); // Filter out any hallucinated products
 
     return {
       recommendations: recommendationsWithProducts,
-      followUpQuestion: result.followUpQuestion,
+      followUpQuestion: result.followUpQuestion ?? undefined,
     };
   } catch (error) {
     console.error("Recommendation error:", error);
@@ -178,12 +246,10 @@ export async function searchProductsWithAI(
   const productNames = products.map((p) => p.name);
 
   try {
-    const response = await openai.responses.parse({
-      model: MODEL,
-      input: [
-        {
-          role: "system",
-          content: `You are a search engine for Hoodtopia hoodie store.
+    // Use LangChain's with_structured_output for structured responses
+    const structuredModel = chatModel.withStructuredOutput(SearchResultsSchema);
+
+    const systemPrompt = `You are a search engine for Hoodtopia hoodie store.
 
 Available products: ${productNames.join(", ")}
 
@@ -196,16 +262,12 @@ Consider semantic meaning, not just keyword matching.
 For example:
 - "warm" → products with thermal/winter features
 - "gym" → athletic/performance products
-- "casual" → everyday comfort products`,
-        },
-        { role: "user", content: query },
-      ],
-      text: {
-        format: zodTextFormat(SearchResultsSchema, "search_results"),
-      },
-    });
+- "casual" → everyday comfort products`;
 
-    const result = response.output_parsed;
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: query },
+    ]);
 
     if (!result || !result.isRelevant) {
       return [];
@@ -214,11 +276,104 @@ For example:
     // Match to actual products
     return products.filter((p) =>
       result.productNames.some(
-        (name) => name.toLowerCase() === p.name.toLowerCase()
+        (name: string) => name.toLowerCase() === p.name.toLowerCase()
       )
     );
   } catch (error) {
     console.error("Search error:", error);
     throw new Error("Failed to perform AI search");
+  }
+}
+
+/**
+ * Get cart-based product recommendations (complementary items)
+ */
+export async function getCartRecommendations(
+  cartProducts: ProductForAI[],
+  allProducts: ProductForAI[]
+): Promise<{
+  recommendations: CartRecommendationWithProduct[];
+  cartAnalysis: string;
+}> {
+  const cartContext = cartProducts.map((p) => ({
+    name: p.name,
+    price: `$${(p.basePrice / 100).toFixed(2)}`,
+    category: p.category,
+    description: p.description,
+    features: p.features ? JSON.parse(p.features) : [],
+  }));
+
+  const availableProducts = allProducts
+    .filter((p) => !cartProducts.some((cp) => cp.id === p.id))
+    .map((p) => ({
+      name: p.name,
+      price: `$${(p.basePrice / 100).toFixed(2)}`,
+      category: p.category,
+      description: p.description,
+      features: p.features ? JSON.parse(p.features) : [],
+    }));
+
+  try {
+    const structuredModel = chatModel.withStructuredOutput(CartRecommendationsResponseSchema);
+
+    const systemPrompt = `You are a cart recommendation engine for Hoodtopia hoodie store.
+
+Items currently in cart:
+${JSON.stringify(cartContext, null, 2)}
+
+Available products to recommend:
+${JSON.stringify(availableProducts, null, 2)}
+
+## Your Goal
+Analyze the cart contents and suggest 3-5 complementary products that:
+1. Complete the customer's look
+2. Match their style preferences (based on cart)
+3. Are accessories or matching items
+4. Stay under $30 price point
+
+## Recommendation Rules
+- **Accessories**: If cart has hoodies, suggest matching beanies, scarves, gloves
+- **Color Matching**: Suggest items in similar or complementary colors
+- **Style Consistency**: Match the vibe (athletic, casual, minimalist, etc.)
+- **Price Conscious**: Keep recommendations affordable (under $30)
+- **Diversity**: Include different types of complementary items
+
+## Complement Types
+- "accessory": Beanies, scarves, gloves that match the hoodie(s)
+- "matching": Similar style hoodies in different colors/patterns
+- "complete-look": Items that complete an outfit ensemble
+
+Provide a brief cart analysis explaining your recommendation strategy.`;
+
+    const result = await structuredModel.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Analyze my cart and suggest complementary products" },
+    ]);
+
+    if (!result || !result.recommendations) {
+      throw new Error("Failed to parse AI response");
+    }
+
+    // Match AI product names to actual database products
+    const recommendationsWithProducts: CartRecommendationWithProduct[] =
+      result.recommendations
+        .map((rec) => {
+          const matchedProduct = allProducts.find(
+            (p) => p.name.toLowerCase() === rec.productName.toLowerCase()
+          );
+          return {
+            ...rec,
+            product: matchedProduct,
+          };
+        })
+        .filter((rec) => rec.product);
+
+    return {
+      recommendations: recommendationsWithProducts,
+      cartAnalysis: result.cartAnalysis,
+    };
+  } catch (error) {
+    console.error("Cart recommendation error:", error);
+    throw new Error("Failed to get cart recommendations");
   }
 }

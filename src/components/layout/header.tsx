@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { HoodtopiaLogo } from "@/components/ui/logo";
 import { CurrencyPicker, CurrencyPickerCompact } from "@/components/ui/currency-picker";
+import { ProfileSelector } from "@/components/profiles/profile-selector";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
@@ -45,6 +46,13 @@ export function Header() {
             AI Picks
           </Link>
           <Link
+            href="/custom-designer"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <Sparkles className="h-3 w-3 text-primary" />
+            Custom Design
+          </Link>
+          <Link
             href="/#best-sellers"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -60,6 +68,11 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Profile Selector */}
+          <div className="hidden lg:block">
+            <ProfileSelector />
+          </div>
+
           {/* Currency Picker */}
           <div className="hidden sm:block">
             <CurrencyPicker />

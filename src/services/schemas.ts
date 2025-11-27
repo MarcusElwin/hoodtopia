@@ -4,6 +4,17 @@ import { z } from "zod";
 // ZOD SCHEMAS FOR STRUCTURED AI OUTPUTS
 // ============================================
 
+// Shopper Profile Type Schema
+export const ShopperProfileTypeSchema = z.enum([
+  "minimalist",
+  "researcher",
+  "trendsetter",
+  "budget_hunter",
+  "explorer"
+]).nullable().optional();
+
+export type ShopperProfileType = z.infer<typeof ShopperProfileTypeSchema>;
+
 // Single recommendation item
 export const RecommendationItemSchema = z.object({
   productName: z.string().describe("Exact product name from catalog"),
@@ -23,7 +34,8 @@ export const RecommendationsResponseSchema = z.object({
     .describe("1-3 product recommendations"),
   followUpQuestion: z
     .string()
-    .optional()
+    .nullable()
+    .default(null)
     .describe("Optional follow-up question to refine recommendations"),
 });
 
@@ -37,7 +49,8 @@ export const SearchResultsSchema = z.object({
     .describe("Whether the query is relevant to hoodies/our products"),
   searchIntent: z
     .string()
-    .optional()
+    .nullable()
+    .default(null)
     .describe("Interpreted user intent from search query"),
 });
 
@@ -61,12 +74,77 @@ export interface ProductForAI {
   slug: string;
   description: string;
   basePrice: number;
+  imageUrl: string;
   category: string;
   material: string | null;
   features: string | null;
+  variants?: Array<{
+    id: string;
+    color: string;
+    size: string;
+    stock: number;
+  }>;
 }
 
 // Recommendation with matched product
 export interface RecommendationWithProduct extends RecommendationItem {
   product?: ProductForAI;
 }
+
+// Personalization context schema
+export const PersonalizationContextSchema = z.object({
+  viewedProducts: z.array(z.string()).describe("Names of recently viewed products"),
+  viewedCategories: z.array(z.string()).describe("Categories user has browsed"),
+  timeSpent: z.number().describe("Total time spent browsing in seconds"),
+  mostViewedProduct: z.string().nullable().default(null).describe("Most frequently viewed product"),
+  preferredCategory: z.string().nullable().default(null).describe("Most viewed category"),
+});
+
+export type PersonalizationContext = z.infer<typeof PersonalizationContextSchema>;
+
+// Cart recommendation item
+export const CartRecommendationItemSchema = z.object({
+  productName: z.string().describe("Exact product name from catalog"),
+  reason: z.string().describe("Why this complements items in cart"),
+  complementType: z.enum(["accessory", "matching", "complete-look"]).describe("Type of complement"),
+  confidence: z.number().min(0).max(1).describe("Confidence score 0-1"),
+});
+
+// Cart recommendations response
+export const CartRecommendationsResponseSchema = z.object({
+  recommendations: z
+    .array(CartRecommendationItemSchema)
+    .min(3)
+    .max(5)
+    .describe("3-5 complementary product recommendations"),
+  cartAnalysis: z
+    .string()
+    .describe("Brief analysis of cart contents and recommendation strategy"),
+});
+
+export type CartRecommendationItem = z.infer<typeof CartRecommendationItemSchema>;
+export type CartRecommendationsResponse = z.infer<typeof CartRecommendationsResponseSchema>;
+
+// Cart recommendation with matched product
+export interface CartRecommendationWithProduct extends CartRecommendationItem {
+  product?: ProductForAI;
+}
+
+// Custom design input schema
+export const CustomDesignInputSchema = z.object({
+  type: z.enum(["image", "text"]),
+  imageData: z.string().optional(),
+  description: z.string().optional(),
+  baseColor: z.string().default("Black"),
+  hoodieType: z.string().default("pullover"),
+});
+
+export type CustomDesignInput = z.infer<typeof CustomDesignInputSchema>;
+
+// Custom design refinement schema
+export const CustomDesignRefinementSchema = z.object({
+  generationId: z.string(),
+  feedback: z.string().min(1, "Feedback is required"),
+});
+
+export type CustomDesignRefinement = z.infer<typeof CustomDesignRefinementSchema>;

@@ -92,6 +92,37 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   }),
 }));
 
+// User preferences table
+export const userPreferences = sqliteTable("user_preferences", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  preferences: text("preferences").notNull(), // JSON stringified preferences
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Custom designs table for AI-generated hoodies
+export const customDesigns = sqliteTable("custom_designs", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  type: text("type", { enum: ["image", "text"] }).notNull(),
+  originalInput: text("original_input").notNull(), // Image URL or text description
+  generatedImageUrl: text("generated_image_url").notNull(),
+  prompt: text("prompt").notNull(), // Gemini prompt used
+  baseColor: text("base_color").default("Black"),
+  refinementHistory: text("refinement_history"), // JSON array of refinements
+  status: text("status", {
+    enum: ["generating", "ready", "in_cart", "ordered"]
+  }).default("generating"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Type exports
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
@@ -101,3 +132,7 @@ export type Cart = typeof carts.$inferSelect;
 export type NewCart = typeof carts.$inferInsert;
 export type CartItem = typeof cartItems.$inferSelect;
 export type NewCartItem = typeof cartItems.$inferInsert;
+export type UserPreference = typeof userPreferences.$inferSelect;
+export type NewUserPreference = typeof userPreferences.$inferInsert;
+export type CustomDesign = typeof customDesigns.$inferSelect;
+export type NewCustomDesign = typeof customDesigns.$inferInsert;

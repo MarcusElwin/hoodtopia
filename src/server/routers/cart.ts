@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
 import { db, carts, cartItems, products } from "@/db";
+import { getCartRecommendations } from "@/services/ai";
 
 // For demo purposes, we use a fixed session ID
 // In production, you'd get this from cookies/auth
@@ -173,5 +174,47 @@ export const cartRouter = router({
     }
 
     return { success: true };
+  }),
+
+  // Get AI-powered cart recommendations
+  getRecommendations: publicProcedure.query(async () => {
+    // Get current cart
+    const cart = await db.query.carts.findFirst({
+      where: eq(carts.sessionId, DEMO_SESSION_ID),
+      with: {
+        items: {
+          with: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    // If cart is empty, return empty recommendations
+    if (!cart || cart.items.length === 0) {
+      return {
+        recommendations: [],
+        cartAnalysis: "Add items to your cart to see personalized recommendations.",
+      };
+    }
+
+    // Get all products for recommendations with variants (exclude custom designs)
+    const allProducts = await db.query.products.findMany({
+      where: ne(products.category, "custom"),
+      with: {
+        variants: true,
+      },
+    });
+
+    // Extract cart products
+    const cartProducts = cart.items.map((item) => item.product);
+
+    // Get AI recommendations
+    const recommendations = await getCartRecommendations(
+      cartProducts,
+      allProducts
+    );
+
+    return recommendations;
   }),
 });

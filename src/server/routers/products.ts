@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, like, or, and } from "drizzle-orm";
+import { eq, like, or, and, ne } from "drizzle-orm";
 import { router, publicProcedure } from "../trpc";
 import { db, products, productVariants } from "@/db";
 
@@ -15,7 +15,10 @@ export const productsRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      const conditions = [];
+      const conditions = [
+        // Exclude custom designs from general product listings
+        ne(products.category, "custom")
+      ];
 
       if (input?.category) {
         conditions.push(eq(products.category, input.category));
@@ -25,7 +28,7 @@ export const productsRouter = router({
       }
 
       const result = await db.query.products.findMany({
-        where: conditions.length > 0 ? and(...conditions) : undefined,
+        where: and(...conditions),
         with: {
           variants: true,
         },
@@ -72,10 +75,14 @@ export const productsRouter = router({
     const searchTerm = `%${input}%`;
 
     const result = await db.query.products.findMany({
-      where: or(
-        like(products.name, searchTerm),
-        like(products.description, searchTerm),
-        like(products.category, searchTerm)
+      where: and(
+        // Exclude custom designs from search
+        ne(products.category, "custom"),
+        or(
+          like(products.name, searchTerm),
+          like(products.description, searchTerm),
+          like(products.category, searchTerm)
+        )
       ),
       with: {
         variants: true,
@@ -90,7 +97,10 @@ export const productsRouter = router({
     // Hoodie categories (main products)
     const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
     const result = await db.query.products.findMany({
-      where: eq(products.featured, true),
+      where: and(
+        eq(products.featured, true),
+        ne(products.category, "custom")
+      ),
       with: {
         variants: true,
       },
@@ -106,13 +116,16 @@ export const productsRouter = router({
     // Hoodie categories to exclude
     const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
     const result = await db.query.products.findMany({
-      where: eq(products.featured, true),
+      where: and(
+        eq(products.featured, true),
+        ne(products.category, "custom")
+      ),
       with: {
         variants: true,
       },
     });
 
-    // Filter to only accessories (anything not a hoodie)
+    // Filter to only accessories (anything not a hoodie or custom)
     return result.filter((p) => !hoodieCategories.includes(p.category));
   }),
 
@@ -120,7 +133,8 @@ export const productsRouter = router({
   categories: publicProcedure.query(async () => {
     const result = await db
       .selectDistinct({ category: products.category })
-      .from(products);
+      .from(products)
+      .where(ne(products.category, "custom"));
 
     return result.map((r) => r.category);
   }),
