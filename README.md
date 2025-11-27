@@ -227,6 +227,23 @@ The app uses SQLite with Drizzle ORM. The schema includes:
 
 ## AI Features
 
+### LangChain vs Native API Implementation
+
+This project demonstrates a **hybrid approach** to AI integration, using LangChain where it adds value and native APIs where needed:
+
+| Feature | Status | Implementation | Why? |
+|---------|--------|----------------|------|
+| **AI Chat Assistant** | ✅ | **LangChain** (OpenAI) | Structured outputs, message chains |
+| **Product Recommendations** | ✅ | **LangChain** (OpenAI) | Zod schema validation |
+| **Semantic Search** | ✅ | **LangChain** (OpenAI) | Consistent API, easy prompting |
+| **Cart Intelligence** | ✅ | **LangChain** (OpenAI) | Structured JSON responses |
+| **Custom Image Generation** | ✅ | **Native Gemini API** | Image-specific features |
+| **Image Refinement** | ✅ | **Native Gemini API** | Direct model control |
+
+**Key Insight:** Use LangChain for text/chat tasks with structured outputs. Use native APIs for specialized features like image generation.
+
+---
+
 ### 1. AI Chat Assistant
 
 Powered by **OpenAI GPT-5.1**, the chat assistant understands natural language and adapts to shopper profiles:
