@@ -7,7 +7,8 @@ import {
   getProductRecommendations,
   searchProductsWithAI,
 } from "@/services/ai";
-import { PersonalizationContextSchema } from "@/services/schemas";
+import { PersonalizationContextSchema, ShopperProfileTypeSchema } from "@/services/schemas";
+import { PROFILES, type ProfileType } from "@/lib/shopper-profiles";
 
 // Message schema for chat
 const MessageSchema = z.object({
@@ -21,6 +22,7 @@ export const aiRouter = router({
     .input(
       z.object({
         messages: z.array(MessageSchema),
+        profileType: ShopperProfileTypeSchema,
       })
     )
     .mutation(async ({ input }) => {
@@ -30,7 +32,10 @@ export const aiRouter = router({
         with: { variants: true },
       });
 
-      const response = await chatWithAssistant(input.messages, allProducts);
+      // Get profile config if profile type provided
+      const profile = input.profileType ? PROFILES[input.profileType as ProfileType] : null;
+
+      const response = await chatWithAssistant(input.messages, allProducts, profile);
 
       return { message: response };
     }),

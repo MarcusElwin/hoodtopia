@@ -4,6 +4,17 @@ import { z } from "zod";
 // ZOD SCHEMAS FOR STRUCTURED AI OUTPUTS
 // ============================================
 
+// Shopper Profile Type Schema
+export const ShopperProfileTypeSchema = z.enum([
+  "minimalist",
+  "researcher",
+  "trendsetter",
+  "budget_hunter",
+  "explorer"
+]).nullable().optional();
+
+export type ShopperProfileType = z.infer<typeof ShopperProfileTypeSchema>;
+
 // Single recommendation item
 export const RecommendationItemSchema = z.object({
   productName: z.string().describe("Exact product name from catalog"),

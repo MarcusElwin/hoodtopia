@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { trpc } from "@/lib/trpc";
+import { useProfile } from "@/lib/shopper-profiles";
 
 interface Message {
   role: "user" | "assistant";
@@ -24,6 +25,7 @@ interface AIChatDialogProps {
 }
 
 export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
+  const { currentProfile } = useProfile();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -76,6 +78,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
     // Send to AI
     chatMutation.mutate({
       messages: newMessages.slice(1), // Remove initial greeting
+      profileType: currentProfile,
     });
   };
 

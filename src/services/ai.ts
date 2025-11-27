@@ -9,6 +9,7 @@ import {
   type PersonalizationContext,
   type CartRecommendationWithProduct,
 } from "./schemas";
+import { type ProfileConfig } from "@/lib/shopper-profiles";
 
 // Model to use - GPT-5.1 for best structured outputs support
 const MODEL = "gpt-5.1";
@@ -25,7 +26,7 @@ const chatModel = new ChatOpenAI({
 // SYSTEM PROMPT BUILDER
 // ============================================
 
-function buildSystemPrompt(products: ProductForAI[]): string {
+function buildSystemPrompt(products: ProductForAI[], profile?: ProfileConfig | null): string {
   const productCatalog = products
     .map((p) => {
       const features = p.features ? JSON.parse(p.features).join(", ") : "N/A";
@@ -37,13 +38,71 @@ function buildSystemPrompt(products: ProductForAI[]): string {
     })
     .join("\n\n");
 
-  return `You are a helpful AI shopping assistant for Hoodtopia, a premium online hoodie store.
-
-## Your Personality
+  // Build personality instructions based on profile
+  let personalityInstructions = `## Your Personality
 - Friendly, knowledgeable, and genuinely helpful
 - Passionate about helping customers find their perfect hoodie
 - You explain your reasoning - don't just list products
-- Ask clarifying questions when helpful
+- Ask clarifying questions when helpful`;
+
+  if (profile) {
+    const profilePersonality = {
+      minimalist: `## Shopper Profile: The Minimalist 🎯
+**Adapt your style:**
+- Be EXTREMELY concise (1-2 sentences max)
+- Focus ONLY on essentials - no fluff
+- Direct recommendations with clear reasoning
+- Skip detailed explanations
+- One product at a time
+- Example: "Classic Comfort Hoodie, $59.99. Perfect for everyday wear. Add to cart?"`,
+
+      researcher: `## Shopper Profile: The Researcher 📊
+**Adapt your style:**
+- Provide detailed, data-driven responses
+- Include ALL specifications and materials
+- Compare products with specific metrics
+- Cite exact features and differences
+- Be thorough and comprehensive
+- Use numbers and percentages
+- Example: "The Tech Fleece Pro uses 85% polyester vs 60% in the Classic. Weight: 14oz vs 12oz. Warmth rating: 8/10 vs 6/10."`,
+
+      trendsetter: `## Shopper Profile: The Trendsetter ✨
+**Adapt your style:**
+- Be enthusiastic and style-focused!
+- Mention trends and aesthetics
+- Use expressive language (but professional)
+- Suggest outfit combinations
+- Focus on visual appeal and social proof
+- Talk about what's "in" or "trending"
+- Example: "The Oversized Street Hoodie is HUGE right now! 🔥 Perfect with high-waisted jeans. Very Instagram-worthy!"`,
+
+      budget_hunter: `## Shopper Profile: The Budget Hunter 💰
+**Adapt your style:**
+- ALWAYS mention prices first
+- Highlight value and savings
+- Compare cost-per-wear
+- Mention if something is a good deal
+- Be practical and cost-conscious
+- Suggest bundles or savings opportunities
+- Example: "Best value: Classic Comfort at $59.99 (cheapest option). Lasts 5+ years = $12/year. Great deal!"`,
+
+      explorer: `## Shopper Profile: The Explorer 🚀
+**Adapt your style:**
+- Be playful and encouraging!
+- Suggest unexpected combinations
+- Ask open-ended questions
+- Introduce variety and surprise
+- Mix different categories
+- Encourage discovery
+- Example: "How about trying something unexpected? The Performance Hoodie pairs surprisingly well with our vintage patches! Want to see more unique combos?"`,
+    }[profile.id];
+
+    personalityInstructions = profilePersonality || personalityInstructions;
+  }
+
+  return `You are a helpful AI shopping assistant for Hoodtopia, a premium online hoodie store.
+
+${personalityInstructions}
 
 ## Available Products
 ${productCatalog}
@@ -55,13 +114,7 @@ ${productCatalog}
 4. For sizing questions, ask about fit preference (relaxed, fitted, true-to-size)
 5. Highlight specific features that match their requirements
 6. Be honest about limitations - if nothing fits perfectly, say so
-7. Prices are in USD
-
-## Response Guidelines
-- Keep responses concise but helpful (2-4 sentences for simple queries)
-- Use bullet points when comparing multiple products
-- Always mention price when recommending products
-- End with a question to continue the conversation when appropriate`;
+7. Prices are in USD`;
 }
 
 // ============================================
@@ -73,11 +126,12 @@ ${productCatalog}
  */
 export async function chatWithAssistant(
   messages: Message[],
-  products: ProductForAI[]
+  products: ProductForAI[],
+  profile?: ProfileConfig | null
 ): Promise<string> {
   try {
     const formattedMessages = [
-      { role: "system" as const, content: buildSystemPrompt(products) },
+      { role: "system" as const, content: buildSystemPrompt(products, profile) },
       ...messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -86,7 +140,7 @@ export async function chatWithAssistant(
 
     const response = await chatModel.invoke(formattedMessages);
 
-    return response.content as string || "I apologize, I couldn't generate a response. Please try again.";
+    return (response.content as string) || "I apologize, I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("Chat error:", error);
     throw new Error("Failed to get AI response");
@@ -174,7 +228,7 @@ Analyze the user's preferences and return 1-3 product recommendations.
 
     return {
       recommendations: recommendationsWithProducts,
-      followUpQuestion: result.followUpQuestion,
+      followUpQuestion: result.followUpQuestion ?? undefined,
     };
   } catch (error) {
     console.error("Recommendation error:", error);
