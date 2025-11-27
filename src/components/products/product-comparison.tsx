@@ -21,8 +21,11 @@ export function ProductComparison({ products, onClose, aiInsight }: ProductCompa
 
   if (products.length === 0) return null;
 
+  // Product type with variants
+  type ProductWithVariants = Product & { variants: ProductVariant[] };
+
   // Get comparison attributes
-  const getFeatures = (product: Product) => {
+  const getFeatures = (product: ProductWithVariants) => {
     try {
       return product.features ? JSON.parse(product.features) : [];
     } catch {
@@ -32,21 +35,21 @@ export function ProductComparison({ products, onClose, aiInsight }: ProductCompa
 
   // Get all unique features across products
   const allFeatures = Array.from(
-    new Set(products.flatMap(p => getFeatures(p)))
+    new Set(products.flatMap((p: ProductWithVariants) => getFeatures(p)))
   );
 
   // Get price range for a product
-  const getPriceRange = (product: Product) => {
-    const prices = product.variants.map(v => product.basePrice);
+  const getPriceRange = (product: ProductWithVariants) => {
+    const prices = product.variants.map(() => product.basePrice);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
   };
 
   // Get available colors for a product
-  const getColors = (product: Product) => {
-    return product.variants.reduce((acc, v) => {
-      if (!acc.find(c => c.color === v.color)) {
+  const getColors = (product: ProductWithVariants) => {
+    return product.variants.reduce((acc: { color: string; colorHex: string }[], v: ProductVariant) => {
+      if (!acc.find((c: { color: string; colorHex: string }) => c.color === v.color)) {
         acc.push({ color: v.color, colorHex: v.colorHex });
       }
       return acc;
@@ -54,8 +57,8 @@ export function ProductComparison({ products, onClose, aiInsight }: ProductCompa
   };
 
   // Get available sizes for a product
-  const getSizes = (product: Product) => {
-    return [...new Set(product.variants.map(v => v.size))];
+  const getSizes = (product: ProductWithVariants) => {
+    return [...new Set(product.variants.map((v: ProductVariant) => v.size))];
   };
 
   return (
@@ -180,7 +183,7 @@ export function ProductComparison({ products, onClose, aiInsight }: ProductCompa
                 {products.map((product) => (
                   <td key={product.id} className="p-4">
                     <div className="flex flex-wrap gap-1.5 justify-center">
-                      {getColors(product).slice(0, 8).map((c) => (
+                      {getColors(product).slice(0, 8).map((c: { color: string; colorHex: string }) => (
                         <div
                           key={c.color}
                           className="h-6 w-6 rounded-full border border-border"
