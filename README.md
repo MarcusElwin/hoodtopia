@@ -1,12 +1,16 @@
-# Hoodtopia - AI-Powered E-commerce Demo
+<div align="center">
+  <img src="./public/images/site/hoodtopia.png" alt="Hoodtopia Logo" width="200" />
 
-> An AI-powered hoodie e-commerce application demonstrating AI in E-commerce, Agentic Commerce, and Generative UX for the **LangChain Stockholm Meetup**.
+  # Hoodtopia - AI-Powered E-commerce Demo
 
-[![CI](https://github.com/your-username/hoodtopia/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/hoodtopia/actions/workflows/ci.yml)
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css)
-![License](https://img.shields.io/badge/License-MIT-green)
+  > An AI-powered hoodie e-commerce application demonstrating AI in E-commerce, Agentic Commerce, and Generative UX for the **LangChain Stockholm Meetup**.
+
+  [![CI](https://github.com/your-username/hoodtopia/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/hoodtopia/actions/workflows/ci.yml)
+  ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+  ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+  ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css)
+  ![License](https://img.shields.io/badge/License-MIT-green)
+</div>
 
 ## Overview
 
@@ -444,4 +448,16 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-*This is a demo application. No real transactions are processed.*
+<div align="center">
+  <p><em>This is a demo application. No real transactions are processed.</em></p>
+
+  <br/>
+
+  <p>
+    Made with ❤️ in Stockholm, Sweden
+  </p>
+
+  <p>
+    <sub>Showcasing the future of AI-powered e-commerce</sub>
+  </p>
+</div>
