@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  hoodtopia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hoodtopia
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      - DATABASE_URL=./db/hoodtopia.db
+
+      # API Keys (use .env file or pass via command line)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+
+      # Next.js
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+
+    volumes:
+      # Persist database
+      - hoodtopia-db:/app/db
+      # Persist uploaded images
+      - hoodtopia-images:/app/public/images/custom
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Optional: Development mode with hot reload
+  hoodtopia-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: hoodtopia-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - DATABASE_URL=./db/hoodtopia.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    profiles:
+      - dev
+
+volumes:
+  hoodtopia-db:
+    driver: local
+  hoodtopia-images:
+    driver: local

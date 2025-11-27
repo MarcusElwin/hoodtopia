@@ -107,6 +107,30 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ## Available Scripts
 
+### Using Makefile (Recommended)
+
+Run `make help` to see all available commands:
+
+| Command | Description |
+|---------|-------------|
+| `make dev` | Start development server |
+| `make build` | Build for production |
+| `make test` | Run tests |
+| `make lint` | Run ESLint |
+| `make typecheck` | Run TypeScript type check |
+| `make ci` | Run full CI pipeline locally |
+| `make db-push` | Push database schema |
+| `make db-seed` | Seed database with data |
+| `make db-studio` | Open Drizzle Studio |
+| `make db-reset` | Reset database completely |
+| `make docker-build` | Build Docker image |
+| `make docker-up` | Start Docker containers |
+| `make docker-down` | Stop Docker containers |
+| `make docker-logs` | View container logs |
+| `make clean` | Clean build artifacts |
+
+### Using npm directly
+
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start development server with Turbopack |
@@ -405,7 +429,56 @@ npm run db:seed
 
 ## Deployment
 
-### Vercel (Recommended)
+### Docker (Recommended for Production)
+
+**Using Makefile (Easiest):**
+```bash
+# Build and start
+make docker-build
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop
+make docker-down
+```
+
+**Using Docker Compose:**
+```bash
+# Start production containers
+docker-compose up -d
+
+# Start development containers with hot reload
+docker-compose --profile dev up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+**Using Docker directly:**
+```bash
+# Build
+docker build -t hoodtopia:latest .
+
+# Run
+docker run -p 3000:3000 \
+  -e OPENAI_API_KEY=your_key \
+  -e GOOGLE_AI_API_KEY=your_key \
+  hoodtopia:latest
+```
+
+**Environment Variables:**
+Create a `.env` file for docker-compose:
+```env
+OPENAI_API_KEY=sk-...
+GOOGLE_AI_API_KEY=...
+```
+
+### Vercel
 
 ```bash
 # Install Vercel CLI
@@ -413,19 +486,6 @@ npm i -g vercel
 
 # Deploy
 vercel
-```
-
-### Docker
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
 ```
 
 ## Contributing

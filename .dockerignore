@@ -1,0 +1,60 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Next.js
+.next
+out
+
+# Testing
+coverage
+.nyc_output
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Database (will be created in container)
+db/*.db
+db/*.db-shm
+db/*.db-wal
+
+# Build artifacts
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
