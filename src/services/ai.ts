@@ -3,11 +3,13 @@ import {
   RecommendationsResponseSchema,
   SearchResultsSchema,
   CartRecommendationsResponseSchema,
+  ChatResponseSchema,
   type Message,
   type ProductForAI,
   type RecommendationWithProduct,
   type PersonalizationContext,
   type CartRecommendationWithProduct,
+  type ChatResponse,
 } from "./schemas";
 import { type ProfileConfig } from "@/lib/shopper-profiles";
 
@@ -121,26 +123,72 @@ ${productCatalog}
 // CORE AI FUNCTIONS
 // ============================================
 
+interface MatchedProductWithColor {
+  product: ProductForAI;
+  preferredColor: string | null;
+}
+
 /**
- * Chat with AI assistant - conversational interface
+ * Chat with AI assistant - conversational interface with structured output
  */
 export async function chatWithAssistant(
   messages: Message[],
   products: ProductForAI[],
   profile?: ProfileConfig | null
-): Promise<string> {
+): Promise<{ response: ChatResponse; matchedProducts: MatchedProductWithColor[] }> {
   try {
+    // Use structured output for chat responses
+    const structuredModel = chatModel.withStructuredOutput(ChatResponseSchema);
+
+    const systemPrompt = buildSystemPrompt(products, profile) + `
+
+## Response Format
+When responding, you must:
+1. Provide a conversational 'message' that answers the user's question
+2. If recommending specific products, set 'showProducts' to true and include them in 'recommendedProducts' (max 3)
+3. Only set 'showProducts' to true when actively recommending products to the user
+4. Use exact product names from the catalog for 'recommendedProducts'
+5. Keep product reasons brief (1 short sentence)
+6. If the user mentions a specific color preference (e.g., "burgundy", "navy", "black"), set 'preferredColor' to that color name for each recommended product. Use title case (e.g., "Burgundy", "Navy", "Black")`;
+
     const formattedMessages = [
-      { role: "system" as const, content: buildSystemPrompt(products, profile) },
+      { role: "system" as const, content: systemPrompt },
       ...messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
     ];
 
-    const response = await chatModel.invoke(formattedMessages);
+    const response = await structuredModel.invoke(formattedMessages);
 
-    return (response.content as string) || "I apologize, I couldn't generate a response. Please try again.";
+    if (!response || !response.message) {
+      throw new Error("Failed to parse AI response");
+    }
+
+    // Normalize response with defaults
+    const normalizedResponse: ChatResponse = {
+      message: response.message,
+      recommendedProducts: (response.recommendedProducts ?? []).map(rec => ({
+        productName: rec.productName,
+        reason: rec.reason,
+        preferredColor: rec.preferredColor ?? null,
+      })),
+      showProducts: response.showProducts ?? false,
+    };
+
+    // Match recommended product names to actual products with color preferences
+    const matchedProducts: MatchedProductWithColor[] = normalizedResponse.recommendedProducts
+      .map((rec) => {
+        const product = products.find((p) => p.name.toLowerCase() === rec.productName.toLowerCase());
+        if (!product) return null;
+        return {
+          product,
+          preferredColor: rec.preferredColor ?? null,
+        };
+      })
+      .filter((p): p is MatchedProductWithColor => p !== null);
+
+    return { response: normalizedResponse, matchedProducts };
   } catch (error) {
     console.error("Chat error:", error);
     throw new Error("Failed to get AI response");
