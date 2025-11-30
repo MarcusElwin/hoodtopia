@@ -130,6 +130,28 @@ export interface CartRecommendationWithProduct extends CartRecommendationItem {
   product?: ProductForAI;
 }
 
+// Chat response schema with inline product recommendations
+export const ChatProductRecommendationSchema = z.object({
+  productName: z.string().describe("Exact product name from catalog"),
+  reason: z.string().describe("Brief reason why this product is recommended"),
+  preferredColor: z.string().nullable().default(null).describe("Preferred color based on user request (e.g., 'Burgundy', 'Navy', 'Black'). Use null if no specific color mentioned."),
+});
+
+export const ChatResponseSchema = z.object({
+  message: z.string().describe("The conversational response to the user"),
+  recommendedProducts: z
+    .array(ChatProductRecommendationSchema)
+    .default([])
+    .describe("Products to display as cards (0-3 products). Only include when actively recommending products."),
+  showProducts: z
+    .boolean()
+    .default(false)
+    .describe("Whether to display product cards. Set to true only when recommending specific products."),
+});
+
+export type ChatProductRecommendation = z.infer<typeof ChatProductRecommendationSchema>;
+export type ChatResponse = z.infer<typeof ChatResponseSchema>;
+
 // Custom design input schema
 export const CustomDesignInputSchema = z.object({
   type: z.enum(["image", "text"]),
