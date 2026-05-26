@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { CartRecommendations } from "@/components/cart/cart-recommendations";
+import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
@@ -229,6 +230,10 @@ export default function CartPage() {
                     Proceed to Checkout
                   </Button>
                 </Link>
+
+                <div className="mt-4">
+                  <PaymentMethodDisplay amount={cart?.subtotal || 0} />
+                </div>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">
                   This is a demo. No real transactions will be processed.
