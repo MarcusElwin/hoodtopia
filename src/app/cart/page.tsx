@@ -220,9 +220,15 @@ export default function CartPage() {
                   <span>{formatPrice(cart?.subtotal || 0)}</span>
                 </div>
 
-                <Button className="w-full h-12 text-base" size="lg">
-                  Proceed to Checkout
-                </Button>
+                <Link href="/checkout" aria-disabled={isEmpty}>
+                  <Button
+                    className="w-full h-12 text-base"
+                    size="lg"
+                    disabled={isEmpty}
+                  >
+                    Proceed to Checkout
+                  </Button>
+                </Link>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">
                   This is a demo. No real transactions will be processed.
