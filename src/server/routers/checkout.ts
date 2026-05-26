@@ -20,7 +20,7 @@ export const checkoutRouter = router({
     .input(
       z
         .object({
-          enableShippingAssistant: z.boolean().optional().default(false),
+          enableShippingAssistant: z.boolean().optional().default(true),
         })
         .optional()
     )
@@ -45,7 +45,7 @@ export const checkoutRouter = router({
       const payload = buildCreateOrderPayload({
         items,
         siteUrl: siteUrl(),
-        enableShippingAssistant: input?.enableShippingAssistant ?? false,
+        enableShippingAssistant: input?.enableShippingAssistant ?? true,
       });
 
       const order = await kustom.createOrder(payload);
