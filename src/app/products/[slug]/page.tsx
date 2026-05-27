@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, Minus, Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { AIChatButton } from "@/components/ai/chat-button";
@@ -222,37 +221,53 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 key={currentImage}
               />
               {product.featured && (
-                <Badge className="absolute top-4 left-4">Featured</Badge>
+                // Same brass hang-tag treatment as the product card so
+                // the PDP doesn't break the visual language we just
+                // established. Plain <span> + Tailwind, no shadcn Badge
+                // wrapper — Badge's defaults reintroduce the filled pill.
+                <span className="absolute top-4 left-4 border border-primary text-primary bg-transparent px-2.5 py-1 text-[9px] uppercase tracking-[0.12em]">
+                  Editor&apos;s Choice
+                </span>
               )}
             </div>
             {carouselImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-3 overflow-x-auto pb-2">
                 {carouselImages.map((img, i) => {
                   const isActive =
                     (activeThumbIdx === null && i === 0) || activeThumbIdx === i;
                   return (
-                    <button
-                      key={`${img.url}-${i}`}
-                      onClick={() => setActiveThumbIdx(i)}
-                      // Editorial active state: instead of a full purple
-                      // border ring (SaaS-y), inactive thumbs sit at low
-                      // opacity and the active one has a 2px brass bottom
-                      // underline. Reads as a magazine thumb-strip.
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden transition-opacity ${
-                        isActive
-                          ? "opacity-100 after:absolute after:left-0 after:right-0 after:-bottom-1 after:h-[2px] after:bg-primary"
-                          : "opacity-60 hover:opacity-100"
-                      }`}
-                      aria-label={`Show image ${i + 1}: ${img.alt}`}
-                    >
-                      <Image
-                        src={img.url}
-                        alt={img.alt}
-                        fill
-                        className="object-cover"
-                        sizes="80px"
+                    // Wrapper holds the image AND the active underline
+                    // as siblings. The previous :after-on-the-button
+                    // approach had two bugs: Tailwind's `after:` utilities
+                    // do nothing without `after:content-['']`, and even
+                    // with it the underline was clipped by the button's
+                    // `overflow-hidden` + negative `-bottom-1`. Real
+                    // siblings render reliably.
+                    <div key={`${img.url}-${i}`} className="shrink-0 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveThumbIdx(i)}
+                        className={`relative block h-20 w-20 overflow-hidden transition-opacity ${
+                          isActive ? "opacity-100" : "opacity-60 hover:opacity-100"
+                        }`}
+                        aria-label={`Show image ${i + 1}: ${img.alt}`}
+                        aria-pressed={isActive}
+                      >
+                        <Image
+                          src={img.url}
+                          alt={img.alt}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                        />
+                      </button>
+                      <div
+                        aria-hidden="true"
+                        className={`h-[2px] w-20 transition-colors ${
+                          isActive ? "bg-primary" : "bg-transparent"
+                        }`}
                       />
-                    </button>
+                    </div>
                   );
                 })}
               </div>
