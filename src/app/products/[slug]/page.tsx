@@ -410,7 +410,14 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             {/* Express checkout — Apple Pay / Klarna / Google Pay etc.
                 Skips the cart and goes straight to a Kustom-hosted
                 one-click payment for the just-selected variant. */}
-            <ExpressButtons className="mt-2" />
+            <ExpressButtons
+              className="mt-2"
+              variantName={product.name}
+              variantSku={selectedVariant?.sku}
+              unitPriceMinor={product.basePrice}
+              quantity={quantity}
+              countryCode={country.code}
+            />
 
             <Separator />
 

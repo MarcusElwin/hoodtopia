@@ -254,7 +254,14 @@ export default function CartPage() {
                     <p className="text-xs text-muted-foreground text-center mb-2">
                       or pay instantly with
                     </p>
-                    <ExpressButtons />
+                    <ExpressButtons
+                      lines={items.map((it) => ({
+                        name: `${it.product.name} — ${it.variant.color}, ${it.variant.size}`,
+                        sku: it.variant.sku,
+                        unitPriceMinor: it.priceAtAdd,
+                        quantity: it.quantity,
+                      }))}
+                    />
                   </div>
                 )}
 
