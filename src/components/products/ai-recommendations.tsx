@@ -283,10 +283,9 @@ export function AIRecommendations() {
                 <div className="absolute inset-0 flex items-start gap-2 px-3 py-2 pointer-events-none transition-opacity duration-500">
                   {/* Animated Sparkles icon */}
                   <Sparkles
-                    className="h-4 w-4 mt-0.5 flex-shrink-0"
+                    className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary"
                     style={{
                       animation: "sparkle-pulse 2s ease-in-out infinite",
-                      color: "#a78bfa",
                     }}
                   />
                   <span

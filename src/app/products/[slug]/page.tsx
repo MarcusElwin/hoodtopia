@@ -406,7 +406,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                   selectedVariant.stock === 0
                     ? "text-destructive font-medium"
                     : selectedVariant.stock <= 5
-                      ? "text-amber-500 font-medium"
+                      ? "text-primary font-medium"
                       : "text-muted-foreground"
                 }`}
               >

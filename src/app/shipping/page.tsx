@@ -88,8 +88,8 @@ export default function ShippingPage() {
 
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             <div className="p-6 rounded-lg border bg-card">
-              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                <RefreshCw className="h-6 w-6 text-green-500" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <RefreshCw className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-lg mb-2">30-Day Returns</h3>
               <p className="text-sm text-muted-foreground">
@@ -98,8 +98,8 @@ export default function ShippingPage() {
             </div>
 
             <div className="p-6 rounded-lg border bg-card">
-              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                <Package className="h-6 w-6 text-green-500" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Package className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-lg mb-2">Free Return Shipping</h3>
               <p className="text-sm text-muted-foreground">
@@ -108,8 +108,8 @@ export default function ShippingPage() {
             </div>
 
             <div className="p-6 rounded-lg border bg-card">
-              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                <ShieldCheck className="h-6 w-6 text-green-500" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <ShieldCheck className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-lg mb-2">Easy Exchanges</h3>
               <p className="text-sm text-muted-foreground">

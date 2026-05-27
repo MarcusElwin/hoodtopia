@@ -8,6 +8,22 @@ import type {
 import { callbackToken } from "./callback-auth";
 import { type MarketConfig, getMarket } from "./markets";
 
+// Kustom iframe theme. Mirrors the brass --primary token from globals.css
+// expressed as sRGB hex (Kustom's options.color_* fields don't accept
+// oklch()). Kept as one place so the regular checkout + the express
+// checkout can't drift apart from each other or from the rest of the
+// brand. If you change --primary, recompute these.
+//   --primary           oklch(0.7 0.13 75) -> #cd9130
+//   --primary-foreground oklch(0.1 0.01 75) -> #050301
+const IFRAME_THEME = {
+  color_button: "#cd9130",        // burnished brass primary
+  color_button_text: "#050301",   // near-black foreground on brass
+  color_checkbox: "#cd9130",
+  color_checkbox_checkmark: "#050301",
+  color_header: "#cd9130",
+  color_link: "#cd9130",
+} as const;
+
 type CartItemWithJoins = CartItem & {
   product: Product;
   variant: ProductVariant;
@@ -173,11 +189,8 @@ export function buildExpressOrderPayload({
     options: {
       // KSA collects the address inside the express sheet.
       allow_separate_shipping_address: true,
-      color_button: "#a855f7",
-      color_button_text: "#ffffff",
-      color_header: "#a855f7",
-      color_link: "#a855f7",
-      radius_border: "12",
+      ...IFRAME_THEME,
+      radius_border: "0", // squared register matches the PDP CTA
     },
     // No fallback shipping_options[] — express flow relies on KSA. The
     // docs require KSA for express buttons anyway.
@@ -264,16 +277,13 @@ export function buildCreateOrderPayload({
       confirmation_page_upsell:
         Boolean(process.env.KUSTOM_CALLBACK_SECRET) &&
         (process.env.KUSTOM_UPSELL_MODE ?? "per-order") === "per-order",
-      // Match the Hoodtopia dark theme — these style the Kustom iframe and
-      // the post-purchase confirmation snippet so the white card doesn't
-      // clash with our dark surface.
-      color_button: "#a855f7", // primary purple
-      color_button_text: "#ffffff",
-      color_checkbox: "#a855f7",
-      color_checkbox_checkmark: "#ffffff",
-      color_header: "#a855f7",
-      color_link: "#a855f7",
-      radius_border: "12",
+      // Match the Hoodtopia Savile Row theme — these style the Kustom
+      // iframe and the post-purchase confirmation snippet so the white
+      // card doesn't clash with our dark surface. Brass hex values
+      // mirror the --primary token from globals.css. Lifted to the
+      // IFRAME_THEME constant so this can't drift from the express path.
+      ...IFRAME_THEME,
+      radius_border: "0", // squared register matches the PDP CTA
     },
     shipping_options: fallbackShippingOptions(market),
   };

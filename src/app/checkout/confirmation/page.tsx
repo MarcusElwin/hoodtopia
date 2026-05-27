@@ -65,8 +65,8 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="h-11 w-11 rounded-full bg-green-500/15 flex items-center justify-center">
-                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                <div className="h-11 w-11 rounded-full bg-primary/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-primary" />
                 </div>
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
                   Thanks for your order!
