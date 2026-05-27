@@ -24,6 +24,8 @@ export const checkoutRouter = router({
       z
         .object({
           enableShippingAssistant: z.boolean().optional().default(true),
+          // ISO 3166-1 alpha-2. Drives purchase_country / currency / locale / VAT.
+          countryCode: z.string().length(2).optional(),
         })
         .optional()
     )
@@ -52,6 +54,7 @@ export const checkoutRouter = router({
         items,
         siteUrl: siteUrl(),
         enableShippingAssistant: input?.enableShippingAssistant ?? true,
+        countryCode: input?.countryCode,
       });
 
       const order = await kustom.createOrder(payload);
