@@ -12,8 +12,11 @@ export const dynamic = "force-dynamic";
 
 // Kustom POSTs here after a customer completes checkout (~2 min delay).
 // Steps: fetch the Order Management order → upsert locally → acknowledge.
-// Always return 200 quickly so Kustom doesn't retry on transient errors
-// (5/15/30/60 min then every 4h for 48h on any non-2xx).
+// For *authenticated* pushes we always return 200 quickly so Kustom doesn't
+// retry on transient errors (5/15/30/60 min then every 4h for 48h on any
+// non-2xx). Forged requests are rejected with 401 below — a real Kustom push
+// always carries the token we baked into merchant_urls.push, so it never hits
+// that path.
 export async function POST(request: Request) {
   const url = new URL(request.url);
 
@@ -24,7 +27,7 @@ export async function POST(request: Request) {
     process.env.KUSTOM_CALLBACK_SECRET &&
     !verifyCallbackToken("push", url.searchParams.get("token"))
   ) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const orderId = url.searchParams.get("order_id");

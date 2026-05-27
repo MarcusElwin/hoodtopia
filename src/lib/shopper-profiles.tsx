@@ -193,10 +193,13 @@ const ProfileContext = createContext<ProfileContextType | null>(null);
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [currentProfile, setCurrentProfile] = useState<ProfileType | null>(null);
 
-  // Load profile from localStorage on mount
+  // Load profile from localStorage on mount. Reading client-only storage must
+  // happen in an effect (it's unavailable during SSR), so the setState here is
+  // intentional despite the lint rule.
   useEffect(() => {
     const stored = localStorage.getItem('hoodtopia_shopper_profile');
     if (stored && stored in PROFILES) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentProfile(stored as ProfileType);
     }
   }, []);

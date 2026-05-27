@@ -3,6 +3,8 @@ import {
   RecommendationItemSchema,
   RecommendationsResponseSchema,
   SearchResultsSchema,
+  CustomDesignInputSchema,
+  CustomDesignRefinementSchema,
 } from './schemas';
 
 describe('AI Schema Validation', () => {
@@ -160,6 +162,66 @@ describe('AI Schema Validation', () => {
 
       const result = SearchResultsSchema.safeParse(validResult);
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('CustomDesignInputSchema length caps', () => {
+    it('should accept a normal text design request', () => {
+      const result = CustomDesignInputSchema.safeParse({
+        type: 'text',
+        description: 'A cosmic galaxy print with purple nebula',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject an oversized description', () => {
+      const result = CustomDesignInputSchema.safeParse({
+        type: 'text',
+        description: 'x'.repeat(2001),
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject oversized base64 imageData', () => {
+      const result = CustomDesignInputSchema.safeParse({
+        type: 'image',
+        imageData: 'A'.repeat(20_000_001),
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should accept imageData within the cap', () => {
+      const result = CustomDesignInputSchema.safeParse({
+        type: 'image',
+        imageData: 'A'.repeat(1000),
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('CustomDesignRefinementSchema length caps', () => {
+    it('should accept normal feedback', () => {
+      const result = CustomDesignRefinementSchema.safeParse({
+        generationId: 'abc-123',
+        feedback: 'Make the logo bigger',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject empty feedback', () => {
+      const result = CustomDesignRefinementSchema.safeParse({
+        generationId: 'abc-123',
+        feedback: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject oversized feedback', () => {
+      const result = CustomDesignRefinementSchema.safeParse({
+        generationId: 'abc-123',
+        feedback: 'x'.repeat(2001),
+      });
+      expect(result.success).toBe(false);
     });
   });
 });
