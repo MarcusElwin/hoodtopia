@@ -263,7 +263,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Powered by GPT-5.1 • AI recommendations based on your preferences
+            Powered by GPT-5.4-mini • AI recommendations based on your preferences
           </p>
         </form>
       </DialogContent>

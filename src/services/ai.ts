@@ -13,14 +13,16 @@ import {
 } from "./schemas";
 import { type ProfileConfig } from "@/lib/shopper-profiles";
 
-// Model to use - GPT-5.1 for best structured outputs support
-const MODEL = "gpt-5.1";
+// GPT-5.4-mini: cheaper + faster than gpt-5.1, same 400k context, supports
+// structured outputs / function calling. Reasoning model — does NOT accept
+// `temperature`, so we omit it (default is the only supported value).
+export const MODEL = "gpt-5.4-mini";
 
-// Initialize LangChain ChatOpenAI client
 const chatModel = new ChatOpenAI({
   model: MODEL,
   apiKey: process.env.OPENAI_API_KEY,
-  temperature: 0.7,
+  // Reasoning models reject any temperature other than the default — leave
+  // it unset. Verbosity + reasoning_effort can be tuned later for cost.
 });
 
 
@@ -190,8 +192,11 @@ When responding, you must:
 
     return { response: normalizedResponse, matchedProducts };
   } catch (error) {
-    console.error("Chat error:", error);
-    throw new Error("Failed to get AI response");
+    // Include underlying OpenAI/LangChain message in logs so we can diagnose
+    // 500s without rebuilding. Generic public message stays the same.
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Chat error (model=${MODEL}):`, detail, error);
+    throw new Error(`Failed to get AI response: ${detail}`);
   }
 }
 
@@ -279,8 +284,9 @@ Analyze the user's preferences and return 1-3 product recommendations.
       followUpQuestion: result.followUpQuestion ?? undefined,
     };
   } catch (error) {
-    console.error("Recommendation error:", error);
-    throw new Error("Failed to get AI recommendations");
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Recommendation error (model=${MODEL}):`, detail, error);
+    throw new Error(`Failed to get AI recommendations: ${detail}`);
   }
 }
 
@@ -328,8 +334,9 @@ For example:
       )
     );
   } catch (error) {
-    console.error("Search error:", error);
-    throw new Error("Failed to perform AI search");
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Search error (model=${MODEL}):`, detail, error);
+    throw new Error(`Failed to perform AI search: ${detail}`);
   }
 }
 
@@ -427,7 +434,8 @@ Provide a brief cart analysis explaining your recommendation strategy.`;
       cartAnalysis: result.cartAnalysis,
     };
   } catch (error) {
-    console.error("Cart recommendation error:", error);
-    throw new Error("Failed to get cart recommendations");
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Cart recommendation error (model=${MODEL}):`, detail, error);
+    throw new Error(`Failed to get cart recommendations: ${detail}`);
   }
 }

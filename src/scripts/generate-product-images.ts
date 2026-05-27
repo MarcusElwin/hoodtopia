@@ -30,7 +30,12 @@ if (!apiKey) {
 }
 
 const ai = new GoogleGenAI({ apiKey });
-const IMAGE_MODEL = "gemini-3-pro-image-preview";
+// Default to Pro for consistency with the initial 96-image batch. For
+// future regenerations, gemini-3.1-flash-image-preview ("Nano Banana 2")
+// is the recommended default — same quality bracket, much cheaper. Switch
+// once we standardise on Flash for the catalog.
+const IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL ?? "gemini-3-pro-image-preview";
 
 const OUTPUT_DIR = path.join(process.cwd(), "public/images/products/extra");
 const PUBLIC_PATH_PREFIX = "/images/products/extra";
