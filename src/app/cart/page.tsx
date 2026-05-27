@@ -27,8 +27,10 @@ export default function CartPage() {
   });
 
   const removeItemMutation = trpc.cart.removeItem.useMutation({
+    // Capture the snapshot BEFORE invalidating — once the cache refetches,
+    // `items` will exclude the removed row and the lookup would return
+    // undefined, silently skipping the analytics event.
     onSuccess: (_, itemId) => {
-      invalidateCartAndProducts();
       const removed = items.find((i) => i.id === itemId);
       if (removed) {
         track("remove_from_cart", {
@@ -36,6 +38,7 @@ export default function CartPage() {
           quantity: removed.quantity,
         });
       }
+      invalidateCartAndProducts();
     },
   });
 

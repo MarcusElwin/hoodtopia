@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
-// Sticky banner so customers + reviewers can never miss that this is a demo —
-// no real orders, no real payments, no real data retention. Required by the
-// Kustom Playground TOS and useful so the meetup audience doesn't think they
-// can shop here for real.
+// Top-of-page banner so customers + reviewers can never miss that this is a
+// demo — no real orders, no real payments, no real data retention. Required
+// by the Kustom Playground TOS and useful so the meetup audience doesn't
+// think they can shop here for real. Rendered in the layout above <Header>
+// so it flows with the page (not sticky/fixed — scrolls away on long pages,
+// which is fine since the URL and footer both reinforce the demo nature).
 export function DemoBanner() {
   return (
     <div className="relative z-50 bg-gradient-to-r from-primary/90 via-fuchsia-500/90 to-amber-500/90 text-primary-foreground">

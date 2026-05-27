@@ -42,14 +42,24 @@ export const customDesignsRouter = router({
           hoodieType: input.hoodieType,
         });
 
-        // Save to database
+        // Save to database. On Vercel the imageUrl is a base64 data: URL
+        // (~2.5MB per generation) — persisting that would bloat Turso rows
+        // and every tRPC response that reads back the design. Strip the
+        // payload for storage and keep only the URL prefix as a marker;
+        // the client gets the full image in the response below.
+        // TODO: when we add Vercel Blob, switch to storing the blob URL.
+        const isDataUrl = generatedDesign.imageUrl.startsWith("data:");
+        const persistedUrl = isDataUrl
+          ? "data:placeholder/ephemeral" // marker that the original lived in the response
+          : generatedDesign.imageUrl;
+
         const designId = uuidv4();
         await db.insert(customDesigns).values({
           id: designId,
           sessionId: DEMO_SESSION_ID,
           type: input.type,
           originalInput: input.description || input.imageData || "",
-          generatedImageUrl: generatedDesign.imageUrl,
+          generatedImageUrl: persistedUrl,
           prompt: generatedDesign.prompt,
           baseColor: input.baseColor,
           refinementHistory: JSON.stringify([]),

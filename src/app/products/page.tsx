@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, LayoutGrid } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,9 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 function ProductsContent() {
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab") === "ai" ? "ai" : "all";
-  // Controlled so that deep-link ?tab=ai always wins over Suspense ordering;
-  // local state still lets the user click between tabs without a URL change.
+  // Controlled tab. We start from urlTab and sync via effect when the URL
+  // changes (e.g. user clicks a /products?tab=ai link inside the app), but
+  // also let local clicks switch tabs without forcing a URL update.
   const [tab, setTab] = useState(urlTab);
+  useEffect(() => {
+    setTab(urlTab);
+  }, [urlTab]);
   const [category, setCategory] = useState<string | undefined>(undefined);
 
   return (
