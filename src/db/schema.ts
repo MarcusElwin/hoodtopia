@@ -170,6 +170,25 @@ export const orders = sqliteTable("orders", {
     .$defaultFn(() => new Date()),
 });
 
+// Safety events from the AI chat — every time guardrails flag input
+// (prompt injection, moderation hit, rate-limit, prompt leak) we log
+// here for audit. Write-only at runtime; nothing in the app reads it.
+export const chatSafetyEvents = sqliteTable("chat_safety_events", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  /** "injection" | "moderation" | "rate-limit" | "leak" | "blocked-recommendation" */
+  kind: text("kind").notNull(),
+  /** JSON array of pattern labels / category names that triggered. */
+  reasons: text("reasons").notNull(),
+  /** First 1000 chars of the offending message. */
+  excerpt: text("excerpt").notNull(),
+  /** True if the request was rejected, false if we let it through anyway. */
+  blocked: integer("blocked", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Chat messages table for conversation history
 export const chatMessages = sqliteTable("chat_messages", {
   id: text("id").primaryKey(),
@@ -201,3 +220,5 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type ProductImage = typeof productImages.$inferSelect;
 export type NewProductImage = typeof productImages.$inferInsert;
+export type ChatSafetyEvent = typeof chatSafetyEvents.$inferSelect;
+export type NewChatSafetyEvent = typeof chatSafetyEvents.$inferInsert;
