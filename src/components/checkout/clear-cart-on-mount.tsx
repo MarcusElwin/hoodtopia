@@ -4,10 +4,11 @@ import { useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 
 // Empties the demo cart once the user lands on the confirmation page so the
-// header counter and cart page reset after a completed purchase.
+// header counter and cart page reset after a completed purchase. Uses the
+// purchase-aware clear so stock isn't restored for already-sold items.
 export function ClearCartOnMount() {
   const utils = trpc.useUtils();
-  const clearMutation = trpc.cart.clear.useMutation();
+  const clearMutation = trpc.cart.clearAfterPurchase.useMutation();
   const fired = useRef(false);
 
   useEffect(() => {

@@ -3,6 +3,29 @@ export interface MerchantUrls {
   checkout: string;
   confirmation: string;
   push: string;
+  // Optional callback URLs — Kustom calls these mid-checkout when present.
+  validation?: string;
+  shipping_option_update?: string;
+  address_update?: string;
+  country_change?: string;
+  upsell?: string;
+  upsell_validation?: string;
+}
+
+export interface UpsellLine {
+  reference: string;
+  name: string;
+  quantity: number;
+  quantity_unit?: string;
+  unit_price: number;
+  tax_rate: number;
+  total_amount: number;
+  total_discount_amount?: number;
+  total_tax_amount: number;
+  image_url?: string;
+  product_url?: string;
+  type?: "physical" | "digital";
+  merchant_data?: string;
 }
 
 export interface OrderLine {
@@ -44,6 +67,7 @@ export interface CheckoutOptions {
   allow_separate_shipping_address?: boolean;
   date_of_birth_mandatory?: boolean;
   require_validate_callback_success?: boolean;
+  confirmation_page_upsell?: boolean;
 }
 
 export interface CreateOrderPayload {

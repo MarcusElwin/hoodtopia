@@ -30,7 +30,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const utils = trpc.useUtils();
   const addToCartMutation = trpc.cart.addItem.useMutation({
     onSuccess: () => {
+      // Refetch cart and product so the new stock count shows immediately.
       utils.cart.get.invalidate();
+      utils.products.bySlug.invalidate();
     },
   });
 
@@ -257,7 +259,10 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                   variant="outline"
                   size="icon"
                   onClick={() => setQuantity(quantity + 1)}
-                  disabled={quantity >= 10}
+                  disabled={
+                    quantity >= 10 ||
+                    (selectedVariant ? quantity >= selectedVariant.stock : false)
+                  }
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -266,7 +271,15 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
             {/* Stock Status */}
             {selectedVariant && (
-              <p className="text-sm text-muted-foreground">
+              <p
+                className={`text-sm ${
+                  selectedVariant.stock === 0
+                    ? "text-destructive font-medium"
+                    : selectedVariant.stock <= 5
+                      ? "text-amber-500 font-medium"
+                      : "text-muted-foreground"
+                }`}
+              >
                 {selectedVariant.stock > 10
                   ? "In Stock"
                   : selectedVariant.stock > 0
@@ -293,6 +306,12 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               )}
               {addToCartMutation.isSuccess ? "Added to Cart!" : "Add to Cart"}
             </Button>
+
+            {addToCartMutation.error ? (
+              <p className="text-sm text-destructive">
+                {addToCartMutation.error.message}
+              </p>
+            ) : null}
 
             <Separator />
 
