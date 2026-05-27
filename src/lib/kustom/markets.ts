@@ -13,8 +13,13 @@ export interface MarketConfig {
   vat_rate_bp: number; // basis points (e.g. 2500 = 25%)
   vat_divisor: number; // 1 + vat_rate (e.g. 1.25 for 25% VAT)
   shipping_minor: {
-    standard: number; // fallback shipping prices in the market's minor units
+    standard: number; // minor units (öre / pence / cents / ¥)
     express: number;
+    pickup: number;
+    /** Free Standard kicks in when order_amount (minor units) >= this. */
+    free_standard_threshold: number;
+    /** Human-friendly amount used in the "free over X" label. */
+    free_label: string;
   };
 }
 
@@ -25,7 +30,13 @@ export const MARKETS: Record<string, MarketConfig> = {
     locale: "sv-SE",
     vat_rate_bp: 2500,
     vat_divisor: 1.25,
-    shipping_minor: { standard: 4900, express: 9900 }, // 49 / 99 kr
+    shipping_minor: {
+      standard: 4900,
+      express: 9900,
+      pickup: 2900,
+      free_standard_threshold: 100000, // 1000 kr
+      free_label: "1000 kr",
+    },
   },
   GB: {
     purchase_country: "GB",
@@ -33,15 +44,27 @@ export const MARKETS: Record<string, MarketConfig> = {
     locale: "en-GB",
     vat_rate_bp: 2000,
     vat_divisor: 1.2,
-    shipping_minor: { standard: 499, express: 999 }, // £4.99 / £9.99
+    shipping_minor: {
+      standard: 499,
+      express: 999,
+      pickup: 299,
+      free_standard_threshold: 10000, // £100
+      free_label: "£100",
+    },
   },
   US: {
     purchase_country: "US",
     purchase_currency: "USD",
     locale: "en-US",
     vat_rate_bp: 0,
-    vat_divisor: 1, // no VAT line in the US
-    shipping_minor: { standard: 599, express: 1299 }, // $5.99 / $12.99
+    vat_divisor: 1,
+    shipping_minor: {
+      standard: 599,
+      express: 1299,
+      pickup: 399,
+      free_standard_threshold: 10000, // $100
+      free_label: "$100",
+    },
   },
   DE: {
     purchase_country: "DE",
@@ -49,7 +72,13 @@ export const MARKETS: Record<string, MarketConfig> = {
     locale: "de-DE",
     vat_rate_bp: 1900,
     vat_divisor: 1.19,
-    shipping_minor: { standard: 499, express: 999 }, // €4.99 / €9.99
+    shipping_minor: {
+      standard: 499,
+      express: 999,
+      pickup: 299,
+      free_standard_threshold: 10000, // €100
+      free_label: "€100",
+    },
   },
   JP: {
     purchase_country: "JP",
@@ -57,7 +86,13 @@ export const MARKETS: Record<string, MarketConfig> = {
     locale: "ja-JP",
     vat_rate_bp: 1000,
     vat_divisor: 1.1,
-    shipping_minor: { standard: 600, express: 1500 }, // ¥600 / ¥1500 (JPY has no minor unit)
+    shipping_minor: {
+      standard: 600,
+      express: 1500,
+      pickup: 400,
+      free_standard_threshold: 15000, // ¥15,000 (JPY has no minor unit)
+      free_label: "¥15,000",
+    },
   },
 };
 
