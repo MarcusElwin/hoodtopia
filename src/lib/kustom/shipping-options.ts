@@ -1,4 +1,4 @@
-import type { Address, ShippingOption } from "./types";
+import type { Address, KsaShippingOption } from "./types";
 import { getMarket } from "./markets";
 
 function hasFullAddress(addr?: Address): boolean {
@@ -10,22 +10,18 @@ export interface BuildShippingOptionsInput {
   billing_address?: Address;
   /** ISO 3166-1 alpha-2 from Kustom's request. */
   purchase_country?: string;
-  /** Order subtotal in the market's minor units (e.g. öre / pence). */
+  /** Order subtotal in the market's minor units. */
   order_amount?: number;
 }
 
 export interface BuildShippingOptionsResult {
-  shipping_options: ShippingOption[];
-  preview: boolean;
+  shipping_options: KsaShippingOption[];
 }
 
 // Returns dynamic shipping options for Kustom Shipping Assistant. Prices,
-// VAT, and the free-shipping threshold come from MARKETS so SE customers
-// see SEK prices and "free over 1000 kr", GB customers see £ and "free
-// over £100", etc.
-//
-// When only country-level info is known (no postal code), marks the
-// response as preview so KCO refreshes once a full address is entered.
+// VAT, and the free-shipping threshold come from MARKETS. Each option
+// carries the spec-required type/carrier/delivery_time/class fields — KSA
+// rejects "basic" options that lack these.
 export function buildShippingOptions({
   shipping_address,
   billing_address,
@@ -36,43 +32,52 @@ export function buildShippingOptions({
     shipping_address?.country?.toUpperCase() ?? purchase_country
   );
   const addr = shipping_address?.postal_code ? shipping_address : billing_address;
-  const preview = !hasFullAddress(addr);
+  const isPreview = !hasFullAddress(addr);
 
   const freeStandard =
     (order_amount ?? 0) >= market.shipping_minor.free_standard_threshold;
 
-  const withTax = (price: number) => ({
-    price,
-    tax_amount: Math.round(price - price / market.vat_divisor),
-    tax_rate: market.vat_rate_bp,
-  });
-
-  const options: ShippingOption[] = [
+  const options: KsaShippingOption[] = [
     {
       id: "std",
+      type: "postal",
+      carrier: "hoodtopia-post",
       name: freeStandard
         ? `Standard (free over ${market.shipping_minor.free_label})`
         : "Standard",
       description: "3–5 business days",
-      ...withTax(freeStandard ? 0 : market.shipping_minor.standard),
+      price: freeStandard ? 0 : market.shipping_minor.standard,
+      tax_rate: market.vat_rate_bp,
+      delivery_time: { interval: { earliest: 3, latest: 5 } },
+      class: "standard",
       preselected: true,
-      shipping_method: "Home",
+      preview: isPreview,
     },
     {
       id: "exp",
+      type: "delivery-address",
+      carrier: "hoodtopia-express",
       name: "Express",
       description: "1–2 business days",
-      ...withTax(market.shipping_minor.express),
-      shipping_method: "Express",
+      price: market.shipping_minor.express,
+      tax_rate: market.vat_rate_bp,
+      delivery_time: { interval: { earliest: 1, latest: 2 } },
+      class: "express",
+      preview: isPreview,
     },
     {
       id: "pup",
+      type: "pickup-point",
+      carrier: "hoodtopia-pickup",
       name: "Pickup point",
       description: "Collect at your nearest service point",
-      ...withTax(market.shipping_minor.pickup),
-      shipping_method: "PickUpStore",
+      price: market.shipping_minor.pickup,
+      tax_rate: market.vat_rate_bp,
+      delivery_time: { interval: { earliest: 2, latest: 3 } },
+      class: "standard",
+      preview: isPreview,
     },
   ];
 
-  return { shipping_options: options, preview };
+  return { shipping_options: options };
 }

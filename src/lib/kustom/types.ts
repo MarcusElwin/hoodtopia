@@ -43,6 +43,7 @@ export interface OrderLine {
   product_url?: string;
 }
 
+// Used in Create Order's options[] (fallback shipping when KSA is down).
 export interface ShippingOption {
   id: string;
   name: string;
@@ -61,6 +62,44 @@ export interface ShippingOption {
       address?: Record<string, string>;
     };
   };
+}
+
+// Used by the KSA Integrator API (POST /shippingoptions response). Stricter
+// shape than the Create Order fallback — Kustom validates "type" + "carrier"
+// + a delivery_time interval, otherwise rejects with "Basic options not
+// allowed in the get shipping options response".
+//
+// Spec: https://docs.kustom.co/contents/checkout/shipping-assistant/api-integration
+export type KsaShippingType =
+  | "postal"           // standard mail carrier delivery to address
+  | "delivery-address" // direct courier to home/work
+  | "pickup-point"     // shop / locker pickup
+  | "pickup-box"       // automated parcel locker
+  | "same-day"
+  | "next-day";
+
+export type KsaShippingClass = "standard" | "express" | "premium";
+
+export interface KsaDeliveryTime {
+  /** Business-day window. */
+  interval?: { earliest?: number; latest?: number };
+  /** Absolute ISO timestamp for time-bounded options (e.g. same-day cutoff). */
+  latest?: string;
+}
+
+export interface KsaShippingOption {
+  id: string;
+  type: KsaShippingType;
+  carrier: string; // free-form: "postnord", "dhl", "in-house", etc
+  name: string;
+  description?: string;
+  price: number;      // minor units of the order currency
+  tax_rate: number;   // basis points (2500 = 25%)
+  delivery_time?: KsaDeliveryTime;
+  class?: KsaShippingClass;
+  preselected?: boolean;
+  /** Marks preview options (returned when only country is known). */
+  preview?: boolean;
 }
 
 export interface CheckoutOptions {
