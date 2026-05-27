@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useCurrency } from "@/lib/currency";
+import { trpc } from "@/lib/trpc";
 import { ELEMENTS_ENABLED, localeFor } from "./elements-config";
 
 // Kustom's JS API global injected by the Elements loader script.
@@ -88,6 +89,9 @@ export function ExpressButtons({
 }: ExpressButtonsProps) {
   const { country, currency } = useCurrency();
   const initRunRef = useRef(0);
+  // tRPC vanilla client so we can call it from inside the createOrder
+  // callback (which lives outside React's render lifecycle).
+  const trpcClient = trpc.useUtils().client;
 
   const mounted = useSyncExternalStore(
     subscribe,
@@ -119,9 +123,13 @@ export function ExpressButtons({
     const runId = ++initRunRef.current;
 
     const vatRate = VAT_BY_COUNTRY[resolvedCountry] ?? 0;
-    const orderLines = effectiveLines.map((l) => {
+    // Display order lines shown in the express sheet BEFORE the real
+    // Kustom order exists. The docs' order-lines shape is strict:
+    // only name / totalAmount / taxAmount / quantity are accepted. We
+    // deliberately do not pass `reference` here — Klarna's validator
+    // rejects unknown keys in some flows.
+    const displayLines = effectiveLines.map((l) => {
       const totalAmount = l.unitPriceMinor * l.quantity;
-      // VAT-inclusive: taxAmount = total - (total / (1 + rate))
       const taxAmount = vatRate > 0
         ? Math.round(totalAmount - totalAmount / (1 + vatRate))
         : 0;
@@ -130,7 +138,6 @@ export function ExpressButtons({
         totalAmount,
         taxAmount,
         quantity: l.quantity,
-        ...(l.sku ? { reference: l.sku } : {}),
       };
     });
 
@@ -141,15 +148,43 @@ export function ExpressButtons({
       try {
         await k("express.initialize", `#${ELEMENT_ID}`, {
           currency: resolvedCurrency,
-          orderLines,
+          orderLines: displayLines,
           shippingAddressRequired: true,
+          // Defer real Kustom order creation until the consumer is about
+          // to pay. This is the only flow that lets us inject our own
+          // merchant_urls (confirmation + push), without which Klarna
+          // would redirect to Kustom's default confirmation page and our
+          // backend would never see the order.
+          createOrder: (
+            resolve: (v: { orderId: string }) => void,
+            reject: (e: unknown) => void
+          ) => {
+            trpcClient.checkout.initExpressCheckout
+              .mutate({
+                lines: effectiveLines.map((l) => ({
+                  sku: l.sku ?? "no-sku",
+                  name: l.name,
+                  unitPriceMinor: l.unitPriceMinor,
+                  quantity: l.quantity,
+                })),
+                countryCode: resolvedCountry,
+              })
+              .then((res) => resolve({ orderId: res.order_id }))
+              .catch((err) => {
+                console.error("[express] createOrder failed:", err);
+                reject(err);
+              });
+          },
           onConfirm: (response: { redirectUrl?: string }) => {
             if (response?.redirectUrl) {
               window.location.href = response.redirectUrl;
             }
           },
           onError: (err: unknown) => {
-            console.warn("[express] error:", err);
+            // Surface the full payload so we can see whether it was a
+            // MERCHANT_HOOK_INVALID_RESPONSE, MERCHANT_ABORTED, or a
+            // payment-side rejection.
+            console.error("[express] error:", err);
           },
         });
       } catch (err) {
@@ -159,7 +194,7 @@ export function ExpressButtons({
     })();
     // effectiveLines deliberately omitted — linesKey is its hash.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, linesKey, resolvedCurrency, resolvedCountry]);
+  }, [mounted, linesKey, resolvedCurrency, resolvedCountry, trpcClient]);
 
   if (!mounted || !ELEMENTS_ENABLED) return null;
   if (effectiveLines.length === 0) return null;

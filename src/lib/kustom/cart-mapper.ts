@@ -82,6 +82,108 @@ export interface BuildCreateOrderInput {
   traceId?: string;
 }
 
+/**
+ * Build a Create Order payload from raw line items rather than cart rows.
+ * Used by the Express Buttons createOrder hook on the PDP — the customer
+ * hasn't necessarily added anything to the cart, so we synthesise lines
+ * from the selected variant directly. Same merchant_urls / options as the
+ * cart flow so confirmation + push + KSA all work identically.
+ */
+export interface BuildExpressPayloadLine {
+  sku: string;
+  name: string;
+  unitPriceMinor: number;
+  quantity: number;
+  imageUrl?: string;
+}
+
+export interface BuildExpressPayloadInput {
+  lines: BuildExpressPayloadLine[];
+  siteUrl: string;
+  countryCode?: string | null;
+  sessionId?: string;
+  traceId?: string;
+}
+
+export function buildExpressOrderPayload({
+  lines,
+  siteUrl,
+  countryCode,
+  sessionId,
+  traceId,
+}: BuildExpressPayloadInput): CreateOrderPayload {
+  if (lines.length === 0) {
+    throw new Error("Cannot create express checkout for empty lines");
+  }
+
+  const market = getMarket(countryCode);
+
+  const order_lines: OrderLine[] = lines.map((l) => {
+    const total_amount = l.unitPriceMinor * l.quantity;
+    const total_tax_amount = Math.round(
+      total_amount - total_amount / market.vat_divisor
+    );
+    return {
+      type: "physical",
+      reference: l.sku,
+      name: l.name,
+      quantity: l.quantity,
+      quantity_unit: "pcs",
+      unit_price: l.unitPriceMinor,
+      tax_rate: market.vat_rate_bp,
+      total_amount,
+      total_discount_amount: 0,
+      total_tax_amount,
+      image_url: l.imageUrl,
+    };
+  });
+
+  const order_amount = order_lines.reduce((s, l) => s + l.total_amount, 0);
+  const order_tax_amount = order_lines.reduce(
+    (s, l) => s + l.total_tax_amount,
+    0
+  );
+
+  const site = siteUrl.replace(/\/$/, "");
+  const pushToken = process.env.KUSTOM_CALLBACK_SECRET
+    ? `&token=${callbackToken("push")}`
+    : "";
+
+  // For express we keep callbacks minimal — Kustom drives the address
+  // flow inside the express sheet and doesn't expect our country-change
+  // hooks to fire. We still wire the confirmation + push so we capture
+  // the completed order the same way as the normal checkout.
+  const merchant_urls: MerchantUrls = {
+    terms: `${site}/terms`,
+    checkout: `${site}/checkout`,
+    confirmation: `${site}/checkout/confirmation?order_id={checkout.order.id}`,
+    push: `${site}/api/kustom/push?order_id={checkout.order.id}${pushToken}`,
+  };
+
+  return {
+    purchase_country: market.purchase_country,
+    purchase_currency: market.purchase_currency,
+    locale: market.locale,
+    order_amount,
+    order_tax_amount,
+    order_lines,
+    merchant_urls,
+    merchant_reference1: sessionId,
+    merchant_reference2: traceId,
+    options: {
+      // KSA collects the address inside the express sheet.
+      allow_separate_shipping_address: true,
+      color_button: "#a855f7",
+      color_button_text: "#ffffff",
+      color_header: "#a855f7",
+      color_link: "#a855f7",
+      radius_border: "12",
+    },
+    // No fallback shipping_options[] — express flow relies on KSA. The
+    // docs require KSA for express buttons anyway.
+  };
+}
+
 export function buildCreateOrderPayload({
   items,
   siteUrl,

@@ -5,7 +5,10 @@ import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
 import { db, carts, products } from "@/db";
 import { kustom } from "@/lib/kustom/client";
-import { buildCreateOrderPayload } from "@/lib/kustom/cart-mapper";
+import {
+  buildCreateOrderPayload,
+  buildExpressOrderPayload,
+} from "@/lib/kustom/cart-mapper";
 import { currencySymbol } from "@/lib/kustom/currency";
 import { getCartRecommendations } from "@/services/ai";
 
@@ -74,6 +77,55 @@ export const checkoutRouter = router({
       return {
         order_id: order.order_id,
         html_snippet: order.html_snippet ?? "",
+        status: order.status,
+        trace_id: traceId,
+      };
+    }),
+
+  // Express checkout — synthesise a Kustom Checkout order from raw lines
+  // (typically the selected variant on a PDP, or a snapshot of the cart).
+  // Invoked from the Express Buttons createOrder hook so we wire our own
+  // merchant_urls (confirmation + push) into the Kustom session. Returns
+  // the order_id so the SDK can take over and finish the payment.
+  initExpressCheckout: publicProcedure
+    .input(
+      z.object({
+        lines: z
+          .array(
+            z.object({
+              sku: z.string().min(1).max(64),
+              name: z.string().min(1).max(255),
+              unitPriceMinor: z.number().int().nonnegative(),
+              quantity: z.number().int().min(1).max(99),
+              imageUrl: z.string().max(1024).optional(),
+            })
+          )
+          .min(1)
+          .max(50),
+        countryCode: z.string().length(2).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const traceId = uuidv4();
+      const payload = buildExpressOrderPayload({
+        lines: input.lines,
+        siteUrl: siteUrl(),
+        countryCode: input.countryCode,
+        sessionId: DEMO_SESSION_ID,
+        traceId,
+      });
+
+      console.log("[express/init] traceId=%s country=%s lines=%d total=%d %s",
+        traceId, input.countryCode ?? "(default)", input.lines.length,
+        payload.order_amount, payload.purchase_currency);
+
+      const order = await kustom.createOrder(payload);
+
+      console.log("[express/init] traceId=%s order_id=%s status=%s",
+        traceId, order.order_id, order.status);
+
+      return {
+        order_id: order.order_id,
         status: order.status,
         trace_id: traceId,
       };
