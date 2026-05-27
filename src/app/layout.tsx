@@ -19,21 +19,25 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 // Geist Sans intentionally removed — the previous neutral grotesque body
 // font fought the new serif display rather than supporting it. DM Sans
 // pairs cleanly with Playfair.
+// next/font variables MUST have distinct names from the Tailwind theme
+// tokens (--font-sans / --font-mono / --font-display). Otherwise
+// `@theme inline { --font-sans: var(--font-sans) }` becomes a
+// self-reference and the browser drops to its default font stack.
 const dmSans = DM_Sans({
-  variable: "--font-sans",
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "700"],
 });
 
 const playfair = Playfair_Display({
-  variable: "--font-display",
+  variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   style: ["normal", "italic"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-mono",
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 

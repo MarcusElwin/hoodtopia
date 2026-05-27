@@ -63,7 +63,9 @@ export function Hero() {
           </div>
 
           {/* Stats as hairline-framed callouts. Brass top rule, small
-              caps label below the figure, no vertical pipes. */}
+              caps label above the figure (semantically the LABEL is
+              the term, the FIGURE is its value — dt holds the label,
+              dd holds the value). */}
           <dl className="grid grid-cols-3 gap-8 max-w-md mx-auto pt-12 text-center">
             {[
               { figure: "6", label: "Styles" },
@@ -72,10 +74,10 @@ export function Hero() {
             ].map((stat) => (
               <div key={stat.label} className="space-y-2">
                 <div className="h-px w-8 bg-primary/40 mx-auto" />
-                <dt className="text-2xl font-display font-normal">{stat.figure}</dt>
-                <dd className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                <dt className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   {stat.label}
-                </dd>
+                </dt>
+                <dd className="text-2xl font-display font-normal">{stat.figure}</dd>
               </div>
             ))}
           </dl>
