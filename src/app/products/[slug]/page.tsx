@@ -84,7 +84,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   // Carousel for the currently selected colour:
   //   1. colour-specific hero
   //   2. colour-specific extras (lifestyle, fabric close-up) from product_images
-  //   3. other-colour heroes so the customer can preview without clicking swatches
+  // We intentionally do NOT include other-colour heroes here — the colour
+  // swatches above already let the customer switch colours; duplicating
+  // them in the thumb strip dilutes focus on the selected variant.
   const carouselImages = useMemo(() => {
     if (!product) return [] as { url: string; alt: string }[];
 
@@ -96,15 +98,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       .filter((img) => colorVariant && img.variantId === colorVariant.id)
       .map((img) => ({ url: img.url, alt: img.alt ?? product.name }));
 
-    const otherColors: { url: string; alt: string }[] = [];
-    const seen = new Set<string>([actualSelectedColor ?? ""]);
-    for (const v of product.variants) {
-      if (seen.has(v.color) || !v.imageUrl) continue;
-      seen.add(v.color);
-      otherColors.push({ url: v.imageUrl, alt: `${product.name} — ${v.color}` });
-    }
-
-    return [...heroSet, ...extras, ...otherColors];
+    return [...heroSet, ...extras];
   }, [product, colorHero, actualSelectedColor, colorVariant]);
 
   // What we actually show in the big frame.

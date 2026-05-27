@@ -25,21 +25,21 @@ export const RecommendationItemSchema = z.object({
     .describe("Key features that match the request"),
 });
 
-// Full recommendations response
+// Full recommendations response.
+// followUpQuestion is plain .nullable() — OpenAI's strict JSON Schema
+// rejects sibling keywords (default/description/title) next to the $ref
+// that Zod emits for nullable strings. Keep the field documented in the
+// system prompt instead.
 export const RecommendationsResponseSchema = z.object({
   recommendations: z
     .array(RecommendationItemSchema)
     .min(1)
     .max(3)
     .describe("1-3 product recommendations"),
-  followUpQuestion: z
-    .string()
-    .nullable()
-    .default(null)
-    .describe("Optional follow-up question to refine recommendations"),
+  followUpQuestion: z.string().nullable(),
 });
 
-// Search results schema
+// Search results schema. Same caveat as above for searchIntent.
 export const SearchResultsSchema = z.object({
   productNames: z
     .array(z.string())
@@ -47,11 +47,7 @@ export const SearchResultsSchema = z.object({
   isRelevant: z
     .boolean()
     .describe("Whether the query is relevant to hoodies/our products"),
-  searchIntent: z
-    .string()
-    .nullable()
-    .default(null)
-    .describe("Interpreted user intent from search query"),
+  searchIntent: z.string().nullable(),
 });
 
 // Type exports from Zod schemas
@@ -130,23 +126,35 @@ export interface CartRecommendationWithProduct extends CartRecommendationItem {
   product?: ProductForAI;
 }
 
-// Chat response schema with inline product recommendations
+// Chat response schema with inline product recommendations.
+//
+// IMPORTANT: do NOT combine .default(...) or .describe(...) on fields that
+// Zod emits as a $ref to a shared sub-schema (e.g. items of an array).
+// OpenAI's strict JSON Schema rejects sibling keywords next to $ref:
+//   "$ref cannot have keywords {'default', 'description', 'title'}".
+// We keep descriptions only at leaf properties and handle defaults in
+// chatWithAssistant() (see ai.ts: response normalization block).
 export const ChatProductRecommendationSchema = z.object({
   productName: z.string().describe("Exact product name from catalog"),
   reason: z.string().describe("Brief reason why this product is recommended"),
-  preferredColor: z.string().nullable().default(null).describe("Preferred color based on user request (e.g., 'Burgundy', 'Navy', 'Black'). Use null if no specific color mentioned."),
+  preferredColor: z
+    .string()
+    .nullable()
+    .describe(
+      "Preferred color based on user request (e.g., 'Burgundy', 'Navy', 'Black'). Use null if no specific color mentioned."
+    ),
 });
 
 export const ChatResponseSchema = z.object({
   message: z.string().describe("The conversational response to the user"),
-  recommendedProducts: z
-    .array(ChatProductRecommendationSchema)
-    .default([])
-    .describe("Products to display as cards (0-3 products). Only include when actively recommending products."),
+  // No .default() / .describe() here — see note above. The array items
+  // resolve to a $ref, and OpenAI rejects sibling keywords on the parent.
+  recommendedProducts: z.array(ChatProductRecommendationSchema),
   showProducts: z
     .boolean()
-    .default(false)
-    .describe("Whether to display product cards. Set to true only when recommending specific products."),
+    .describe(
+      "Whether to display product cards. Set to true only when recommending specific products."
+    ),
 });
 
 export type ChatProductRecommendation = z.infer<typeof ChatProductRecommendationSchema>;

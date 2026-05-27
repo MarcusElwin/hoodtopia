@@ -170,7 +170,7 @@ When responding, you must:
 3. Only set 'showProducts' to true when actively recommending products to the user
 4. Use exact product names from the catalog for 'recommendedProducts'
 5. Keep product reasons brief (1 short sentence)
-6. If the user mentions a specific color preference (e.g., "burgundy", "navy", "black"), set 'preferredColor' to that color name for each recommended product. Use title case (e.g., "Burgundy", "Navy", "Black")`;
+6. If the user mentions a specific color preference (e.g., "burgundy", "navy", "black"), set 'preferredColor' to that color name in title case (e.g., "Burgundy", "Navy", "Black") for each recommended product. Set 'preferredColor' to null if no specific color was mentioned.`;
 
     const formattedMessages = [
       { role: "system" as const, content: systemPrompt },
@@ -273,7 +273,8 @@ Analyze the user's preferences and return 1-3 product recommendations.
 - Match product names EXACTLY as they appear in the list
 - Provide a confidence score (0-1) based on how well the product matches
 - Highlight specific features that match the request
-- Optionally suggest a follow-up question to refine recommendations`;
+- Set 'followUpQuestion' to a short question that would help refine
+  recommendations, or to null if no follow-up makes sense.`;
 
     const result = await structuredModel.invoke([
       { role: "system", content: systemPrompt },

@@ -105,7 +105,10 @@ describe('AI Schema Validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should allow optional followUpQuestion', () => {
+    it('should accept null followUpQuestion', () => {
+      // followUpQuestion is .nullable() with no default (OpenAI strict
+      // mode forbids sibling keywords on $refs). Caller must send null
+      // explicitly when there is no follow-up.
       const validResponse = {
         recommendations: [
           {
@@ -115,6 +118,7 @@ describe('AI Schema Validation', () => {
             highlightedFeatures: ['Soft cotton'],
           },
         ],
+        followUpQuestion: null,
       };
 
       const result = RecommendationsResponseSchema.safeParse(validResponse);
@@ -138,6 +142,7 @@ describe('AI Schema Validation', () => {
       const validResult = {
         productNames: [],
         isRelevant: false,
+        searchIntent: null,
       };
 
       const result = SearchResultsSchema.safeParse(validResult);
@@ -154,10 +159,11 @@ describe('AI Schema Validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should allow optional searchIntent', () => {
+    it('should accept null searchIntent', () => {
       const validResult = {
         productNames: ['Classic Comfort Hoodie'],
         isRelevant: true,
+        searchIntent: null,
       };
 
       const result = SearchResultsSchema.safeParse(validResult);
