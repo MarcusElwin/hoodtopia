@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, Minus, Plus, ShoppingBag, Check, Loader2 } from "lucide-react";
+import { ChevronLeft, Minus, Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -189,16 +189,20 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Breadcrumb */}
+      {/* Breadcrumb — "Collection / {product name}" in small caps, no
+          icon. Editorial, not chevron-back-to-list. */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <Link
-            href="/products"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Products
-          </Link>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <Link
+              href="/products"
+              className="hover:text-foreground transition-colors"
+            >
+              Collection
+            </Link>
+            <span className="mx-2 text-muted-foreground/60">/</span>
+            <span className="text-foreground">{product.name}</span>
+          </p>
         </div>
       </div>
 
@@ -222,7 +226,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               )}
             </div>
             {carouselImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {carouselImages.map((img, i) => {
                   const isActive =
                     (activeThumbIdx === null && i === 0) || activeThumbIdx === i;
@@ -230,10 +234,14 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     <button
                       key={`${img.url}-${i}`}
                       onClick={() => setActiveThumbIdx(i)}
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
+                      // Editorial active state: instead of a full purple
+                      // border ring (SaaS-y), inactive thumbs sit at low
+                      // opacity and the active one has a 2px brass bottom
+                      // underline. Reads as a magazine thumb-strip.
+                      className={`relative h-20 w-20 shrink-0 overflow-hidden transition-opacity ${
                         isActive
-                          ? "border-primary"
-                          : "border-border hover:border-foreground/40"
+                          ? "opacity-100 after:absolute after:left-0 after:right-0 after:-bottom-1 after:h-[2px] after:bg-primary"
+                          : "opacity-60 hover:opacity-100"
                       }`}
                       aria-label={`Show image ${i + 1}: ${img.alt}`}
                     >
@@ -263,9 +271,22 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <p className="text-2xl font-semibold mt-4">
                 {formatPrice(product.basePrice)}
               </p>
-              <div className="mt-2 space-y-2">
-                <PaymentMethodDisplay />
-                <DeliveryMethodDisplay />
+              {/* Payment + delivery logos sit inside hairline-bordered
+                  trays with small-caps labels — frames the brand logos
+                  as considered information rather than visual noise. */}
+              <div className="mt-4 space-y-3">
+                <div className="border border-border/60 px-3 py-2">
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+                    Payment
+                  </p>
+                  <PaymentMethodDisplay />
+                </div>
+                <div className="border border-border/60 px-3 py-2">
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+                    Delivery
+                  </p>
+                  <DeliveryMethodDisplay />
+                </div>
               </div>
             </div>
 
@@ -375,17 +396,19 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 }`}
               >
                 {selectedVariant.stock > 10
-                  ? "In Stock"
+                  ? "Available"
                   : selectedVariant.stock > 0
-                    ? `Only ${selectedVariant.stock} left`
-                    : "Out of Stock"}
+                    ? `${selectedVariant.stock} remaining`
+                    : "Spoken for"}
               </p>
             )}
 
-            {/* Add to Cart */}
+            {/* Reserve This Piece — squared button, no icon, small-caps
+                tracked label so the primary action reads like the shop's
+                voice rather than a generic e-commerce CTA. */}
             <Button
               size="lg"
-              className="w-full h-12 text-base"
+              className="w-full h-12 text-sm tracking-[0.12em] uppercase rounded-none"
               onClick={handleAddToCart}
               disabled={
                 !selectedVariant ||
@@ -395,10 +418,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             >
               {addToCartMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              ) : (
-                <ShoppingBag className="h-5 w-5 mr-2" />
-              )}
-              {addToCartMutation.isSuccess ? "Added to Cart!" : "Add to Cart"}
+              ) : null}
+              {addToCartMutation.isSuccess ? "Held for You" : "Reserve This Piece"}
             </Button>
 
             {addToCartMutation.error ? (
@@ -410,14 +431,18 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             {/* Express checkout — Apple Pay / Klarna / Google Pay etc.
                 Skips the cart and goes straight to a Kustom-hosted
                 one-click payment for the just-selected variant. */}
-            <ExpressButtons
-              className="mt-2"
-              variantName={product.name}
-              variantSku={selectedVariant?.sku}
-              unitPriceMinor={product.basePrice}
-              quantity={quantity}
-              countryCode={country.code}
-            />
+            <div className="mt-4">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground text-center mb-2">
+                — or express checkout —
+              </p>
+              <ExpressButtons
+                variantName={product.name}
+                variantSku={selectedVariant?.sku}
+                unitPriceMinor={product.basePrice}
+                quantity={quantity}
+                countryCode={country.code}
+              />
+            </div>
 
             <Separator />
 

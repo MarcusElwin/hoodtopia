@@ -251,8 +251,8 @@ export default function CartPage() {
                     Google Pay etc. Skips the full checkout iframe. */}
                 {!isEmpty && (
                   <div className="mt-3">
-                    <p className="text-xs text-muted-foreground text-center mb-2">
-                      or pay instantly with
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground text-center mb-2">
+                      — or express checkout —
                     </p>
                     <ExpressButtons
                       lines={items.map((it) => ({

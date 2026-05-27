@@ -21,7 +21,7 @@ export function Footer() {
               <span className="text-lg font-bold">Hoodtopia</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              AI-powered hoodie shopping. Find your perfect fit with personalized recommendations.
+              Informed by preference. Guided by restraint.
             </p>
             <div className="flex items-center gap-3 pt-2">
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
@@ -63,7 +63,7 @@ export function Footer() {
               <li>
                 <Link href="/products?tab=ai" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
                   <Sparkles className="h-3 w-3 text-primary" />
-                  AI Recommendations
+                  Ask the Stylist
                 </Link>
               </li>
               <li>
@@ -124,9 +124,9 @@ export function Footer() {
 
           {/* Newsletter Column */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Stay Updated</h3>
+            <h3 className="font-semibold">Correspondence</h3>
             <p className="text-sm text-muted-foreground">
-              Subscribe for new arrivals and exclusive offers.
+              Occasional updates. No noise.
             </p>
             <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
               <Input
