@@ -14,12 +14,17 @@ declare module "react" {
         },
         HTMLElement
       >;
+      "kustom-delivery-method-display": DetailedHTMLProps<
+        HTMLAttributes<HTMLElement> & {
+          /** 5-char language-COUNTRY locale (e.g. sv-SE, en-GB). Required. */
+          locale: string;
+        },
+        HTMLElement
+      >;
       "kustom-express-buttons": DetailedHTMLProps<
         HTMLAttributes<HTMLElement> & {
+          /** 5-char language-COUNTRY locale (e.g. en-SE, en-GB). Required. */
           locale: string;
-          amount?: string | number;
-          currency?: string;
-          "purchase-country"?: string;
         },
         HTMLElement
       >;

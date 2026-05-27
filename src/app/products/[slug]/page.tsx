@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { AIChatButton } from "@/components/ai/chat-button";
 import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
+import { DeliveryMethodDisplay } from "@/components/kustom/delivery-method-display";
+import { ExpressButtons } from "@/components/kustom/express-buttons";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { track } from "@/lib/analytics";
@@ -202,8 +204,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <p className="text-2xl font-semibold mt-4">
                 {formatPrice(product.basePrice)}
               </p>
-              <div className="mt-2">
+              <div className="mt-2 space-y-2">
                 <PaymentMethodDisplay />
+                <DeliveryMethodDisplay />
               </div>
             </div>
 
@@ -338,6 +341,11 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {addToCartMutation.error.message}
               </p>
             ) : null}
+
+            {/* Express checkout — Apple Pay / Klarna / Google Pay etc.
+                Skips the cart and goes straight to a Kustom-hosted
+                one-click payment for the just-selected variant. */}
+            <ExpressButtons className="mt-2" />
 
             <Separator />
 
