@@ -47,6 +47,14 @@
 - 🗣️ Profile-specific AI personalities
 - ⚡ Real-time UI transformations
 
+**Checkout & Payments:**
+- 💳 **Kustom Checkout** direct API integration (Create Order → Snippet → Read → Confirm)
+- 🚚 **Kustom Shipping Assistant** — Hoodtopia implements the Integrator-side API for live shipping options
+- 🧩 **Kustom On-site Elements** — `<kustom-payment-method-display>` on PDP and cart
+- 📬 Push webhook → Order Management acknowledge with idempotent local sync
+
+See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup and verification.
+
 **Core E-commerce:**
 - 💱 Multi-currency support (USD, SEK, JPY, GBP, EUR)
 - 🛍️ Full shopping cart with session persistence
@@ -405,7 +413,24 @@ GOOGLE_AI_API_KEY=...
 
 # Optional
 DATABASE_URL=./db/hoodtopia.db
+
+# Kustom Checkout (Playground) — see docs/KUSTOM_INTEGRATION.md
+KUSTOM_API_BASE_URL=https://api.playground.kustom.co
+KUSTOM_USERNAME=MID-xxxxxxxx
+KUSTOM_API_KEY=kco_test_api_...
+KUSTOM_MERCHANT_ID=xxxxxxxx
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# Kustom Shipping Assistant (optional)
+KUSTOM_SHIPPING_KEY=<shared-secret>
+KUSTOM_SHIPPING_JWT_SECRET=<random-min-32-chars>
+
+# Kustom On-site Elements (optional)
+NEXT_PUBLIC_KUSTOM_ELEMENTS_SRC=https://elements.kustom.co/v1/loader.js
+NEXT_PUBLIC_KUSTOM_MERCHANT_ID=xxxxxxxx
 ```
+
+Get Kustom Playground credentials from <https://portal.playground.kustom.co/onboarding>.
 
 ## Image Generation
 
