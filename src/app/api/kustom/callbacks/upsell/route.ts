@@ -91,13 +91,21 @@ export async function POST(request: Request) {
 
     const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     const productUrl = site ? `${site}/products/${full!.slug}` : undefined;
-    const rawImageUrl = variant.imageUrl ?? full!.imageUrl;
 
-    // Spec caps image_url / product_url / description at 1024 chars. Truncate
-    // (drop the URL entirely if it's somehow too long — Kustom rejects on
-    // length and a missing image just hides the tile, missing url is fine).
+    // image_url MUST be absolute — Kustom's iframe is on *.kustom.co so a
+    // relative path like /images/accessories/foo.jpg resolves to their host
+    // and 404s (visible as a broken-image icon in the upsell tile).
+    const rawImageUrl = variant.imageUrl ?? full!.imageUrl;
+    const absoluteImage =
+      rawImageUrl && rawImageUrl.startsWith("http")
+        ? rawImageUrl
+        : site && rawImageUrl
+          ? `${site}${rawImageUrl.startsWith("/") ? "" : "/"}${rawImageUrl}`
+          : undefined;
+
+    // Spec caps image_url / product_url / description at 1024 chars.
     const safeImage =
-      rawImageUrl && rawImageUrl.length <= 1024 ? rawImageUrl : undefined;
+      absoluteImage && absoluteImage.length <= 1024 ? absoluteImage : undefined;
     const safeProductUrl =
       productUrl && productUrl.length <= 1024 ? productUrl : undefined;
 
@@ -116,7 +124,9 @@ export async function POST(request: Request) {
       description: full!.description?.slice(0, 1024),
       type: "physical",
     });
-    if (upsell_lines.length >= 2) break;
+    // Show all AI-picked recs (capped at 5 to keep the iframe tight and
+    // avoid hitting Kustom's per-callback line limit).
+    if (upsell_lines.length >= 5) break;
   }
 
   if (upsell_lines.length === 0) {
