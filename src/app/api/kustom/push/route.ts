@@ -6,13 +6,15 @@ import { kustom } from "@/lib/kustom/client";
 
 // Kustom POSTs here after a customer completes checkout (~2 min delay).
 // Steps: fetch the Order Management order → upsert locally → acknowledge.
-// Always return 200 quickly so Kustom doesn't retry on transient errors.
+// Always return 200 quickly so Kustom doesn't retry on transient errors
+// (5/15/30/60 min then every 4h for 48h on any non-2xx).
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const orderId = url.searchParams.get("order_id");
 
   if (!orderId) {
-    return NextResponse.json({ ok: false, error: "missing order_id" }, { status: 400 });
+    console.warn("[kustom/push] missing order_id query param — Kustom never sends this; likely a probe");
+    return NextResponse.json({ ok: false, error: "missing order_id" });
   }
 
   try {

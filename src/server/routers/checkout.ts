@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { eq, inArray, ne } from "drizzle-orm";
 import { router, publicProcedure } from "../trpc";
 import { db, carts, products } from "@/db";
@@ -41,7 +42,10 @@ export const checkoutRouter = router({
 
       const items = cart?.items ?? [];
       if (items.length === 0) {
-        throw new Error("Cart is empty");
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Cart is empty",
+        });
       }
 
       const payload = buildCreateOrderPayload({

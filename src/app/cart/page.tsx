@@ -221,15 +221,18 @@ export default function CartPage() {
                   <span>{formatPrice(cart?.subtotal || 0)}</span>
                 </div>
 
-                <Link href="/checkout" aria-disabled={isEmpty}>
-                  <Button
-                    className="w-full h-12 text-base"
-                    size="lg"
-                    disabled={isEmpty}
-                  >
-                    Proceed to Checkout
-                  </Button>
-                </Link>
+                <Button
+                  asChild={!isEmpty}
+                  className="w-full h-12 text-base"
+                  size="lg"
+                  disabled={isEmpty}
+                >
+                  {isEmpty ? (
+                    <span>Proceed to Checkout</span>
+                  ) : (
+                    <Link href="/checkout">Proceed to Checkout</Link>
+                  )}
+                </Button>
 
                 <div className="mt-4">
                   <PaymentMethodDisplay amount={cart?.subtotal || 0} />
