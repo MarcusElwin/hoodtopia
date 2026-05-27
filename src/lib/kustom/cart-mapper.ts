@@ -6,7 +6,12 @@ import type {
   ShippingOption,
 } from "./types";
 
-const SE_VAT_RATE_BP = 2500; // 25.00% in basis points (Kustom convention)
+// Playground MID PM00138210 supports CHF/GBP/PLN/USD (not SEK) — see /docs/KUSTOM_INTEGRATION.md
+const PURCHASE_COUNTRY = "GB";
+const PURCHASE_CURRENCY = "GBP";
+const LOCALE = "en-GB";
+const VAT_RATE_BP = 2000; // 20.00% UK VAT in basis points
+const VAT_DIVISOR = 1.2;
 
 type CartItemWithJoins = CartItem & {
   product: Product;
@@ -15,8 +20,8 @@ type CartItemWithJoins = CartItem & {
 
 function lineFromItem(item: CartItemWithJoins): OrderLine {
   const total_amount = item.priceAtAdd * item.quantity;
-  // SE prices are VAT-inclusive: tax portion = total - total/1.25
-  const total_tax_amount = Math.round(total_amount - total_amount / 1.25);
+  // Prices are VAT-inclusive: tax portion = total - total/(1 + rate)
+  const total_tax_amount = Math.round(total_amount - total_amount / VAT_DIVISOR);
   return {
     type: "physical",
     reference: item.variant.sku,
@@ -24,7 +29,7 @@ function lineFromItem(item: CartItemWithJoins): OrderLine {
     quantity: item.quantity,
     quantity_unit: "pcs",
     unit_price: item.priceAtAdd,
-    tax_rate: SE_VAT_RATE_BP,
+    tax_rate: VAT_RATE_BP,
     total_amount,
     total_discount_amount: 0,
     total_tax_amount,
@@ -33,24 +38,24 @@ function lineFromItem(item: CartItemWithJoins): OrderLine {
 }
 
 function fallbackShippingOptions(): ShippingOption[] {
-  // Static fallbacks shown if KSA is unavailable. Prices in öre.
+  // Static fallbacks shown if KSA is unavailable. Prices in minor units (pence).
   return [
     {
       id: "std",
       name: "Standard",
       description: "3–5 business days",
-      price: 4900,
-      tax_amount: Math.round(4900 - 4900 / 1.25),
-      tax_rate: SE_VAT_RATE_BP,
+      price: 499,
+      tax_amount: Math.round(499 - 499 / VAT_DIVISOR),
+      tax_rate: VAT_RATE_BP,
       preselected: true,
     },
     {
       id: "exp",
       name: "Express",
       description: "1–2 business days",
-      price: 9900,
-      tax_amount: Math.round(9900 - 9900 / 1.25),
-      tax_rate: SE_VAT_RATE_BP,
+      price: 999,
+      tax_amount: Math.round(999 - 999 / VAT_DIVISOR),
+      tax_rate: VAT_RATE_BP,
     },
   ];
 }
@@ -86,9 +91,9 @@ export function buildCreateOrderPayload({
   };
 
   return {
-    purchase_country: "SE",
-    purchase_currency: "SEK",
-    locale: "sv-se",
+    purchase_country: PURCHASE_COUNTRY,
+    purchase_currency: PURCHASE_CURRENCY,
+    locale: LOCALE,
     order_amount,
     order_tax_amount,
     order_lines,

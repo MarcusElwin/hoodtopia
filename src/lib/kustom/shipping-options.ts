@@ -1,12 +1,13 @@
 import type { Address, ShippingOption } from "./types";
 
-const SE_VAT_RATE_BP = 2500;
+const VAT_RATE_BP = 2000; // 20.00% UK VAT
+const VAT_DIVISOR = 1.2;
 
 function withTax(price: number): Pick<ShippingOption, "price" | "tax_amount" | "tax_rate"> {
   return {
     price,
-    tax_amount: Math.round(price - price / 1.25),
-    tax_rate: SE_VAT_RATE_BP,
+    tax_amount: Math.round(price - price / VAT_DIVISOR),
+    tax_rate: VAT_RATE_BP,
   };
 }
 
@@ -37,14 +38,14 @@ export function buildShippingOptions({
   const addr = shipping_address?.postal_code ? shipping_address : billing_address;
   const preview = !hasFullAddress(addr);
 
-  const freeStandard = (order_amount ?? 0) >= 100000; // free standard over 1000 SEK
+  const freeStandard = (order_amount ?? 0) >= 10000; // free standard over £100
 
   const options: ShippingOption[] = [
     {
       id: "std",
-      name: freeStandard ? "Standard (free over 1000 kr)" : "Standard",
+      name: freeStandard ? "Standard (free over £100)" : "Standard",
       description: "3–5 business days",
-      ...withTax(freeStandard ? 0 : 4900),
+      ...withTax(freeStandard ? 0 : 499),
       preselected: true,
       shipping_method: "Home",
     },
@@ -52,14 +53,14 @@ export function buildShippingOptions({
       id: "exp",
       name: "Express",
       description: "1–2 business days",
-      ...withTax(9900),
+      ...withTax(999),
       shipping_method: "Express",
     },
     {
       id: "pup",
       name: "Pickup point",
       description: "Collect at your nearest service point",
-      ...withTax(2900),
+      ...withTax(299),
       shipping_method: "PickUpStore",
     },
   ];
