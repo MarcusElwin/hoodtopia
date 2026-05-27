@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { ne } from "drizzle-orm";
 import { db, products as productsTable } from "@/db";
 import { getMarket } from "@/lib/kustom/markets";
@@ -12,7 +13,17 @@ import { getMarket } from "@/lib/kustom/markets";
 // Pricing is VAT-inclusive in the market's currency (Google expects display
 // price). Country defaults to SE; pass ?country=GB|US|DE|JP to switch.
 // Image URLs must be absolute — Google fetches them from outside our host.
+//
+// Access control: the route lives under /feeds/[token]/google-shopping.xml.
+// We compare the path token against GOOGLE_FEED_TOKEN (or "public" if no
+// env var is set, for local dev). 404 on mismatch so scanners can't tell
+// the route exists.
 export const dynamic = "force-dynamic";
+
+function tokensMatch(provided: string, expected: string): boolean {
+  if (provided.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
 
 const HOODIE_CATEGORIES = new Set([
   "casual",
@@ -46,7 +57,18 @@ function formatPrice(amountCents: number, currency: string): string {
   return `${(amountCents / divisor).toFixed(decimals)} ${currency}`;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ token: string }> }
+) {
+  const { token } = await ctx.params;
+  const expected = process.env.GOOGLE_FEED_TOKEN ?? "public";
+  if (!tokensMatch(token, expected)) {
+    // Pretend the URL doesn't exist rather than 401 — scanners that probe
+    // /feeds/* shouldn't be able to confirm the route is here.
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   const url = new URL(req.url);
   const countryParam = url.searchParams.get("country");
   const market = getMarket(countryParam);
