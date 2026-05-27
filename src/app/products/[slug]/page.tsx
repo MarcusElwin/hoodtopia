@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { AIChatButton } from "@/components/ai/chat-button";
+import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 
@@ -173,6 +174,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <p className="text-2xl font-semibold mt-4">
                 {formatPrice(product.basePrice)}
               </p>
+              <div className="mt-2">
+                <PaymentMethodDisplay amount={product.basePrice} />
+              </div>
             </div>
 
             <p className="text-muted-foreground leading-relaxed">

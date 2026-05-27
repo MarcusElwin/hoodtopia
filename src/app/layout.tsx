@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { CurrencyProvider } from "@/lib/currency";
@@ -29,12 +30,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const kustomElementsSrc = process.env.NEXT_PUBLIC_KUSTOM_ELEMENTS_SRC;
   return (
     <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
         suppressHydrationWarning
       >
+        {kustomElementsSrc ? (
+          <Script src={kustomElementsSrc} strategy="afterInteractive" />
+        ) : null}
         <TRPCProvider>
           <CurrencyProvider>
             <ProfileProvider>

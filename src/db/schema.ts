@@ -123,6 +123,22 @@ export const customDesigns = sqliteTable("custom_designs", {
     .$defaultFn(() => new Date()),
 });
 
+// Kustom Checkout orders table — synced from Kustom via push webhook
+export const orders = sqliteTable("orders", {
+  id: text("id").primaryKey(),
+  kustomOrderId: text("kustom_order_id").notNull().unique(),
+  status: text("status").notNull(),
+  totalAmount: integer("total_amount").notNull(), // minor units (öre)
+  currency: text("currency").notNull(),
+  customerEmail: text("customer_email"),
+  sessionId: text("session_id"),
+  snapshotJson: text("snapshot_json").notNull(), // full Order Management response
+  acknowledgedAt: integer("acknowledged_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Chat messages table for conversation history
 export const chatMessages = sqliteTable("chat_messages", {
   id: text("id").primaryKey(),
@@ -150,3 +166,5 @@ export type UserPreference = typeof userPreferences.$inferSelect;
 export type NewUserPreference = typeof userPreferences.$inferInsert;
 export type CustomDesign = typeof customDesigns.$inferSelect;
 export type NewCustomDesign = typeof customDesigns.$inferInsert;
+export type Order = typeof orders.$inferSelect;
+export type NewOrder = typeof orders.$inferInsert;
