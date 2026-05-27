@@ -16,7 +16,8 @@ export type CallbackKind =
   | "shipping_option"
   | "validation"
   | "upsell"
-  | "upsell_validation";
+  | "upsell_validation"
+  | "push";
 
 function secret(): string {
   const s = process.env.KUSTOM_CALLBACK_SECRET;

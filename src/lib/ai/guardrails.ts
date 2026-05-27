@@ -2,13 +2,13 @@ import { v4 as uuidv4 } from "uuid";
 import OpenAI from "openai";
 import { db, chatSafetyEvents } from "@/db";
 
-// Layered defences for the public AI chat. We check three things before
+// Layered defences for the public AI chat. We check two things before
 // the user message hits the LLM:
 //   1. Pattern-based prompt-injection detection (cheap, deterministic)
 //   2. OpenAI Moderation API (free, async, catches hate/violence/sexual)
-//   3. Per-session rate limit (in-memory; fine for a single Vercel region
-//      demo, swap for Upstash if we ever go multi-region)
-// All flagged events get logged to chat_safety_events for later review.
+// IP-level rate limiting is handled at the tRPC middleware layer (see
+// `llmProcedure` in src/server/routers/ai.ts) so we don't duplicate it
+// here. All flagged events get logged to chat_safety_events for review.
 
 // ───────────────────────────────────────────────────────────────────────
 // Pattern-based prompt-injection detection.
@@ -93,45 +93,6 @@ export async function moderateInput(text: string): Promise<ModerationCheck> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// In-memory rate limit. Keyed by sessionId; resets every windowMs. Single
-// instance only — on Vercel Fluid Compute multiple function instances will
-// each have their own counter, so the effective limit is N × instances.
-// For a demo that's plenty; production would use Upstash Redis.
-// ───────────────────────────────────────────────────────────────────────
-interface Bucket {
-  count: number;
-  resetAt: number;
-}
-const buckets = new Map<string, Bucket>();
-
-const WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MAX_PER_WINDOW = 60; // 60 messages per hour per session
-
-export interface RateLimitCheck {
-  allowed: boolean;
-  remaining: number;
-  resetInMs: number;
-}
-
-export function checkRateLimit(sessionId: string): RateLimitCheck {
-  const now = Date.now();
-  const existing = buckets.get(sessionId);
-  if (!existing || existing.resetAt < now) {
-    buckets.set(sessionId, { count: 1, resetAt: now + WINDOW_MS });
-    return { allowed: true, remaining: MAX_PER_WINDOW - 1, resetInMs: WINDOW_MS };
-  }
-  if (existing.count >= MAX_PER_WINDOW) {
-    return { allowed: false, remaining: 0, resetInMs: existing.resetAt - now };
-  }
-  existing.count += 1;
-  return {
-    allowed: true,
-    remaining: MAX_PER_WINDOW - existing.count,
-    resetInMs: existing.resetAt - now,
-  };
-}
-
-// ───────────────────────────────────────────────────────────────────────
 // Output checks — applied to the model's reply before it's returned to
 // the user. Catches the model leaking the system prompt or echoing
 // adversarial input verbatim.
@@ -156,7 +117,6 @@ export function detectPromptLeak(response: string): boolean {
 export type SafetyEventKind =
   | "injection"
   | "moderation"
-  | "rate-limit"
   | "leak"
   | "blocked-recommendation";
 
@@ -211,22 +171,6 @@ export async function runInputGuardrails(opts: {
     return {
       allowed: false,
       reply: "Your message is too long. Please keep it under 2000 characters.",
-    };
-  }
-
-  const rate = checkRateLimit(opts.sessionId);
-  if (!rate.allowed) {
-    await logSafetyEvent({
-      sessionId: opts.sessionId,
-      kind: "rate-limit",
-      reasons: [`reset-in-${Math.ceil(rate.resetInMs / 1000)}s`],
-      excerpt: opts.userMessage,
-      blocked: true,
-    });
-    const minutes = Math.ceil(rate.resetInMs / 60_000);
-    return {
-      allowed: false,
-      reply: `Whoa — slow down! You've hit the chat limit. Try again in ~${minutes} minute(s).`,
     };
   }
 

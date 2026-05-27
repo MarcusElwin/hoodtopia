@@ -414,7 +414,7 @@ export default function CustomDesignerPage() {
                 <Sparkles className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-semibold mb-2">No Design Yet</h3>
                 <p className="text-sm text-muted-foreground">
-                  Enter a description and click "Generate Design" to create your custom hoodie
+                  Enter a description and click &quot;Generate Design&quot; to create your custom hoodie
                 </p>
               </div>
             )}

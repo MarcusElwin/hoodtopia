@@ -176,7 +176,7 @@ export const orders = sqliteTable("orders", {
 export const chatSafetyEvents = sqliteTable("chat_safety_events", {
   id: text("id").primaryKey(),
   sessionId: text("session_id").notNull(),
-  /** "injection" | "moderation" | "rate-limit" | "leak" | "blocked-recommendation" */
+  /** "injection" | "moderation" | "leak" | "blocked-recommendation" */
   kind: text("kind").notNull(),
   /** JSON array of pattern labels / category names that triggered. */
   reasons: text("reasons").notNull(),

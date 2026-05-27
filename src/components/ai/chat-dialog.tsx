@@ -53,7 +53,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
   const utils = trpc.useUtils();
 
   // Fetch chat history
-  const { data: history, isLoading: historyLoading } = trpc.ai.getHistory.useQuery(undefined, {
+  const { data: history } = trpc.ai.getHistory.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
 
@@ -68,9 +68,11 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
     },
   });
 
-  // Load history on mount
+  // Load history on mount. Syncing local state from a server query is a valid
+  // effect use; the lint rule flags the setState.
   useEffect(() => {
     if (history && history.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([INITIAL_MESSAGE, ...history]);
     }
   }, [history]);

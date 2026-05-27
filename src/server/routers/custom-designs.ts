@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { router, publicProcedure } from "../trpc";
+import { router, publicProcedure, rateLimit } from "../trpc";
 import { db, customDesigns, products, productVariants, carts, cartItems } from "@/db";
 import {
   generateCustomHoodie,
@@ -19,9 +19,15 @@ const DEMO_SESSION_ID = "demo-session";
 // Fixed price for custom designs: $100 (10,000 cents)
 const CUSTOM_DESIGN_PRICE = 10000;
 
+// Image generation (Gemini) is the most expensive call in the app — throttle
+// it harder than the text endpoints, per IP.
+const imageGenProcedure = publicProcedure.use(
+  rateLimit({ name: "customDesigns", limit: 10, windowMs: 60_000 })
+);
+
 export const customDesignsRouter = router({
   // Generate a new custom design
-  generate: publicProcedure
+  generate: imageGenProcedure
     .input(CustomDesignInputSchema)
     .mutation(async ({ input }) => {
       // Validate input
@@ -83,7 +89,7 @@ export const customDesignsRouter = router({
     }),
 
   // Refine an existing design
-  refine: publicProcedure
+  refine: imageGenProcedure
     .input(CustomDesignRefinementSchema)
     .mutation(async ({ input }) => {
       // Get the existing design
