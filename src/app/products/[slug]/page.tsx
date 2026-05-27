@@ -446,12 +446,21 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
             <Separator />
 
-            {/* Product Details */}
+            {/* Notes — small-caps eyebrow + brass hairline, matching the
+                rest of the PDP. Material label is now its own caps tag
+                to the left of the value, like a swatch card. */}
             <div className="space-y-4">
-              <h3 className="font-semibold">Product Details</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                  Notes
+                </h3>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
               {product.material && (
                 <p className="text-sm text-muted-foreground">
-                  <span className="text-foreground">Material:</span>{" "}
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-foreground mr-2">
+                    Cloth
+                  </span>
                   {product.material}
                 </p>
               )}
@@ -460,9 +469,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                   {features.map((feature, i) => (
                     <li
                       key={i}
-                      className="text-sm text-muted-foreground flex items-start gap-2"
+                      className="text-sm text-muted-foreground flex items-start gap-3"
                     >
-                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <Check className="h-3.5 w-3.5 text-primary shrink-0 mt-1" />
                       {feature}
                     </li>
                   ))}
