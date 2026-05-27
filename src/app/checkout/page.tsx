@@ -15,12 +15,18 @@ export default function CheckoutPage() {
   const { country } = useCurrency();
   const [html, setHtml] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [attempt, setAttempt] = useState(0);
   const init = trpc.checkout.initCheckout.useMutation();
-  const fired = useRef<string | null>(null);
+  const lastFiredFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (fired.current === country.code) return;
-    fired.current = country.code;
+    // Re-init on country change OR retry click. Clear html so the iframe is
+    // not left rendering the previous market's session while the new one loads.
+    const key = `${country.code}:${attempt}`;
+    if (lastFiredFor.current === key) return;
+    lastFiredFor.current = key;
+
+    setHtml("");
     setErrorMessage("");
     init
       .mutateAsync({ countryCode: country.code })
@@ -29,9 +35,9 @@ export default function CheckoutPage() {
         setErrorMessage(err instanceof Error ? err.message : String(err))
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [country.code]);
+  }, [country.code, attempt]);
 
-  const isLoading = !html && !errorMessage;
+  const isLoading = init.isPending || (!html && !errorMessage);
 
   return (
     <div className="min-h-screen">
@@ -68,9 +74,12 @@ export default function CheckoutPage() {
             <pre className="text-xs bg-muted p-3 rounded overflow-x-auto mb-4">
               {errorMessage}
             </pre>
-            <Link href="/cart">
-              <Button variant="outline">Back to cart</Button>
-            </Link>
+            <div className="flex gap-3">
+              <Button onClick={() => setAttempt((a) => a + 1)}>Try again</Button>
+              <Link href="/cart">
+                <Button variant="outline">Back to cart</Button>
+              </Link>
+            </div>
           </div>
         ) : isLoading ? (
           <div className="max-w-3xl mx-auto flex items-center justify-center py-24 text-muted-foreground">

@@ -7,8 +7,8 @@ import * as schema from "./schema";
 //   - A local libSQL file (file:./db/hoodtopia.db) otherwise
 //
 // libSQL is wire-compatible with SQLite so the existing schema + queries work
-// unchanged. The seed script keeps using better-sqlite3 directly because it
-// runs against the local file and we want the synchronous API there.
+// unchanged. The seed script imports this same client so `npm run db:seed`
+// targets local or Turso depending on the env vars present at run time.
 const url = process.env.TURSO_DATABASE_URL ?? "file:./db/hoodtopia.db";
 const authToken = process.env.TURSO_AUTH_TOKEN;
 

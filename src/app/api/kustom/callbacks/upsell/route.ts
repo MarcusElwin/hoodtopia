@@ -66,7 +66,6 @@ export async function POST(request: Request) {
   const maxAmount = body.max_upsell_amount ?? Infinity;
 
   const recs = await getCartRecommendations(purchasedProducts, catalog, {
-    currency,
     symbol,
     budgetCap: 50,
   });

@@ -131,7 +131,6 @@ export const checkoutRouter = router({
       });
 
       return getCartRecommendations(purchasedProducts, allProducts, {
-        currency: order.purchase_currency,
         symbol: currencySymbol(order.purchase_currency).trim(),
         budgetCap: 30,
       });

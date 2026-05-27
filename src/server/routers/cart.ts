@@ -268,13 +268,14 @@ export const cartRouter = router({
   }),
 
   // Get AI-powered cart recommendations. The caller passes the active
-  // display currency so the prompt + cartAnalysis text use the right symbol
+  // currency symbol so the prompt + cartAnalysis text use the right glyph
   // ("under 300 kr" instead of "under $30" when the shopper is in SEK).
+  // budgetCap is in the same currency's minor-unit major number (e.g. 300
+  // for "300 kr" or "£300"), not converted between currencies.
   getRecommendations: publicProcedure
     .input(
       z
         .object({
-          currency: z.string().optional(),
           symbol: z.string().optional(),
           budgetCap: z.number().optional(),
         })

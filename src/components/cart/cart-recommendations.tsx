@@ -11,7 +11,6 @@ import type { CartRecommendationWithProduct } from "@/services/schemas";
 export function CartRecommendations() {
   const { formatPrice, currency } = useCurrency();
   const { data, isLoading } = trpc.cart.getRecommendations.useQuery({
-    currency: currency.code,
     symbol: currency.symbol,
   });
   const cartQuery = trpc.cart.get.useQuery();
