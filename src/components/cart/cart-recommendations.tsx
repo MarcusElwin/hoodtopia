@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Sparkles, Plus, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/lib/currency";
+import { track } from "@/lib/analytics";
 import type { CartRecommendationWithProduct } from "@/services/schemas";
 
 export function CartRecommendations() {
@@ -21,6 +22,19 @@ export function CartRecommendations() {
   });
 
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
+  const trackedKey = useRef<string | null>(null);
+
+  // Fire ai_recommendation_shown once per distinct rec set.
+  useEffect(() => {
+    if (!data || data.recommendations.length === 0) return;
+    const key = data.recommendations.map((r) => r.product?.id ?? "").join(",");
+    if (trackedKey.current === key) return;
+    trackedKey.current = key;
+    track("ai_recommendation_shown", {
+      surface: "cart",
+      count: data.recommendations.length,
+    });
+  }, [data]);
 
   // Don't show if cart is empty and not loading
   if (!isLoading && (!data || data.recommendations.length === 0)) {
@@ -43,6 +57,11 @@ export function CartRecommendations() {
     }
 
     try {
+      track("ai_recommendation_clicked", {
+        surface: "cart",
+        productId: recommendation.product.id,
+        productName: recommendation.product.name,
+      });
       await addToCartMutation.mutateAsync({
         productId: recommendation.product.id,
         variantId: firstVariant.id,

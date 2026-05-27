@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrency } from "@/lib/currency";
+import { track } from "@/lib/analytics";
 
 interface Props {
   orderId: string;
@@ -15,6 +17,19 @@ export function PostPurchaseRecommendations({ orderId }: Props) {
   const { formatPrice } = useCurrency();
   const { data, isLoading } =
     trpc.checkout.getPostPurchaseRecommendations.useQuery({ orderId });
+
+  const trackedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || data.recommendations.length === 0) return;
+    const key = data.recommendations.map((r) => r.product?.id ?? "").join(",");
+    if (trackedKey.current === key) return;
+    trackedKey.current = key;
+    track("ai_recommendation_shown", {
+      surface: "post_purchase",
+      orderId,
+      count: data.recommendations.length,
+    });
+  }, [data, orderId]);
 
   if (!isLoading && (!data || data.recommendations.length === 0)) {
     return null;
@@ -56,6 +71,14 @@ export function PostPurchaseRecommendations({ orderId }: Props) {
                 <Link
                   key={p.id}
                   href={`/products/${p.slug}`}
+                  onClick={() =>
+                    track("ai_recommendation_clicked", {
+                      surface: "post_purchase",
+                      orderId,
+                      productId: p.id,
+                      productName: p.name,
+                    })
+                  }
                   className="group rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className="relative aspect-square bg-secondary">

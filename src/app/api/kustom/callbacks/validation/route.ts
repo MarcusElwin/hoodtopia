@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { inArray } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { OrderLine } from "@/lib/kustom/types";
+
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
 
 // Pre-payment guardrail. Kustom calls this just before authorising payment
 // (require_validate_callback_success=true in the create-order options).
@@ -48,6 +53,12 @@ export async function POST(request: Request) {
   });
 
   if (insufficient.length > 0) {
+    try {
+      await track("stock_validation_failed", {
+        skus: insufficient.map((l) => l.reference).join(","),
+        names: insufficient.map((l) => l.name).join(", "),
+      });
+    } catch { /* swallow */ }
     return NextResponse.json(
       {
         error_type: "unavailable_shipping_address",

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { inArray, ne } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, products, productVariants } from "@/db";
 import { getCartRecommendations } from "@/services/ai";
 import { currencySymbol } from "@/lib/kustom/currency";
 import type { OrderLine, UpsellLine } from "@/lib/kustom/types";
+
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
 
 // THE agentic-commerce moment. Kustom calls us on the confirmation page asking
 // "any post-purchase upsells?". We look up what the customer just bought,
@@ -107,6 +112,15 @@ export async function POST(request: Request) {
   const last_upsell_time = new Date(Date.now() + 10 * 60 * 1000)
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
+
+  try {
+    await track("upsell_offered", {
+      purchasedSkus: purchased.join(","),
+      offeredSkus: upsell_lines.map((l) => l.reference).join(","),
+      currency,
+      count: upsell_lines.length,
+    });
+  } catch { /* swallow */ }
 
   return NextResponse.json({ upsell_lines, last_upsell_time });
 }

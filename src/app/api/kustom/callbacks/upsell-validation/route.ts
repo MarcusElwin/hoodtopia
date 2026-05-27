@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { UpsellLine } from "@/lib/kustom/types";
+
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
 
 // Final stock check + atomic reservation before Kustom appends the upsell to
 // the captured order. Upsells bypass the cart, so unlike normal items they
@@ -84,6 +89,13 @@ export async function POST(request: Request) {
 
     decremented.push({ variantId: variant.id, quantity: line.quantity });
   }
+
+  try {
+    await track("upsell_accepted", {
+      skus: lines.map((l) => l.reference).join(","),
+      count: lines.length,
+    });
+  } catch { /* swallow */ }
 
   return NextResponse.json({});
 }

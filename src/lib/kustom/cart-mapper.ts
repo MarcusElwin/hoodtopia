@@ -69,6 +69,17 @@ export interface BuildCreateOrderInput {
    * Falls back to DEFAULT_MARKET_CODE if missing or unknown.
    */
   countryCode?: string | null;
+  /**
+   * Our internal session identifier (currently DEMO_SESSION_ID). Emitted as
+   * merchant_reference1 so we can correlate the Kustom order back to the
+   * cart in our DB without an extra lookup.
+   */
+  sessionId?: string;
+  /**
+   * Per-create-order trace id (uuid). Lets us find this exact session in
+   * server logs even when multiple orders share the same sessionId.
+   */
+  traceId?: string;
 }
 
 export function buildCreateOrderPayload({
@@ -76,6 +87,8 @@ export function buildCreateOrderPayload({
   siteUrl,
   enableShippingAssistant = false,
   countryCode,
+  sessionId,
+  traceId,
 }: BuildCreateOrderInput): CreateOrderPayload {
   if (items.length === 0) {
     throw new Error("Cannot create checkout for an empty cart");
@@ -125,10 +138,22 @@ export function buildCreateOrderPayload({
     order_tax_amount,
     order_lines,
     merchant_urls,
+    merchant_reference1: sessionId,
+    merchant_reference2: traceId,
     options: {
       allow_separate_shipping_address: enableShippingAssistant,
       require_validate_callback_success: Boolean(process.env.KUSTOM_CALLBACK_SECRET),
       confirmation_page_upsell: Boolean(process.env.KUSTOM_CALLBACK_SECRET),
+      // Match the Hoodtopia dark theme — these style the Kustom iframe and
+      // the post-purchase confirmation snippet so the white card doesn't
+      // clash with our dark surface.
+      color_button: "#a855f7", // primary purple
+      color_button_text: "#ffffff",
+      color_checkbox: "#a855f7",
+      color_checkbox_checkmark: "#ffffff",
+      color_header: "#a855f7",
+      color_link: "#a855f7",
+      radius_border: "12",
     },
     shipping_options: fallbackShippingOptions(market),
   };

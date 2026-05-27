@@ -23,6 +23,52 @@ export default function TermsOfServicePage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="prose prose-invert max-w-3xl mx-auto">
+          {/* Demo disclaimer — required by the Kustom Playground TOS and so the
+              meetup audience can't possibly think this is a real shop. */}
+          <section className="mb-12 rounded-xl border-2 border-primary/40 bg-primary/10 p-6">
+            <h2 className="text-xl font-bold mb-3 text-primary">
+              ⚠️ This is a demo site
+            </h2>
+            <ul className="list-disc pl-6 space-y-1.5 text-sm leading-relaxed">
+              <li>
+                <strong>No real orders or payments are taken.</strong> The
+                Kustom checkout iframe operates in Playground (test) mode.
+                Any card numbers, addresses, or personal data you enter are
+                sent to Kustom&apos;s <em>test</em> environment, not to a real
+                processor.
+              </li>
+              <li>
+                Products, prices, and stock are <strong>fictional</strong>{" "}
+                seed data. Nothing will ever be shipped.
+              </li>
+              <li>
+                Hoodtopia was built as an open-source reference implementation
+                for the <strong>LangChain Stockholm Meetup</strong> to
+                demonstrate AI-powered commerce and the Kustom Checkout API.
+                Source:{" "}
+                <a
+                  href="https://github.com/MarcusElwin/hoodtopia"
+                  className="text-primary underline hover:no-underline"
+                  rel="noopener"
+                  target="_blank"
+                >
+                  github.com/MarcusElwin/hoodtopia
+                </a>
+                .
+              </li>
+              <li>
+                If you submitted real personal data by mistake, contact{" "}
+                <a
+                  href="mailto:marcus@elwin.com"
+                  className="text-primary underline hover:no-underline"
+                >
+                  marcus@elwin.com
+                </a>{" "}
+                and we&apos;ll purge it.
+              </li>
+            </ul>
+          </section>
+
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4">Agreement to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">

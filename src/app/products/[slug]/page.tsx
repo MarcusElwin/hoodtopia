@@ -13,6 +13,7 @@ import { AIChatButton } from "@/components/ai/chat-button";
 import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
+import { track } from "@/lib/analytics";
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -21,7 +22,7 @@ interface ProductDetailPageProps {
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = use(params);
   const { data: product, isLoading, error } = trpc.products.bySlug.useQuery(slug);
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency, country } = useCurrency();
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -94,11 +95,36 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   const handleAddToCart = () => {
     if (!product || !selectedVariant) return;
-    addToCartMutation.mutate({
-      productId: product.id,
-      variantId: selectedVariant.id,
-      quantity,
-    });
+    addToCartMutation.mutate(
+      {
+        productId: product.id,
+        variantId: selectedVariant.id,
+        quantity,
+      },
+      {
+        onSuccess: () => {
+          track("add_to_cart", {
+            productId: product.id,
+            productSlug: product.slug,
+            variantSku: selectedVariant.sku,
+            quantity,
+            price: product.basePrice,
+            currency: currency.code,
+            country: country.code,
+            scarce: selectedVariant.stock - quantity <= 5,
+          });
+        },
+        onError: (err) => {
+          if (err.data?.code === "CONFLICT") {
+            track("out_of_stock_blocked", {
+              variantSku: selectedVariant.sku,
+              attempted_qty: quantity,
+              stock_at_block: selectedVariant.stock,
+            });
+          }
+        },
+      }
+    );
   };
 
   if (error) {

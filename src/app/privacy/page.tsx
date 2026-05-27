@@ -23,6 +23,40 @@ export default function PrivacyPolicyPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="prose prose-invert max-w-3xl mx-auto">
+          {/* Demo disclaimer mirrors the one on /terms. */}
+          <section className="mb-12 rounded-xl border-2 border-primary/40 bg-primary/10 p-6">
+            <h2 className="text-xl font-bold mb-3 text-primary">
+              ⚠️ Demo data only
+            </h2>
+            <p className="text-sm leading-relaxed mb-2">
+              Hoodtopia is a public demo for the LangChain Stockholm Meetup.
+              We do <strong>not</strong> sell products, do <strong>not</strong>{" "}
+              ship anything, and do <strong>not</strong> use any personal data
+              you enter for marketing or profiling.
+            </p>
+            <p className="text-sm leading-relaxed mb-2">
+              <strong>What we store:</strong> a session cookie for your cart,
+              your country/currency preference in localStorage, and a row in
+              Turso when an order completes (so the confirmation page works).
+              No emails are sent. No tracking cookies beyond Vercel Web
+              Analytics, which is GDPR-compliant by default and uses no
+              third-party cookies.
+            </p>
+            <p className="text-sm leading-relaxed">
+              <strong>What Kustom stores:</strong> when you interact with the
+              checkout iframe, you&apos;re sending data to{" "}
+              <a
+                href="https://www.kustom.co/privacy"
+                className="text-primary underline hover:no-underline"
+                rel="noopener"
+                target="_blank"
+              >
+                Kustom&apos;s Playground environment
+              </a>
+              . Their privacy policy applies there.
+            </p>
+          </section>
+
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4">Introduction</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">

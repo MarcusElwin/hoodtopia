@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, LayoutGrid } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,12 +12,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function ProductsContent() {
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") === "ai" ? "ai" : "all";
-
+  const urlTab = searchParams.get("tab") === "ai" ? "ai" : "all";
+  // Controlled tab. We start from urlTab and sync via effect when the URL
+  // changes (e.g. user clicks a /products?tab=ai link inside the app), but
+  // also let local clicks switch tabs without forcing a URL update.
+  const [tab, setTab] = useState(urlTab);
+  useEffect(() => {
+    setTab(urlTab);
+  }, [urlTab]);
   const [category, setCategory] = useState<string | undefined>(undefined);
 
   return (
-    <Tabs defaultValue={defaultTab} className="space-y-8">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <TabsList className="grid w-full sm:w-auto grid-cols-2">
           <TabsTrigger value="all" className="gap-2">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { CurrencyProvider } from "@/lib/currency";
@@ -8,6 +9,7 @@ import { ProfileProvider } from "@/lib/shopper-profiles";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ProfileBanner } from "@/components/profiles/profile-banner";
+import { DemoBanner } from "@/components/layout/demo-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +45,7 @@ export default function RootLayout({
         <TRPCProvider>
           <CurrencyProvider>
             <ProfileProvider>
+              <DemoBanner />
               <Header />
               <ProfileBanner />
               <main className="flex-1">{children}</main>
@@ -50,6 +53,7 @@ export default function RootLayout({
             </ProfileProvider>
           </CurrencyProvider>
         </TRPCProvider>
+        <Analytics />
       </body>
     </html>
   );

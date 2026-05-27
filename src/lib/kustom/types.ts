@@ -68,6 +68,15 @@ export interface CheckoutOptions {
   date_of_birth_mandatory?: boolean;
   require_validate_callback_success?: boolean;
   confirmation_page_upsell?: boolean;
+  // Iframe + confirmation snippet theming (CSS colour strings, e.g. "#a855f7").
+  color_button?: string;
+  color_button_text?: string;
+  color_checkbox?: string;
+  color_checkbox_checkmark?: string;
+  color_header?: string;
+  color_link?: string;
+  color_background?: string;
+  radius_border?: string;
 }
 
 export interface CreateOrderPayload {
@@ -80,6 +89,9 @@ export interface CreateOrderPayload {
   merchant_urls: MerchantUrls;
   options?: CheckoutOptions;
   shipping_options?: ShippingOption[];
+  /** Free-form merchant pass-through; surfaced back in Read Order and Management. */
+  merchant_reference1?: string;
+  merchant_reference2?: string;
 }
 
 export interface Address {

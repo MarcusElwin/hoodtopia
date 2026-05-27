@@ -3,6 +3,10 @@ import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { recomputeOrder } from "@/lib/kustom/recompute";
 import type { OrderLine, ShippingOption } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Kustom calls this whenever the consumer edits billing/shipping address.
 // We recompute totals from the line items they sent us. Tax/shipping changes
 // driven by the new address are out of scope for this demo — we trust Kustom's

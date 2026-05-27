@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { CartRecommendations } from "@/components/cart/cart-recommendations";
 import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
+import { track } from "@/lib/analytics";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
@@ -26,7 +27,19 @@ export default function CartPage() {
   });
 
   const removeItemMutation = trpc.cart.removeItem.useMutation({
-    onSuccess: invalidateCartAndProducts,
+    // Capture the snapshot BEFORE invalidating — once the cache refetches,
+    // `items` will exclude the removed row and the lookup would return
+    // undefined, silently skipping the analytics event.
+    onSuccess: (_, itemId) => {
+      const removed = items.find((i) => i.id === itemId);
+      if (removed) {
+        track("remove_from_cart", {
+          variantSku: removed.variant.sku,
+          quantity: removed.quantity,
+        });
+      }
+      invalidateCartAndProducts();
+    },
   });
 
   const clearCartMutation = trpc.cart.clear.useMutation({

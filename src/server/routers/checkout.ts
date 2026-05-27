@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, inArray, ne } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
 import { db, carts, products } from "@/db";
 import { kustom } from "@/lib/kustom/client";
@@ -50,18 +51,31 @@ export const checkoutRouter = router({
         });
       }
 
+      // Trace id is per-create-order so we can find this exact session in
+      // logs even if multiple orders share the same sessionId.
+      const traceId = uuidv4();
       const payload = buildCreateOrderPayload({
         items,
         siteUrl: siteUrl(),
         enableShippingAssistant: input?.enableShippingAssistant ?? true,
         countryCode: input?.countryCode,
+        sessionId: DEMO_SESSION_ID,
+        traceId,
       });
 
+      console.log("[checkout/init] traceId=%s sessionId=%s country=%s items=%d",
+        traceId, DEMO_SESSION_ID, input?.countryCode ?? "(default)", items.length);
+
       const order = await kustom.createOrder(payload);
+
+      console.log("[checkout/init] traceId=%s order_id=%s status=%s",
+        traceId, order.order_id, order.status);
+
       return {
         order_id: order.order_id,
         html_snippet: order.html_snippet ?? "",
         status: order.status,
+        trace_id: traceId,
       };
     }),
 
