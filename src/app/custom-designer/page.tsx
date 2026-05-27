@@ -9,6 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
+
+// Custom designs are a fixed price in USD cents; we run them through
+// formatPrice so the visible amount matches the active currency / locale.
+const CUSTOM_DESIGN_PRICE_CENTS = 10000;
 
 const AVAILABLE_COLORS = [
   { name: "Black", hex: "#000000" },
@@ -27,6 +32,9 @@ const HOODIE_TYPES = [
 ];
 
 export default function CustomDesignerPage() {
+  const { formatPrice } = useCurrency();
+  const priceLabel = formatPrice(CUSTOM_DESIGN_PRICE_CENTS);
+
   const [inputType, setInputType] = useState<"text" | "image">("text");
   const [description, setDescription] = useState("");
   const [baseColor, setBaseColor] = useState("Black");
@@ -149,7 +157,7 @@ export default function CustomDesignerPage() {
             </h1>
           </div>
           <p className="text-muted-foreground mt-2">
-            Create a unique hoodie design using AI • Fixed price: $100
+            Create a unique hoodie design using AI • Fixed price: {priceLabel}
           </p>
         </div>
       </div>
@@ -336,7 +344,7 @@ export default function CustomDesignerPage() {
                   <div className="p-6 pt-6">
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <div className="text-3xl font-bold mb-1">$100.00</div>
+                        <div className="text-3xl font-bold mb-1">{priceLabel}</div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Sparkles className="h-4 w-4 text-primary" />
                           <span>One of a Kind</span>

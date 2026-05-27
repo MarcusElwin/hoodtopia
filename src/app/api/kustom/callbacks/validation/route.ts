@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { inArray } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { OrderLine } from "@/lib/kustom/types";
@@ -48,6 +49,12 @@ export async function POST(request: Request) {
   });
 
   if (insufficient.length > 0) {
+    try {
+      await track("stock_validation_failed", {
+        skus: insufficient.map((l) => l.reference).join(","),
+        names: insufficient.map((l) => l.name).join(", "),
+      });
+    } catch { /* swallow */ }
     return NextResponse.json(
       {
         error_type: "unavailable_shipping_address",

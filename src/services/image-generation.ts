@@ -118,12 +118,23 @@ Style reference: Professional e-commerce product photo with custom design.`;
 }
 
 /**
- * Save generated image to file system
+ * Save generated image. Locally we write to public/images/custom so the
+ * file persists across requests. On Vercel the filesystem is read-only at
+ * runtime (process.env.VERCEL is set), so we return a data: URL the browser
+ * can render inline — slower than a CDN file but zero infra.
+ *
+ * Long-term: swap this for Vercel Blob (`put(filename, buffer, {access:'public'})`)
+ * for persistent CDN-hosted images.
  */
 async function saveGeneratedImage(
   base64Data: string,
   filename: string
 ): Promise<string> {
+  if (process.env.VERCEL) {
+    const mime = filename.endsWith(".jpg") ? "image/jpeg" : "image/png";
+    return `data:${mime};base64,${base64Data}`;
+  }
+
   const publicDir = path.join(process.cwd(), "public", "images", "custom");
   await fs.mkdir(publicDir, { recursive: true });
 

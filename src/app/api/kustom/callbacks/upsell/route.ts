@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { inArray, ne } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, products, productVariants } from "@/db";
 import { getCartRecommendations } from "@/services/ai";
@@ -107,6 +108,15 @@ export async function POST(request: Request) {
   const last_upsell_time = new Date(Date.now() + 10 * 60 * 1000)
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
+
+  try {
+    await track("upsell_offered", {
+      purchasedSkus: purchased.join(","),
+      offeredSkus: upsell_lines.map((l) => l.reference).join(","),
+      currency,
+      count: upsell_lines.length,
+    });
+  } catch { /* swallow */ }
 
   return NextResponse.json({ upsell_lines, last_upsell_time });
 }

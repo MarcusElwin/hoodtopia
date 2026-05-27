@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { UpsellLine } from "@/lib/kustom/types";
@@ -84,6 +85,13 @@ export async function POST(request: Request) {
 
     decremented.push({ variantId: variant.id, quantity: line.quantity });
   }
+
+  try {
+    await track("upsell_accepted", {
+      skus: lines.map((l) => l.reference).join(","),
+      count: lines.length,
+    });
+  } catch { /* swallow */ }
 
   return NextResponse.json({});
 }

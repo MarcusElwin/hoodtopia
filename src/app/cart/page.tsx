@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { CartRecommendations } from "@/components/cart/cart-recommendations";
 import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
+import { track } from "@/lib/analytics";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
@@ -26,7 +27,16 @@ export default function CartPage() {
   });
 
   const removeItemMutation = trpc.cart.removeItem.useMutation({
-    onSuccess: invalidateCartAndProducts,
+    onSuccess: (_, itemId) => {
+      invalidateCartAndProducts();
+      const removed = items.find((i) => i.id === itemId);
+      if (removed) {
+        track("remove_from_cart", {
+          variantSku: removed.variant.sku,
+          quantity: removed.quantity,
+        });
+      }
+    },
   });
 
   const clearCartMutation = trpc.cart.clear.useMutation({

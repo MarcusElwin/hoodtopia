@@ -7,6 +7,7 @@ import { KustomSnippet } from "@/components/checkout/kustom-snippet";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
+import { track } from "@/lib/analytics";
 
 // Client component so we can read the active country from useCurrency() and
 // pass it to initCheckout. The Kustom payload's purchase_country drives the
@@ -30,7 +31,16 @@ export default function CheckoutPage() {
     setErrorMessage("");
     init
       .mutateAsync({ countryCode: country.code })
-      .then((res) => setHtml(res.html_snippet))
+      .then((res) => {
+        setHtml(res.html_snippet);
+        track("begin_checkout", {
+          orderId: res.order_id,
+          traceId: res.trace_id,
+          country: country.code,
+          currency: country.currency,
+          attempt,
+        });
+      })
       .catch((err) =>
         setErrorMessage(err instanceof Error ? err.message : String(err))
       );
