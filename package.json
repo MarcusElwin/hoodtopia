@@ -19,6 +19,7 @@
     "generate:accessories:test": "npx tsx src/scripts/generate-accessory-images.ts --test",
     "generate:extra": "npx tsx src/scripts/generate-product-images.ts --all",
     "generate:extra:test": "npx tsx src/scripts/generate-product-images.ts --test",
+    "compress:extra": "npx tsx src/scripts/compress-extra-images.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "ci": "npm run lint && npm run typecheck && npm run test:run && npm run build"
