@@ -1,6 +1,34 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+
+const STORAGE_KEY = "hoodtopia_country_code";
+
+// Subscribe to localStorage changes from other tabs/windows.
+function subscribeLocalStorage(cb: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) cb();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+function readStoredCountry(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export type CurrencyCode = "USD" | "SEK" | "JPY" | "GBP" | "EUR";
 
@@ -85,14 +113,32 @@ interface CurrencyContextType {
 const CurrencyContext = createContext<CurrencyContextType | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [country, setCountryState] = useState<Country>(countries[0]); // Default to US
+  // Manual override the user picked this session (wins over localStorage).
+  const [override, setOverride] = useState<string | null>(null);
+
+  // Subscribe to localStorage so cross-tab changes propagate. SSR snapshot
+  // returns null so we render the US default during prerender; the client
+  // snapshot picks up the saved code on hydration.
+  const storedCode = useSyncExternalStore(
+    subscribeLocalStorage,
+    readStoredCountry,
+    () => null
+  );
+
+  const activeCode = override ?? storedCode ?? countries[0].code;
+  const country =
+    countries.find((c) => c.code === activeCode) ?? countries[0];
 
   const currency = currencies[country.currency];
 
   const setCountry = useCallback((countryCode: string) => {
     const found = countries.find((c) => c.code === countryCode);
-    if (found) {
-      setCountryState(found);
+    if (!found) return;
+    setOverride(countryCode);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, countryCode);
+    } catch {
+      // localStorage blocked — override-only persists for this tab
     }
   }, []);
 

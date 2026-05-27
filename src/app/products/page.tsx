@@ -12,12 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function ProductsContent() {
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") === "ai" ? "ai" : "all";
-
+  const urlTab = searchParams.get("tab") === "ai" ? "ai" : "all";
+  // Controlled so that deep-link ?tab=ai always wins over Suspense ordering;
+  // local state still lets the user click between tabs without a URL change.
+  const [tab, setTab] = useState(urlTab);
   const [category, setCategory] = useState<string | undefined>(undefined);
 
   return (
-    <Tabs defaultValue={defaultTab} className="space-y-8">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <TabsList className="grid w-full sm:w-auto grid-cols-2">
           <TabsTrigger value="all" className="gap-2">

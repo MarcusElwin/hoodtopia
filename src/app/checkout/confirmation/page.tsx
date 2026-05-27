@@ -115,7 +115,7 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
               />
             ) : null}
 
-            <section className="rounded-xl border bg-card p-2 md:p-4">
+            <section>
               <KustomSnippet html={html} />
             </section>
 
