@@ -14,7 +14,9 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #a855f7 0%, #9333ea 100%)",
+          // Brass gradient — sRGB equivalents of oklch(0.75 0.13 75)
+          // and oklch(0.55 0.13 75), mirroring the --primary hue.
+          background: "linear-gradient(135deg, #dea143 0%, #9d6400 100%)",
           borderRadius: "40px",
         }}
       >
@@ -35,12 +37,12 @@ export default function AppleIcon() {
             d="M16 6C13 6 10.5 7.5 9.5 10C10.5 9 13 8 16 8C19 8 21.5 9 22.5 10C21.5 7.5 19 6 16 6Z"
             fill="white"
           />
-          {/* Hood opening */}
-          <ellipse cx="16" cy="14" rx="4" ry="4.5" fill="rgba(168,85,247,0.8)" />
-          {/* Pocket */}
+          {/* Hood opening — deep brass for shadow contrast on lighter hoodie shape */}
+          <ellipse cx="16" cy="14" rx="4" ry="4.5" fill="rgba(157,100,0,0.8)" />
+          {/* Pocket — same brass at lower opacity */}
           <path
             d="M11 19H21V22C21 23 20 24 19 24H13C12 24 11 23 11 22V19Z"
-            fill="rgba(168,85,247,0.4)"
+            fill="rgba(157,100,0,0.4)"
           />
           {/* Sparkle */}
           <path
