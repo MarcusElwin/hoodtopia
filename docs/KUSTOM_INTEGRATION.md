@@ -272,30 +272,69 @@ After the first deploy:
 
 ---
 
-## 9. Roadmap — Checkout Callbacks (next PR)
+## 9. Checkout Callbacks
 
-Beyond the four `merchant_urls` Hoodtopia sends today (`terms`, `checkout`, `confirmation`, `push`), Kustom supports six **server-side callback URLs** that fire mid-checkout for richer UX:
+Beyond the four required `merchant_urls` (`terms`, `checkout`, `confirmation`, `push`), Hoodtopia also serves six **server-side callbacks** that Kustom hits mid-checkout for richer UX. They're toggled on by setting `KUSTOM_CALLBACK_SECRET` — when blank, the URLs are dropped from `merchant_urls` and Kustom falls back to its own defaults (safe local dev).
 
-| Key | Purpose | When Kustom calls it |
-|---|---|---|
-| `address_update` | Recompute totals for a new address | User edits shipping/billing address |
-| `country_change` | Switch tax/currency/options on country swap | User picks a new country |
-| `shipping_option_update` | Recompute on shipping-option swap | User picks a different shipping option |
-| `validation` | Final server-side check before payment | Just before "Pay now" |
-| `upsell` | Inject extra `order_lines[]` on confirmation page | After purchase complete |
-| `upsell_validation` | Validate an upsell selection | User clicks an upsell offer |
+| `merchant_urls` key | Route | When Kustom calls it | What we return |
+|---|---|---|---|
+| `address_update` | `POST /api/kustom/callbacks/address` | User edits shipping/billing address | Recomputed `order_amount` / `order_tax_amount` / `order_lines` |
+| `country_change` | `POST /api/kustom/callbacks/country` | User switches purchase country | Same shape as `address_update` |
+| `shipping_option_update` | `POST /api/kustom/callbacks/shipping-option` | User picks a different shipping option | Same, plus injects a `shipping_fee` line if missing |
+| `validation` | `POST /api/kustom/callbacks/validation` | Just before payment authorise | `200 {}` to approve, `400 {error_type,error_message}` to block — checks current stock vs cart lines |
+| `upsell` | `POST /api/kustom/callbacks/upsell` | Confirmation page render | Up to 2 `upsell_lines[]` chosen by `getCartRecommendations` (AI-driven) + a 10-min `last_upsell_time` |
+| `upsell_validation` | `POST /api/kustom/callbacks/upsell-validation` | User clicks an upsell offer | `200 {}` after one last stock check |
 
-All six follow the same contract: Kustom `POST`s the current order, you return `{ order_lines, order_amount, order_tax_amount, ... }` (or `{ error }`). Response time budget is ~5 s before Kustom falls back to the cached state.
+### Authentication
 
-Planned scope (split into a separate PR after the current one merges):
+Kustom **does not sign** callback requests. We bake a per-route HMAC token into the URL itself:
 
-1. **Routes:** `src/app/api/kustom/callbacks/{address,country,shipping-option,validation}/route.ts` — each takes the order, runs the same `buildCreateOrderPayload` math against the new inputs, and returns the recomputed lines.
-2. **Auth:** these callbacks are server-to-server from Kustom; protect with the same shared-secret HMAC pattern as the push webhook, or a `?token=` query param (Kustom doesn't sign callback requests by default).
-3. **`merchant_urls`:** extend `cart-mapper.ts` to emit the four URLs above.
-4. **`options.require_validate_callback_success: true`:** flip on to force Kustom to wait for our `validation` callback before authorising payment.
-5. **Upsells:** the `upsell` callback is where Hoodtopia's existing AI recommendation engine becomes a revenue lever — return 1-3 complementary products from `getCartRecommendations` and they render inside the Kustom confirmation iframe before the customer leaves.
+```ts
+sig = HMAC_SHA256(KUSTOM_CALLBACK_SECRET, callbackKind).hex()
+// merchant_urls.address_update = `${SITE}/api/kustom/callbacks/address?token=${sig}`
+```
 
-Reference: cached at `.firecrawl/kustom/api-checkout-callback.md` (full payload examples for all six callback types).
+Every route validates the token with `crypto.timingSafeEqual`. Token leakage risk is low: the worst an attacker can do is POST a fake order, and our handlers either recompute deterministically or reject with `400`.
+
+### The agentic-commerce moment (`upsell`)
+
+The `upsell` route is the headliner. Flow:
+
+1. Customer completes checkout
+2. Kustom POSTs us their `order_lines[]` and `max_upsell_amount`
+3. We map SKUs → local products, hand them to `getCartRecommendations` with the order's currency
+4. AI returns the top complementary products; we pick the first 1-2 that have variants in stock and fit the budget
+5. Kustom renders them as one-click "Add to your order" tiles inside the confirmation iframe
+6. If the customer clicks one, `upsell_validation` runs a final stock check before Kustom appends it to the captured order
+
+This is "AI recommendations as a revenue surface" — same engine that powers the cart page now lives inside the payment provider's UI.
+
+### Flagship guardrail (`validation`)
+
+When `KUSTOM_CALLBACK_SECRET` is set, `options.require_validate_callback_success: true` flips on automatically. Kustom now refuses to authorise payment until we 200 the `validation` callback.
+
+Hoodtopia uses it to catch the demo's most realistic failure mode: a customer reserves the last-1-in-stock at add-to-cart time, then someone else (on stage or off) drains the inventory between cart and Pay. The `validation` route re-reads `productVariants.stock` and rejects with a customer-visible message if anything went negative.
+
+### Required env
+
+```bash
+KUSTOM_CALLBACK_SECRET=$(openssl rand -hex 32)
+```
+
+That's it — no portal config required. Kustom picks up the callback URLs from the Create Order `merchant_urls`.
+
+### Verification
+
+```bash
+# Unauthenticated calls are rejected
+curl -X POST $NEXT_PUBLIC_SITE_URL/api/kustom/callbacks/address
+# → 401 {"error":"unauthorized"}
+
+# Re-derive the expected token locally:
+node -e "console.log(require('crypto').createHmac('sha256',process.env.KUSTOM_CALLBACK_SECRET).update('address').digest('hex'))"
+```
+
+In a real checkout, open the iframe's network tab and watch for `POST` requests to `/api/kustom/callbacks/*` as you edit address, change country, swap shipping. The confirmation iframe will show upsell tiles if the AI returns any.
 
 ## 10. References
 
