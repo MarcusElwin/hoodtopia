@@ -9,6 +9,10 @@ import { getCartRecommendations } from "@/services/ai";
 // In production, you'd get this from cookies/auth
 const DEMO_SESSION_ID = "demo-session";
 
+// Carts idle longer than this are treated as a new session and auto-cleared.
+// Keeps the demo state fresh between attendees / browser sessions.
+const CART_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 export const cartRouter = router({
   // Get current cart with items
   get: publicProcedure.query(async () => {
@@ -24,6 +28,16 @@ export const cartRouter = router({
         },
       },
     });
+
+    // Auto-clear stale sessions so each demo run starts fresh.
+    if (
+      cart &&
+      cart.items.length > 0 &&
+      Date.now() - cart.updatedAt.getTime() > CART_SESSION_TTL_MS
+    ) {
+      await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
+      cart = { ...cart, items: [] };
+    }
 
     if (!cart) {
       const cartId = uuidv4();
