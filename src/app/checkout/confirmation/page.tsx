@@ -3,6 +3,9 @@ import { CheckCircle2 } from "lucide-react";
 import { appRouter } from "@/server/root";
 import { createTRPCContext } from "@/server/trpc";
 import { KustomSnippet } from "@/components/checkout/kustom-snippet";
+import { OrderSummary } from "@/components/checkout/order-summary";
+import { ClearCartOnMount } from "@/components/checkout/clear-cart-on-mount";
+import { PostPurchaseRecommendations } from "@/components/checkout/post-purchase-recommendations";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -33,16 +36,26 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
   const caller = appRouter.createCaller(ctx);
 
   let html = "";
+  let details: Awaited<
+    ReturnType<typeof caller.checkout.getConfirmationDetails>
+  > | null = null;
   let errorMessage = "";
+
   try {
-    const order = await caller.checkout.getCheckoutOrder({ orderId: order_id });
+    const [order, det] = await Promise.all([
+      caller.checkout.getCheckoutOrder({ orderId: order_id }),
+      caller.checkout.getConfirmationDetails({ orderId: order_id }),
+    ]);
     html = order.html_snippet;
+    details = det;
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : String(err);
   }
 
   return (
     <div className="min-h-screen">
+      <ClearCartOnMount />
+
       <div className="border-b">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center gap-3">
@@ -57,9 +70,9 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
         {errorMessage ? (
-          <div className="max-w-2xl mx-auto rounded-lg border bg-card p-6">
+          <div className="rounded-lg border bg-card p-6">
             <h2 className="text-xl font-semibold mb-2">
               Couldn&apos;t load confirmation
             </h2>
@@ -68,11 +81,25 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
             </pre>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto">
-            <KustomSnippet html={html} />
-          </div>
+          <>
+            {details ? (
+              <OrderSummary
+                currency={details.purchase_currency}
+                lines={details.order_lines}
+                shippingAddress={details.shipping_address}
+                selectedShipping={details.selected_shipping_option}
+              />
+            ) : null}
+
+            <div className="mt-8">
+              <KustomSnippet html={html} />
+            </div>
+
+            <PostPurchaseRecommendations orderId={order_id} />
+          </>
         )}
-        <div className="text-center mt-8">
+
+        <div className="text-center mt-12">
           <Link href="/products">
             <Button variant="outline">Continue shopping</Button>
           </Link>

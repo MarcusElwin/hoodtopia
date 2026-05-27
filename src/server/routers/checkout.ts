@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, inArray, ne } from "drizzle-orm";
 import { router, publicProcedure } from "../trpc";
-import { db, carts } from "@/db";
+import { db, carts, products } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 import { buildCreateOrderPayload } from "@/lib/kustom/cart-mapper";
+import { getCartRecommendations } from "@/services/ai";
 
 const DEMO_SESSION_ID = "demo-session";
 
@@ -69,5 +70,58 @@ export const checkoutRouter = router({
         order_amount: order.order_amount,
         purchase_currency: order.purchase_currency,
       };
+    }),
+
+  // Confirmation page details: line items + shipping address + totals.
+  // Reads from the Checkout API directly (works immediately, no push delay).
+  getConfirmationDetails: publicProcedure
+    .input(z.object({ orderId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const order = await kustom.readOrder(input.orderId);
+      return {
+        order_id: order.order_id,
+        status: order.status,
+        purchase_currency: order.purchase_currency,
+        order_amount: order.order_amount,
+        order_tax_amount: order.order_tax_amount,
+        order_lines: order.order_lines,
+        billing_address: order.billing_address,
+        shipping_address: order.shipping_address,
+        selected_shipping_option: order.selected_shipping_option,
+        completed_at: order.completed_at,
+      };
+    }),
+
+  // Post-purchase cross-sell. Matches purchased line items back to local
+  // products by SKU, then asks the AI for complementary recommendations.
+  getPostPurchaseRecommendations: publicProcedure
+    .input(z.object({ orderId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const order = await kustom.readOrder(input.orderId);
+      const skus = (order.order_lines ?? [])
+        .map((l) => l.reference)
+        .filter((s): s is string => Boolean(s));
+
+      if (skus.length === 0) {
+        return { recommendations: [], cartAnalysis: "" };
+      }
+
+      const purchasedVariants = await db.query.productVariants.findMany({
+        where: (v) => inArray(v.sku, skus),
+        with: { product: true },
+      });
+      const purchasedProducts = Array.from(
+        new Map(purchasedVariants.map((v) => [v.product.id, v.product])).values()
+      );
+      if (purchasedProducts.length === 0) {
+        return { recommendations: [], cartAnalysis: "" };
+      }
+
+      const allProducts = await db.query.products.findMany({
+        where: ne(products.category, "custom"),
+        with: { variants: true },
+      });
+
+      return getCartRecommendations(purchasedProducts, allProducts);
     }),
 });
