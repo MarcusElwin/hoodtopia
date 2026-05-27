@@ -37,14 +37,15 @@ export function buildShippingOptions({
   const freeStandard =
     (order_amount ?? 0) >= market.shipping_minor.free_standard_threshold;
 
+  const { carriers } = market;
   const options: KsaShippingOption[] = [
     {
       id: "std",
       type: "postal",
-      carrier: "hoodtopia-post",
+      carrier: carriers.standard.carrier,
       name: freeStandard
-        ? `Standard (free over ${market.shipping_minor.free_label})`
-        : "Standard",
+        ? `${carriers.standard.name} (free over ${market.shipping_minor.free_label})`
+        : carriers.standard.name,
       description: "3–5 business days",
       price: freeStandard ? 0 : market.shipping_minor.standard,
       tax_rate: market.vat_rate_bp,
@@ -56,8 +57,8 @@ export function buildShippingOptions({
     {
       id: "exp",
       type: "delivery-address",
-      carrier: "hoodtopia-express",
-      name: "Express",
+      carrier: carriers.express.carrier,
+      name: carriers.express.name,
       description: "1–2 business days",
       price: market.shipping_minor.express,
       tax_rate: market.vat_rate_bp,
@@ -68,8 +69,8 @@ export function buildShippingOptions({
     {
       id: "pup",
       type: "pickup-point",
-      carrier: "hoodtopia-pickup",
-      name: "Pickup point",
+      carrier: carriers.pickup.carrier,
+      name: carriers.pickup.name,
       description: "Collect at your nearest service point",
       price: market.shipping_minor.pickup,
       tax_rate: market.vat_rate_bp,
