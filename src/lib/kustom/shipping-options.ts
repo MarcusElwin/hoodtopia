@@ -18,10 +18,19 @@ export interface BuildShippingOptionsResult {
   shipping_options: KsaShippingOption[];
 }
 
-// Returns dynamic shipping options for Kustom Shipping Assistant. Prices,
-// VAT, and the free-shipping threshold come from MARKETS. Each option
-// carries the spec-required type/carrier/delivery_time/class fields — KSA
-// rejects "basic" options that lack these.
+// Returns dynamic shipping options for Kustom Shipping Assistant.
+//
+// Kustom's KSA validator rejects responses with "fallback-style" fields
+// (`preselected`, and `preview: false` emitted explicitly). The Portal
+// test reports these as: "Basic options not allowed in the get shipping
+// options response." Two rules we now follow:
+//   1. Never include `preselected` on KSA options. That field belongs on
+//      the static `shipping_options` fallback in Create Order, not here.
+//   2. Only set `preview: true` when the request actually IS a preview
+//      (country-only / partial address). Otherwise omit the field
+//      entirely — never send `preview: false`.
+//
+// Prices, VAT, and the free-shipping threshold come from MARKETS.
 export function buildShippingOptions({
   shipping_address,
   billing_address,
@@ -33,6 +42,8 @@ export function buildShippingOptions({
   );
   const addr = shipping_address?.postal_code ? shipping_address : billing_address;
   const isPreview = !hasFullAddress(addr);
+  // Only include `preview` when true — never as `preview: false`.
+  const previewFlag = isPreview ? { preview: true as const } : {};
 
   const freeStandard =
     (order_amount ?? 0) >= market.shipping_minor.free_standard_threshold;
@@ -51,8 +62,7 @@ export function buildShippingOptions({
       tax_rate: market.vat_rate_bp,
       delivery_time: { interval: { earliest: 3, latest: 5 } },
       class: "standard",
-      preselected: true,
-      preview: isPreview,
+      ...previewFlag,
     },
     {
       id: "exp",
@@ -64,7 +74,7 @@ export function buildShippingOptions({
       tax_rate: market.vat_rate_bp,
       delivery_time: { interval: { earliest: 1, latest: 2 } },
       class: "express",
-      preview: isPreview,
+      ...previewFlag,
     },
     {
       id: "pup",
@@ -76,7 +86,7 @@ export function buildShippingOptions({
       tax_rate: market.vat_rate_bp,
       delivery_time: { interval: { earliest: 2, latest: 3 } },
       class: "standard",
-      preview: isPreview,
+      ...previewFlag,
     },
   ];
 
