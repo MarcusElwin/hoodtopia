@@ -37,7 +37,7 @@ interface Message {
 const INITIAL_MESSAGE: Message = {
   role: "assistant",
   content:
-    "Hi! I'm your AI shopping assistant. Tell me what kind of hoodie you're looking for and I'll help you find the perfect one. You can describe your style, activity, or any specific features you need!",
+    "Good to have you here. Tell me about your wardrobe or the occasion — I'll point you toward something worthy. Style, weight, colour preferences, all useful.",
 };
 
 interface AIChatDialogProps {
@@ -98,7 +98,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: "Apologies — something went amiss. Try once more.",
         },
       ]);
     },
@@ -158,7 +158,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
               <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center ai-glow">
                 <Sparkles className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-lg font-semibold">AI Shopping Assistant</span>
+              <span className="text-lg font-semibold">The Stylist</span>
             </div>
             {messages.length > 1 && (
               <Button
@@ -250,7 +250,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe the hoodie you're looking for..."
+              placeholder="Tell me about the occasion, or the colour you've been after…"
               className="min-h-[44px] max-h-[120px] resize-none bg-background/50 border-border/50"
               rows={1}
             />
@@ -265,7 +265,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Powered by GPT-5.4-mini • AI recommendations based on your preferences
+            The Stylist — guidance informed by your preferences. GPT-5.4-mini.
           </p>
         </form>
       </DialogContent>

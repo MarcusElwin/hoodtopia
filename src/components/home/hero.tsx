@@ -1,75 +1,86 @@
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Savile Row hero: serif display headline ("Wear Something Considered"),
+// quieter sub-copy in body sans, hairline-framed callouts instead of bold
+// numbers, demoted secondary CTA to a text link. Background gradient
+// loses the centred radial pull and uses a single edge wash so the page
+// reads like an editorial spread.
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+      {/* Warm-dark wash, top-down so the headline sits in the lighter band. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-background to-background" />
 
-      {/* Grid Pattern Overlay */}
+      {/* Hairline grid kept but dimmed further to feel like watermark
+          paper rather than a tech-startup pattern. */}
       <div
-        className="absolute inset-0 opacity-[0.02]"
+        className="absolute inset-0 opacity-[0.015]"
         style={{
           backgroundImage: `linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)`,
-          backgroundSize: "64px 64px",
+          backgroundSize: "72px 72px",
         }}
       />
 
-      <div className="relative container mx-auto px-4 py-24 md:py-32 lg:py-40">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">AI-Powered Shopping Experience</span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-            Find Your Perfect
-            <span className="block text-primary">Hoodie</span>
-          </h1>
-
-          {/* Subheadline */}
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Tell us what you&apos;re looking for and our AI will recommend the perfect hoodie for your style, activity, and climate.
+      <div className="relative container mx-auto px-4 py-32 md:py-44 lg:py-56">
+        <div className="max-w-3xl mx-auto text-center space-y-10">
+          {/* Small caps eyebrow — replaces the Sparkles badge. Quieter,
+              signals the AI angle without claiming it. */}
+          <p className="text-[11px] uppercase tracking-[0.32em] text-muted-foreground">
+            Hoodtopia — Stockholm
           </p>
 
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          {/* Headline. Italic second line in Playfair lifts the brand
+              from "shop our hoodies" to "wear something considered". */}
+          <h1 className="text-5xl md:text-6xl lg:text-7xl tracking-tight leading-[1.05]">
+            Wear Something
+            <span className="block italic text-primary font-normal">
+              Considered
+            </span>
+          </h1>
+
+          {/* Sub-copy: shorter, less hype, more confident. */}
+          <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
+            A small collection of hoodies, kept in considered colours.
+            Quietly guided by an in-house stylist when you want a second
+            opinion.
+          </p>
+
+          {/* CTAs: primary stays a real button; secondary demoted to a
+              right-arrow text link so the eye lands on Shop. */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-2">
             <Link href="/products">
-              <Button size="lg" className="text-base px-8 h-12">
-                Shop Collection
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button size="lg" className="text-sm tracking-[0.08em] uppercase px-10 h-12 rounded-none">
+                Shop the Collection
               </Button>
             </Link>
-            <Link href="/products?tab=ai">
-              <Button size="lg" variant="outline" className="text-base px-8 h-12">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Get AI Recommendations
-              </Button>
+            <Link
+              href="/products?tab=ai"
+              className="text-sm tracking-[0.08em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+            >
+              → Ask the Stylist
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center justify-center gap-8 md:gap-12 pt-8 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-bold">6</div>
-              <div className="text-muted-foreground">Styles</div>
-            </div>
-            <div className="h-8 w-px bg-border" />
-            <div className="text-center">
-              <div className="text-2xl font-bold">8</div>
-              <div className="text-muted-foreground">Colors</div>
-            </div>
-            <div className="h-8 w-px bg-border" />
-            <div className="text-center">
-              <div className="text-2xl font-bold">288</div>
-              <div className="text-muted-foreground">Variants</div>
-            </div>
-          </div>
+          {/* Stats as hairline-framed callouts. Brass top rule, small
+              caps label above the figure (semantically the LABEL is
+              the term, the FIGURE is its value — dt holds the label,
+              dd holds the value). */}
+          <dl className="grid grid-cols-3 gap-8 max-w-md mx-auto pt-12 text-center">
+            {[
+              { figure: "6", label: "Styles" },
+              { figure: "8", label: "Colours" },
+              { figure: "288", label: "Variants" },
+            ].map((stat) => (
+              <div key={stat.label} className="space-y-2">
+                <div className="h-px w-8 bg-primary/40 mx-auto" />
+                <dt className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {stat.label}
+                </dt>
+                <dd className="text-2xl font-display font-normal">{stat.figure}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </section>
