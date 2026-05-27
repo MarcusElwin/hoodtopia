@@ -4,6 +4,7 @@ import { router, publicProcedure } from "../trpc";
 import { db, carts, products } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 import { buildCreateOrderPayload } from "@/lib/kustom/cart-mapper";
+import { currencySymbol } from "@/lib/kustom/currency";
 import { getCartRecommendations } from "@/services/ai";
 
 const DEMO_SESSION_ID = "demo-session";
@@ -122,6 +123,10 @@ export const checkoutRouter = router({
         with: { variants: true },
       });
 
-      return getCartRecommendations(purchasedProducts, allProducts);
+      return getCartRecommendations(purchasedProducts, allProducts, {
+        currency: order.purchase_currency,
+        symbol: currencySymbol(order.purchase_currency).trim(),
+        budgetCap: 30,
+      });
     }),
 });

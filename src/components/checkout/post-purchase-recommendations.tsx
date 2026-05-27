@@ -21,14 +21,23 @@ export function PostPurchaseRecommendations({ orderId }: Props) {
   }
 
   return (
-    <section className="mt-12">
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="h-5 w-5 text-primary" />
+    <section>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
         <h2 className="text-xl font-semibold">You might also like</h2>
+        <span className="ml-2 inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">
+          AI picks
+        </span>
       </div>
       {data?.cartAnalysis ? (
-        <p className="text-sm text-muted-foreground mb-6">{data.cartAnalysis}</p>
-      ) : null}
+        <p className="text-sm text-muted-foreground mb-6 max-w-3xl leading-relaxed">
+          {data.cartAnalysis}
+        </p>
+      ) : (
+        <div className="mb-6" />
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

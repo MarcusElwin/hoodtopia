@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 import { appRouter } from "@/server/root";
 import { createTRPCContext } from "@/server/trpc";
 import { KustomSnippet } from "@/components/checkout/kustom-snippet";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { ClearCartOnMount } from "@/components/checkout/clear-cart-on-mount";
+import { CopyOrderId } from "@/components/checkout/copy-order-id";
 import { PostPurchaseRecommendations } from "@/components/checkout/post-purchase-recommendations";
 import { Button } from "@/components/ui/button";
+import { formatMinor } from "@/lib/kustom/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -56,23 +58,45 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
     <div className="min-h-screen">
       <ClearCartOnMount />
 
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-8 w-8 text-green-500" />
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Thanks for your order!
-            </h1>
+      {/* Hero */}
+      <div className="relative overflow-hidden border-b">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-green-500/5 pointer-events-none" />
+        <div className="container mx-auto px-4 py-10 relative">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-11 w-11 rounded-full bg-green-500/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                  Thanks for your order!
+                </h1>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pl-14">
+                <span>Order</span>
+                <CopyOrderId orderId={order_id} />
+              </div>
+            </div>
+            {details ? (
+              <div className="rounded-xl border bg-card px-5 py-4 sm:text-right">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Total paid
+                </p>
+                <p className="text-2xl font-bold">
+                  {formatMinor(details.order_amount, details.purchase_currency)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  incl. {details.purchase_currency} VAT
+                </p>
+              </div>
+            ) : null}
           </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Order ID: <code>{order_id}</code>
-          </p>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="container mx-auto px-4 py-10 max-w-5xl space-y-10">
         {errorMessage ? (
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border bg-card p-6">
             <h2 className="text-xl font-semibold mb-2">
               Couldn&apos;t load confirmation
             </h2>
@@ -91,17 +115,25 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
               />
             ) : null}
 
-            <div className="mt-8">
+            <section className="rounded-xl border bg-card p-2 md:p-4">
               <KustomSnippet html={html} />
-            </div>
+            </section>
 
             <PostPurchaseRecommendations orderId={order_id} />
           </>
         )}
 
-        <div className="text-center mt-12">
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-center pt-4">
           <Link href="/products">
-            <Button variant="outline">Continue shopping</Button>
+            <Button size="lg" className="w-full sm:w-auto">
+              Continue shopping
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline" size="lg" className="w-full sm:w-auto">
+              Back to home
+            </Button>
           </Link>
         </div>
       </div>

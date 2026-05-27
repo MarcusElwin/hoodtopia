@@ -338,14 +338,19 @@ For example:
  */
 export async function getCartRecommendations(
   cartProducts: ProductForAI[],
-  allProducts: ProductForAI[]
+  allProducts: ProductForAI[],
+  options?: { currency?: string; symbol?: string; budgetCap?: number }
 ): Promise<{
   recommendations: CartRecommendationWithProduct[];
   cartAnalysis: string;
 }> {
+  const symbol = options?.symbol ?? "$";
+  const budgetCap = options?.budgetCap ?? 30;
+  const fmt = (cents: number) => `${symbol}${(cents / 100).toFixed(2)}`;
+
   const cartContext = cartProducts.map((p) => ({
     name: p.name,
-    price: `$${(p.basePrice / 100).toFixed(2)}`,
+    price: fmt(p.basePrice),
     category: p.category,
     description: p.description,
     features: p.features ? JSON.parse(p.features) : [],
@@ -355,7 +360,7 @@ export async function getCartRecommendations(
     .filter((p) => !cartProducts.some((cp) => cp.id === p.id))
     .map((p) => ({
       name: p.name,
-      price: `$${(p.basePrice / 100).toFixed(2)}`,
+      price: fmt(p.basePrice),
       category: p.category,
       description: p.description,
       features: p.features ? JSON.parse(p.features) : [],
@@ -377,13 +382,14 @@ Analyze the cart contents and suggest 3-5 complementary products that:
 1. Complete the customer's look
 2. Match their style preferences (based on cart)
 3. Are accessories or matching items
-4. Stay under $30 price point
+4. Stay under ${symbol}${budgetCap} price point
 
 ## Recommendation Rules
 - **Accessories**: If cart has hoodies, suggest matching beanies, scarves, gloves
 - **Color Matching**: Suggest items in similar or complementary colors
 - **Style Consistency**: Match the vibe (athletic, casual, minimalist, etc.)
-- **Price Conscious**: Keep recommendations affordable (under $30)
+- **Price Conscious**: Keep recommendations affordable (under ${symbol}${budgetCap})
+- **Currency**: All prices in the cart and catalog are shown in ${symbol} — mirror this symbol in any prices you reference
 - **Diversity**: Include different types of complementary items
 
 ## Complement Types
