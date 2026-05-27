@@ -99,6 +99,11 @@ export interface KsaDeliveryTime {
   latest?: string;
 }
 
+// Strict KSA `/shippingoptions` response option. Intentionally does NOT
+// include `preselected` — that belongs only on the Create Order fallback
+// `shipping_options` (the static / "basic" interface). Including it on a
+// KSA response trips Kustom's validator with "Basic options not allowed
+// in the get shipping options response."
 export interface KsaShippingOption {
   id: string;
   type: KsaShippingType;
@@ -109,9 +114,9 @@ export interface KsaShippingOption {
   tax_rate: number;   // basis points (2500 = 25%)
   delivery_time?: KsaDeliveryTime;
   class?: KsaShippingClass;
-  preselected?: boolean;
-  /** Marks preview options (returned when only country is known). */
-  preview?: boolean;
+  /** Set TRUE only when responding to a preview/partial-address call.
+   *  Never emit `preview: false` — omit the field instead. */
+  preview?: true;
 }
 
 export interface CheckoutOptions {
