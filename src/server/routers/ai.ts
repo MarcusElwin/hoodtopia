@@ -14,10 +14,11 @@ import { PROFILES, type ProfileType } from "@/lib/shopper-profiles";
 // Demo session ID (in production, use real user sessions)
 const DEMO_SESSION_ID = "demo-chat-session";
 
-// Message schema for chat
+// Message schema for chat. Cap content length so a single unauthenticated
+// request can't push an unbounded prompt to the paid LLM / fill the DB.
 const MessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string(),
+  content: z.string().max(4000),
 });
 
 export const aiRouter = router({
@@ -25,7 +26,7 @@ export const aiRouter = router({
   chat: publicProcedure
     .input(
       z.object({
-        messages: z.array(MessageSchema),
+        messages: z.array(MessageSchema).max(50),
         profileType: ShopperProfileTypeSchema,
       })
     )
@@ -85,7 +86,7 @@ export const aiRouter = router({
   recommend: publicProcedure
     .input(
       z.object({
-        preferences: z.string(),
+        preferences: z.string().max(2000),
         personalizationContext: PersonalizationContextSchema.optional(),
       })
     )
@@ -106,7 +107,7 @@ export const aiRouter = router({
     }),
 
   // AI-powered semantic search
-  search: publicProcedure.input(z.string()).mutation(async ({ input }) => {
+  search: publicProcedure.input(z.string().max(500)).mutation(async ({ input }) => {
     // Get all products for context (exclude custom designs)
     const allProducts = await db.query.products.findMany({
       where: ne(products.category, "custom"),
@@ -138,8 +139,8 @@ export const aiRouter = router({
     .input(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string(),
-        products: z.array(z.any()).optional(),
+        content: z.string().max(8000),
+        products: z.array(z.any()).max(20).optional(),
       })
     )
     .mutation(async ({ input }) => {

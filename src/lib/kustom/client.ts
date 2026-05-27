@@ -39,10 +39,15 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    // Log the upstream body server-side for debugging, but don't leak it to
+    // the client — this error propagates through tRPC to the browser and the
+    // raw Kustom response can contain internal detail.
     const text = await res.text().catch(() => "");
-    throw new Error(
-      `Kustom ${method} ${path} failed: ${res.status} ${res.statusText} ${text}`
+    console.error(
+      `[kustom] ${method} ${path} failed: ${res.status} ${res.statusText}`,
+      text
     );
+    throw new Error(`Kustom request failed (${res.status})`);
   }
 
   // Some endpoints (acknowledge) return 204 No Content

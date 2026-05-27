@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
 import { db, orders } from "@/db";
 import { kustom } from "@/lib/kustom/client";
+import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 
 // Force runtime execution — these routes hit the DB / Kustom API; Next would
 // otherwise try to collect page data at build time and crash without env vars.
@@ -15,6 +16,17 @@ export const dynamic = "force-dynamic";
 // (5/15/30/60 min then every 4h for 48h on any non-2xx).
 export async function POST(request: Request) {
   const url = new URL(request.url);
+
+  // Reject forged push requests. Skip the check only when no callback secret
+  // is configured (demo/dev boxes), matching the merchant_urls behaviour where
+  // the token is omitted entirely in that case.
+  if (
+    process.env.KUSTOM_CALLBACK_SECRET &&
+    !verifyCallbackToken("push", url.searchParams.get("token"))
+  ) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
   const orderId = url.searchParams.get("order_id");
 
   if (!orderId) {

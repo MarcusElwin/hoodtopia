@@ -29,8 +29,8 @@ export const preferencesRouter = router({
   save: publicProcedure
     .input(
       z.object({
-        preferences: z.string(), // Natural language description of preferences
-        categories: z.array(z.string()).optional(),
+        preferences: z.string().max(4000), // Natural language description of preferences
+        categories: z.array(z.string().max(64)).max(50).optional(),
         priceRange: z
           .object({
             min: z.number(),

@@ -93,11 +93,11 @@ export interface RecommendationWithProduct extends RecommendationItem {
 
 // Personalization context schema
 export const PersonalizationContextSchema = z.object({
-  viewedProducts: z.array(z.string()).describe("Names of recently viewed products"),
-  viewedCategories: z.array(z.string()).describe("Categories user has browsed"),
+  viewedProducts: z.array(z.string().max(200)).max(100).describe("Names of recently viewed products"),
+  viewedCategories: z.array(z.string().max(100)).max(50).describe("Categories user has browsed"),
   timeSpent: z.number().describe("Total time spent browsing in seconds"),
-  mostViewedProduct: z.string().nullable().default(null).describe("Most frequently viewed product"),
-  preferredCategory: z.string().nullable().default(null).describe("Most viewed category"),
+  mostViewedProduct: z.string().max(200).nullable().default(null).describe("Most frequently viewed product"),
+  preferredCategory: z.string().max(100).nullable().default(null).describe("Most viewed category"),
 });
 
 export type PersonalizationContext = z.infer<typeof PersonalizationContextSchema>;
@@ -152,21 +152,23 @@ export const ChatResponseSchema = z.object({
 export type ChatProductRecommendation = z.infer<typeof ChatProductRecommendationSchema>;
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
 
-// Custom design input schema
+// Custom design input schema. Length caps bound the payload handed to the
+// (paid) image model and the row we persist; imageData is base64 so its cap is
+// generous (~20MB encoded) but still finite.
 export const CustomDesignInputSchema = z.object({
   type: z.enum(["image", "text"]),
-  imageData: z.string().optional(),
-  description: z.string().optional(),
-  baseColor: z.string().default("Black"),
-  hoodieType: z.string().default("pullover"),
+  imageData: z.string().max(20_000_000).optional(),
+  description: z.string().max(2000).optional(),
+  baseColor: z.string().max(64).default("Black"),
+  hoodieType: z.string().max(64).default("pullover"),
 });
 
 export type CustomDesignInput = z.infer<typeof CustomDesignInputSchema>;
 
 // Custom design refinement schema
 export const CustomDesignRefinementSchema = z.object({
-  generationId: z.string(),
-  feedback: z.string().min(1, "Feedback is required"),
+  generationId: z.string().max(128),
+  feedback: z.string().min(1, "Feedback is required").max(2000),
 });
 
 export type CustomDesignRefinement = z.infer<typeof CustomDesignRefinementSchema>;
