@@ -1,25 +1,43 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { appRouter } from "@/server/root";
-import { createTRPCContext } from "@/server/trpc";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { KustomSnippet } from "@/components/checkout/kustom-snippet";
 import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
-export const dynamic = "force-dynamic";
+// Client component so we can read the active country from useCurrency() and
+// pass it to initCheckout. The Kustom payload's purchase_country drives the
+// payment-methods + shipping zone Kustom renders inside the iframe.
+export default function CheckoutPage() {
+  const { country } = useCurrency();
+  const [html, setHtml] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [attempt, setAttempt] = useState(0);
+  const init = trpc.checkout.initCheckout.useMutation();
+  const lastFiredFor = useRef<string | null>(null);
 
-export default async function CheckoutPage() {
-  const ctx = await createTRPCContext({ headers: new Headers() });
-  const caller = appRouter.createCaller(ctx);
+  useEffect(() => {
+    // Re-init on country change OR retry click. Clear html so the iframe is
+    // not left rendering the previous market's session while the new one loads.
+    const key = `${country.code}:${attempt}`;
+    if (lastFiredFor.current === key) return;
+    lastFiredFor.current = key;
 
-  let html = "";
-  let errorMessage = "";
+    setHtml("");
+    setErrorMessage("");
+    init
+      .mutateAsync({ countryCode: country.code })
+      .then((res) => setHtml(res.html_snippet))
+      .catch((err) =>
+        setErrorMessage(err instanceof Error ? err.message : String(err))
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [country.code, attempt]);
 
-  try {
-    const result = await caller.checkout.initCheckout();
-    html = result.html_snippet;
-  } catch (err) {
-    errorMessage = err instanceof Error ? err.message : String(err);
-  }
+  const isLoading = init.isPending || (!html && !errorMessage);
 
   return (
     <div className="min-h-screen">
@@ -35,6 +53,10 @@ export default async function CheckoutPage() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
             Checkout
           </h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Shipping to <span className="font-medium">{country.flag} {country.name}</span> ·
+            paying in <span className="font-medium">{country.currency}</span>
+          </p>
         </div>
       </div>
 
@@ -52,9 +74,17 @@ export default async function CheckoutPage() {
             <pre className="text-xs bg-muted p-3 rounded overflow-x-auto mb-4">
               {errorMessage}
             </pre>
-            <Link href="/cart">
-              <Button variant="outline">Back to cart</Button>
-            </Link>
+            <div className="flex gap-3">
+              <Button onClick={() => setAttempt((a) => a + 1)}>Try again</Button>
+              <Link href="/cart">
+                <Button variant="outline">Back to cart</Button>
+              </Link>
+            </div>
+          </div>
+        ) : isLoading ? (
+          <div className="max-w-3xl mx-auto flex items-center justify-center py-24 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Preparing your checkout…
           </div>
         ) : (
           <div className="max-w-3xl mx-auto">

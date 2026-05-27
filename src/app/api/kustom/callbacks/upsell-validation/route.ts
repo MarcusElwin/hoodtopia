@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       )
       .run();
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       // Stock raced out between recommendation and click — roll back.
       for (const d of decremented) {
         await db

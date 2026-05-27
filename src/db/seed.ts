@@ -1,10 +1,11 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
 import * as schema from "./schema";
+import { db } from "./index";
 
-const sqlite = new Database("./db/hoodtopia.db");
-const db = drizzle(sqlite, { schema });
+// Uses the shared libSQL client from ./index, which picks Turso when
+// TURSO_DATABASE_URL is set in env, or the local file otherwise. Run:
+//   npm run db:seed                                       # local
+//   TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run db:seed  # Turso
 
 // Deterministic scarcity buckets so the demo always has a few "Only X left" SKUs.
 // ~80% well-stocked, ~15% medium, ~5% scarce.
@@ -376,10 +377,10 @@ async function seed() {
 
   // Clear existing data
   console.log("🗑️  Clearing existing data...");
-  db.delete(schema.cartItems).run();
-  db.delete(schema.carts).run();
-  db.delete(schema.productVariants).run();
-  db.delete(schema.products).run();
+  await db.delete(schema.cartItems).run();
+  await db.delete(schema.carts).run();
+  await db.delete(schema.productVariants).run();
+  await db.delete(schema.products).run();
 
   // Insert products
   console.log("📦 Inserting products...");
@@ -391,7 +392,7 @@ async function seed() {
     // Default image URL (will be replaced by Gemini-generated images)
     const imageUrl = `/images/products/${slug}-black.jpg`;
 
-    db.insert(schema.products)
+    await db.insert(schema.products)
       .values({
         id,
         name: product.name,
@@ -447,7 +448,7 @@ async function seed() {
               ? 10 + (sku.charCodeAt(0) % 21)
               : 50 + (sku.charCodeAt(1) % 51);
 
-        db.insert(schema.productVariants)
+        await db.insert(schema.productVariants)
           .values({
             id: variantId,
             productId: product.id,
@@ -475,7 +476,7 @@ async function seed() {
     const slug = accessory.slug;
     const imageUrl = `/images/accessories/${slug}.jpg`;
 
-    db.insert(schema.products)
+    await db.insert(schema.products)
       .values({
         id,
         name: accessory.name,
@@ -517,7 +518,7 @@ async function seed() {
           ? 10 + (sku.charCodeAt(4) % 21)
           : 50 + (sku.charCodeAt(4) % 51);
 
-    db.insert(schema.productVariants)
+    await db.insert(schema.productVariants)
       .values({
         id: variantId,
         productId: id,

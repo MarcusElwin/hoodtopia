@@ -14,10 +14,10 @@ const DEMO_SESSION_ID = "demo-session";
 // Keeps the demo state fresh between attendees / browser sessions.
 const CART_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-// Atomic stock delta. Returns the row only if the update would not leave
-// stock negative — better-sqlite3 returns `changes: 0` when the WHERE
-// clause rejects, so we surface that as an explicit out-of-stock error.
-function adjustStock(variantId: string, delta: number) {
+// Atomic stock delta. The libSQL driver reports rowsAffected=0 when the WHERE
+// clause rejects (stock would go negative), which we surface as a clean
+// out-of-stock error instead of a silent no-op.
+async function adjustStock(variantId: string, delta: number) {
   if (delta === 0) return;
   const stmt =
     delta < 0
@@ -35,8 +35,8 @@ function adjustStock(variantId: string, delta: number) {
           .set({ stock: sql`${productVariants.stock} + ${delta}` })
           .where(eq(productVariants.id, variantId));
 
-  const result = stmt.run();
-  if (delta < 0 && result.changes === 0) {
+  const result = await stmt.run();
+  if (delta < 0 && result.rowsAffected === 0) {
     throw new TRPCError({
       code: "CONFLICT",
       message: "Not enough stock for that quantity.",
@@ -68,7 +68,7 @@ export const cartRouter = router({
     ) {
       // Restore stock for everything we're about to drop.
       for (const item of cart.items) {
-        adjustStock(item.variantId, item.quantity);
+        await adjustStock(item.variantId, item.quantity);
       }
       await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
       cart = { ...cart, items: [] };
@@ -155,7 +155,7 @@ export const cartRouter = router({
       }
 
       // Atomic stock decrement — throws CONFLICT if insufficient.
-      adjustStock(input.variantId, -input.quantity);
+      await adjustStock(input.variantId, -input.quantity);
 
       // Check if item already exists in cart
       const existingItem = await db.query.cartItems.findFirst({
@@ -212,7 +212,7 @@ export const cartRouter = router({
       if (delta === 0) return { success: true };
 
       // Move stock to match the new quantity. Negative delta = need more stock.
-      adjustStock(item.variantId, -delta);
+      await adjustStock(item.variantId, -delta);
 
       if (input.quantity === 0) {
         await db.delete(cartItems).where(eq(cartItems.id, input.itemId));
@@ -232,7 +232,7 @@ export const cartRouter = router({
       where: eq(cartItems.id, input),
     });
     if (item) {
-      adjustStock(item.variantId, item.quantity);
+      await adjustStock(item.variantId, item.quantity);
       await db.delete(cartItems).where(eq(cartItems.id, input));
     }
     return { success: true };
@@ -247,7 +247,7 @@ export const cartRouter = router({
 
     if (cart) {
       for (const item of cart.items) {
-        adjustStock(item.variantId, item.quantity);
+        await adjustStock(item.variantId, item.quantity);
       }
       await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     }
@@ -267,45 +267,59 @@ export const cartRouter = router({
     return { success: true };
   }),
 
-  // Get AI-powered cart recommendations
-  getRecommendations: publicProcedure.query(async () => {
-    // Get current cart
-    const cart = await db.query.carts.findFirst({
-      where: eq(carts.sessionId, DEMO_SESSION_ID),
-      with: {
-        items: {
-          with: {
-            product: true,
+  // Get AI-powered cart recommendations. The caller passes the active
+  // currency symbol so the prompt + cartAnalysis text use the right glyph
+  // ("under 300 kr" instead of "under $30" when the shopper is in SEK).
+  // budgetCap is in the same currency's minor-unit major number (e.g. 300
+  // for "300 kr" or "£300"), not converted between currencies.
+  getRecommendations: publicProcedure
+    .input(
+      z
+        .object({
+          symbol: z.string().optional(),
+          budgetCap: z.number().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      // Get current cart
+      const cart = await db.query.carts.findFirst({
+        where: eq(carts.sessionId, DEMO_SESSION_ID),
+        with: {
+          items: {
+            with: {
+              product: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // If cart is empty, return empty recommendations
-    if (!cart || cart.items.length === 0) {
-      return {
-        recommendations: [],
-        cartAnalysis: "Add items to your cart to see personalized recommendations.",
-      };
-    }
+      // If cart is empty, return empty recommendations
+      if (!cart || cart.items.length === 0) {
+        return {
+          recommendations: [],
+          cartAnalysis: "Add items to your cart to see personalized recommendations.",
+        };
+      }
 
-    // Get all products for recommendations with variants (exclude custom designs)
-    const allProducts = await db.query.products.findMany({
-      where: ne(products.category, "custom"),
-      with: {
-        variants: true,
-      },
-    });
+      // Get all products for recommendations with variants (exclude custom designs)
+      const allProducts = await db.query.products.findMany({
+        where: ne(products.category, "custom"),
+        with: {
+          variants: true,
+        },
+      });
 
-    // Extract cart products
-    const cartProducts = cart.items.map((item) => item.product);
+      // Extract cart products
+      const cartProducts = cart.items.map((item) => item.product);
 
-    // Get AI recommendations
-    const recommendations = await getCartRecommendations(
-      cartProducts,
-      allProducts
-    );
+      // Get AI recommendations
+      const recommendations = await getCartRecommendations(
+        cartProducts,
+        allProducts,
+        input
+      );
 
-    return recommendations;
-  }),
+      return recommendations;
+    }),
 });

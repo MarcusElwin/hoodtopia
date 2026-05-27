@@ -339,7 +339,7 @@ For example:
 export async function getCartRecommendations(
   cartProducts: ProductForAI[],
   allProducts: ProductForAI[],
-  options?: { currency?: string; symbol?: string; budgetCap?: number }
+  options?: { symbol?: string; budgetCap?: number }
 ): Promise<{
   recommendations: CartRecommendationWithProduct[];
   cartAnalysis: string;

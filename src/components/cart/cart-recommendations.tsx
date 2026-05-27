@@ -5,10 +5,14 @@ import Image from "next/image";
 import { Sparkles, Plus, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrency } from "@/lib/currency";
 import type { CartRecommendationWithProduct } from "@/services/schemas";
 
 export function CartRecommendations() {
-  const { data, isLoading } = trpc.cart.getRecommendations.useQuery();
+  const { formatPrice, currency } = useCurrency();
+  const { data, isLoading } = trpc.cart.getRecommendations.useQuery({
+    symbol: currency.symbol,
+  });
   const cartQuery = trpc.cart.get.useQuery();
   const addToCartMutation = trpc.cart.addItem.useMutation({
     onSuccess: () => {
@@ -116,7 +120,7 @@ export function CartRecommendations() {
                       {rec.product.name}
                     </h3>
                     <p className="text-sm font-semibold mt-1">
-                      ${(rec.product.basePrice / 100).toFixed(2)}
+                      {formatPrice(rec.product.basePrice)}
                     </p>
                   </div>
 
