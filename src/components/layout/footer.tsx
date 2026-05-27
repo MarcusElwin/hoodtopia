@@ -30,9 +30,16 @@ export function Footer() {
                 <Twitter className="h-4 w-4" />
                 <span className="sr-only">Twitter</span>
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
-                <Github className="h-4 w-4" />
-                <span className="sr-only">GitHub</span>
+              <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                <a
+                  href="https://github.com/MarcusElwin/hoodtopia"
+                  target="_blank"
+                  rel="noopener"
+                  title="View source on GitHub"
+                >
+                  <Github className="h-4 w-4" />
+                  <span className="sr-only">GitHub</span>
+                </a>
               </Button>
             </div>
           </div>
@@ -60,6 +67,17 @@ export function Footer() {
               <li>
                 <Link href="/cart" className="text-muted-foreground hover:text-foreground transition-colors">
                   Shopping Cart
+                </Link>
+              </li>
+              <li>
+                <Link href="/checkout" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Checkout
+                </Link>
+              </li>
+              <li>
+                <Link href="/custom-designer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  Custom Designer
                 </Link>
               </li>
             </ul>
@@ -133,13 +151,45 @@ export function Footer() {
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span>&copy; {new Date().getFullYear()} Hoodtopia</span>
               <span className="hidden md:inline">·</span>
-              <span className="text-xs">Demo for LangChain Stockholm Meetup</span>
+              <span className="text-xs">
+                Demo built for agentic e-commerce ·{" "}
+                <a
+                  href="https://github.com/MarcusElwin/hoodtopia"
+                  target="_blank"
+                  rel="noopener"
+                  className="underline hover:no-underline"
+                >
+                  open source
+                </a>
+              </span>
+              <span className="hidden md:inline">·</span>
+              <span className="text-xs">
+                Powered by{" "}
+                <a
+                  href="https://www.kustom.co"
+                  target="_blank"
+                  rel="noopener"
+                  className="underline hover:no-underline"
+                >
+                  Kustom
+                </a>
+                {" + "}
+                <a
+                  href="https://vercel.com"
+                  target="_blank"
+                  rel="noopener"
+                  className="underline hover:no-underline"
+                >
+                  Vercel
+                </a>
+              </span>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link href="/shipping" className="hover:text-foreground transition-colors">Shipping</Link>
               <Link href="/faq" className="hover:text-foreground transition-colors">FAQ</Link>
+              <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
             </div>
           </div>
         </div>

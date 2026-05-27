@@ -13,8 +13,8 @@ export function DemoBanner() {
       <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-center">
         <Sparkles className="h-3.5 w-3.5 shrink-0" />
         <span>
-          <strong>Demo site</strong> — no real orders or payments are taken.
-          Built for the LangChain Stockholm Meetup ·{" "}
+          <strong>Demo site</strong> built for agentic e-commerce — no real
+          orders or payments are taken ·{" "}
           <Link href="/terms" className="underline hover:no-underline">
             See terms
           </Link>
