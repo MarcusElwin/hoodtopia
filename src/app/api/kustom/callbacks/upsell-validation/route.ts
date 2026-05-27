@@ -5,6 +5,10 @@ import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { UpsellLine } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Final stock check + atomic reservation before Kustom appends the upsell to
 // the captured order. Upsells bypass the cart, so unlike normal items they
 // haven't decremented stock yet — we have to do it here, atomically, or the

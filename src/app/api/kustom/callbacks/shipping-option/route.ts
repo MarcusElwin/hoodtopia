@@ -3,6 +3,10 @@ import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { recomputeOrder } from "@/lib/kustom/recompute";
 import type { OrderLine, ShippingOption } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Called when the user picks a different shipping option from the list KSA
 // returned. Kustom hands us the new selected_shipping_option; we make sure
 // the corresponding shipping_fee order line is in the response and re-sum.

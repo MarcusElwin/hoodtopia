@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { issueBearer, verifyDigest } from "@/lib/kustom/shipping-auth";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 const bodySchema = z.object({
   identifier: z.string().min(1),
   secret: z.object({

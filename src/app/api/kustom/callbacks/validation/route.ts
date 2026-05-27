@@ -5,6 +5,10 @@ import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { db, productVariants } from "@/db";
 import type { OrderLine } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Pre-payment guardrail. Kustom calls this just before authorising payment
 // (require_validate_callback_success=true in the create-order options).
 // Return 200 to approve, 400 to reject with a customer-visible reason.

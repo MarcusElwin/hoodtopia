@@ -3,6 +3,10 @@ import { z } from "zod";
 import { verifyBearer } from "@/lib/kustom/shipping-auth";
 import { buildShippingOptions } from "@/lib/kustom/shipping-options";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 const addressSchema = z
   .object({
     given_name: z.string().optional(),

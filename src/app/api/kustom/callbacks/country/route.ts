@@ -3,6 +3,10 @@ import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
 import { recomputeOrder } from "@/lib/kustom/recompute";
 import type { OrderLine, ShippingOption } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Fires when the consumer switches the purchase country. Kustom has already
 // re-priced the order in the new currency by the time we get the call; we
 // just re-sum and pass back. For a real merchant this is where you'd swap

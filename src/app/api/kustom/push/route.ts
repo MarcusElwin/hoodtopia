@@ -5,6 +5,10 @@ import { track } from "@vercel/analytics/server";
 import { db, orders } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // Kustom POSTs here after a customer completes checkout (~2 min delay).
 // Steps: fetch the Order Management order → upsert locally → acknowledge.
 // Always return 200 quickly so Kustom doesn't retry on transient errors

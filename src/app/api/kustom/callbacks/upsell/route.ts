@@ -7,6 +7,10 @@ import { getCartRecommendations } from "@/services/ai";
 import { currencySymbol } from "@/lib/kustom/currency";
 import type { OrderLine, UpsellLine } from "@/lib/kustom/types";
 
+// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// otherwise try to collect page data at build time and crash without env vars.
+export const dynamic = "force-dynamic";
+
 // THE agentic-commerce moment. Kustom calls us on the confirmation page asking
 // "any post-purchase upsells?". We look up what the customer just bought,
 // hand it to the AI rec engine, and turn the top complementary product into
