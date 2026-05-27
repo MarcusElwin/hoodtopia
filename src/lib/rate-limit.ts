@@ -15,10 +15,16 @@ interface Bucket {
 const buckets = new Map<string, Bucket>();
 let lastSweep = Date.now();
 
-// Drop expired buckets occasionally so the Map can't grow unbounded under a
-// flood of distinct keys (e.g. spoofed X-Forwarded-For values).
+// Force a sweep once the Map grows past this many entries, even within the
+// time window, so a burst of distinct keys can't balloon memory before the
+// next scheduled sweep.
+const MAX_BUCKETS_BEFORE_SWEEP = 10_000;
+
+// Drop expired buckets so the Map can't grow unbounded under a flood of
+// distinct keys. Runs at most once a minute, or immediately when the Map is
+// large.
 function sweep(now: number): void {
-  if (now - lastSweep < 60_000) return;
+  if (now - lastSweep < 60_000 && buckets.size < MAX_BUCKETS_BEFORE_SWEEP) return;
   lastSweep = now;
   for (const [key, bucket] of buckets) {
     if (now >= bucket.resetAt) buckets.delete(key);

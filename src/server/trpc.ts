@@ -20,9 +20,19 @@ export const publicProcedure = t.procedure;
 export const createCallerFactory = t.createCallerFactory;
 
 function clientIp(headers: Headers): string {
+  // Prefer x-real-ip (Vercel sets it to the real client IP). For
+  // x-forwarded-for, take the RIGHTMOST entry — the address seen by the
+  // closest trusted proxy — not the leftmost, which a client can spoof by
+  // prepending a fake value ("1.2.3.4, <realip>") to evade per-IP limits.
+  const realIp = headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+
   const xff = headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return headers.get("x-real-ip") ?? "unknown";
+  if (xff) {
+    const ips = xff.split(",").map((ip) => ip.trim()).filter(Boolean);
+    if (ips.length > 0) return ips[ips.length - 1]!;
+  }
+  return "unknown";
 }
 
 // Per-IP rate limit middleware. Applied to the unauthenticated procedures that
