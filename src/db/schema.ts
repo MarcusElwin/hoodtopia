@@ -18,6 +18,24 @@ export const products = sqliteTable("products", {
     .$defaultFn(() => new Date()),
 });
 
+// Extra product images (lifestyle, back, detail). The main hero shot stays
+// on products.imageUrl; this table holds the *additional* angles that the
+// PDP carousel + Google Shopping additional_image_link fields consume.
+export const productImages = sqliteTable("product_images", {
+  id: text("id").primaryKey(),
+  productId: text("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  /** 0-based render order in the carousel. */
+  position: integer("position").notNull().default(0),
+  /** Short prompt-derived caption (e.g. "back view", "fabric close-up"). */
+  alt: text("alt"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Product variants table (color + size combinations)
 export const productVariants = sqliteTable("product_variants", {
   id: text("id").primaryKey(),
@@ -64,6 +82,14 @@ export const cartItems = sqliteTable("cart_items", {
 // Relations
 export const productsRelations = relations(products, ({ many }) => ({
   variants: many(productVariants),
+  images: many(productImages),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  product: one(products, {
+    fields: [productImages.productId],
+    references: [products.id],
+  }),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one }) => ({
@@ -168,3 +194,5 @@ export type CustomDesign = typeof customDesigns.$inferSelect;
 export type NewCustomDesign = typeof customDesigns.$inferInsert;
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
+export type ProductImage = typeof productImages.$inferSelect;
+export type NewProductImage = typeof productImages.$inferInsert;
