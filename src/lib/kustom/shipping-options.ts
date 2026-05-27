@@ -1,5 +1,81 @@
-import type { Address, KsaShippingOption } from "./types";
+import type { Address, KsaLocation, KsaShippingOption } from "./types";
 import { getMarket } from "./markets";
+
+// Per-market sample pickup locations for the `pup` option. Kustom's KSA
+// spec requires any `pickup-*` type to carry a non-empty `locations[]`
+// — without it the option is rejected as "basic". For a demo we fake a
+// short list per country; a real integration would call the carrier's
+// location-search API with the customer's postal code.
+//
+// Prices are in minor units of the market's currency and stack on top
+// of the option's base `price` (so 0 = the locker matches the option
+// price, >0 = a premium locker).
+const PICKUP_LOCATIONS_BY_COUNTRY: Record<string, KsaLocation[]> = {
+  SE: [
+    {
+      id: "se-instabox-norrmalm",
+      name: "Instabox Norrmalm",
+      price: 0,
+      address: { street_address: "Drottninggatan 71", postal_code: "11136", city: "Stockholm", country: "SE" },
+      coordinates: { lat: 59.336, lng: 18.063 },
+      operational_hours: { default: [{ always_open: true }] },
+    },
+    {
+      id: "se-instabox-sodermalm",
+      name: "Instabox Södermalm",
+      price: 0,
+      address: { street_address: "Götgatan 28", postal_code: "11626", city: "Stockholm", country: "SE" },
+      coordinates: { lat: 59.317, lng: 18.073 },
+      operational_hours: { default: [{ always_open: true }] },
+    },
+    {
+      id: "se-instabox-vasastan",
+      name: "Instabox Vasastan",
+      price: 0,
+      address: { street_address: "Odengatan 65", postal_code: "11322", city: "Stockholm", country: "SE" },
+      coordinates: { lat: 59.343, lng: 18.052 },
+      operational_hours: { default: [{ always_open: true }] },
+    },
+  ],
+  GB: [
+    {
+      id: "gb-evri-shoreditch",
+      name: "Evri ParcelShop — Shoreditch",
+      price: 0,
+      address: { street_address: "55 Old Street", postal_code: "EC1V 9HX", city: "London", country: "GB" },
+    },
+    {
+      id: "gb-evri-soho",
+      name: "Evri ParcelShop — Soho",
+      price: 0,
+      address: { street_address: "12 Brewer Street", postal_code: "W1F 0SE", city: "London", country: "GB" },
+    },
+  ],
+  US: [
+    {
+      id: "us-ups-soho",
+      name: "UPS Access Point — SoHo",
+      price: 0,
+      address: { street_address: "120 W Broadway", postal_code: "10013", city: "New York", country: "US" },
+    },
+  ],
+  DE: [
+    {
+      id: "de-dhl-mitte",
+      name: "DHL Packstation Mitte",
+      price: 0,
+      address: { street_address: "Friedrichstraße 90", postal_code: "10117", city: "Berlin", country: "DE" },
+    },
+  ],
+  JP: [
+    {
+      id: "jp-yamato-shibuya",
+      name: "Yamato Shibuya Center",
+      price: 0,
+      address: { street_address: "2-21-1 Dogenzaka", postal_code: "1500043", city: "Tokyo", country: "JP" },
+    },
+  ],
+};
 
 function hasFullAddress(addr?: Address): boolean {
   return Boolean(addr?.postal_code && addr?.country);
@@ -76,7 +152,16 @@ export function buildShippingOptions({
       class: "express",
       ...previewFlag,
     },
-    {
+  ];
+
+  // pickup-point option REQUIRES a non-empty locations[] per the KSA spec.
+  // Look up sample lockers for this market; only add the option if we have
+  // at least one. (Markets without sample locations just won't see a
+  // pickup tile — better than emitting an invalid option.)
+  const pickupLocations =
+    PICKUP_LOCATIONS_BY_COUNTRY[market.purchase_country] ?? [];
+  if (pickupLocations.length > 0) {
+    options.push({
       id: "pup",
       type: "pickup-point",
       carrier: carriers.pickup.carrier,
@@ -86,9 +171,10 @@ export function buildShippingOptions({
       tax_rate: market.vat_rate_bp,
       delivery_time: { interval: { earliest: 2, latest: 3 } },
       class: "standard",
+      locations: pickupLocations,
       ...previewFlag,
-    },
-  ];
+    });
+  }
 
   return { shipping_options: options };
 }

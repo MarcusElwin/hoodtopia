@@ -99,6 +99,27 @@ export interface KsaDeliveryTime {
   latest?: string;
 }
 
+// Pickup-point / pickup-box / pickup-merchant-store location. Per the
+// KSA spec, any `pickup-*` type option MUST carry a non-empty
+// `locations[]` array, otherwise Kustom rejects the response as a
+// "basic option". Each location needs at minimum id, name, price,
+// and a complete address.
+export interface KsaLocation {
+  id: string;
+  name: string;
+  price: number;       // minor units of the order currency
+  address: {
+    street_address: string;
+    postal_code: string;
+    city: string;
+    country: string;   // ISO 3166-1 alpha-2
+  };
+  coordinates?: { lat: number; lng: number };
+  operational_hours?: {
+    default?: Array<{ always_open?: boolean; open?: string; close?: string }>;
+  };
+}
+
 // Strict KSA `/shippingoptions` response option. Intentionally does NOT
 // include `preselected` — that belongs only on the Create Order fallback
 // `shipping_options` (the static / "basic" interface). Including it on a
@@ -114,6 +135,10 @@ export interface KsaShippingOption {
   tax_rate: number;   // basis points (2500 = 25%)
   delivery_time?: KsaDeliveryTime;
   class?: KsaShippingClass;
+  /** REQUIRED when type is pickup-point / pickup-box /
+   *  pickup-merchant-store / pickup-warehouse. Empty/missing → Kustom
+   *  rejects the whole shipping-options response. */
+  locations?: KsaLocation[];
   /** Set TRUE only when responding to a preview/partial-address call.
    *  Never emit `preview: false` — omit the field instead. */
   preview?: true;
