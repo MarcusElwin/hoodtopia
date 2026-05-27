@@ -89,16 +89,22 @@ export async function POST(request: Request) {
     const total_amount = full!.basePrice;
     const total_tax_amount = Math.round(total_amount - total_amount / 1.2);
 
+    const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+    const productUrl = site ? `${site}/products/${full!.slug}` : undefined;
+
     upsell_lines.push({
-      reference: variant.sku,
       name: full!.name,
+      reference: variant.sku,
       quantity: 1,
+      max_allowed_quantity: Math.min(variant.stock, 3),
       quantity_unit: "pcs",
       unit_price: full!.basePrice,
       tax_rate: 2000,
       total_amount,
       total_tax_amount,
       image_url: variant.imageUrl ?? full!.imageUrl,
+      product_url: productUrl,
+      description: full!.description?.slice(0, 1024),
       type: "physical",
     });
     if (upsell_lines.length >= 2) break;

@@ -12,18 +12,30 @@ export interface MerchantUrls {
   upsell_validation?: string;
 }
 
+// Spec: https://docs.kustom.co/contents/checkout/use-cases/upsell
+// Required: name, quantity, unit_price, tax_rate, total_amount,
+//           total_tax_amount, max_allowed_quantity.
+// Strongly recommended: reference, image_url, product_url, description.
+// Kustom re-validates that total_amount === unit_price × quantity.
 export interface UpsellLine {
-  reference: string;
   name: string;
   quantity: number;
-  quantity_unit?: string;
   unit_price: number;
   tax_rate: number;
   total_amount: number;
-  total_discount_amount?: number;
   total_tax_amount: number;
+  /** Max quantity the shopper can add. Required by the spec. */
+  max_allowed_quantity: number;
+  /** SKU. Strongly recommended. */
+  reference?: string;
+  /** Product card image (required to render the upsell tile, max 1024 chars). */
   image_url?: string;
+  /** Link to PDP, max 1024 chars. */
   product_url?: string;
+  /** Short blurb, max 1024 chars. */
+  description?: string;
+  total_discount_amount?: number;
+  quantity_unit?: string;
   type?: "physical" | "digital";
   merchant_data?: string;
 }

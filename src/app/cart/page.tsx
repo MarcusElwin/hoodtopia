@@ -247,7 +247,7 @@ export default function CartPage() {
                 </Button>
 
                 <div className="mt-4">
-                  <PaymentMethodDisplay amount={cart?.subtotal || 0} />
+                  <PaymentMethodDisplay />
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">

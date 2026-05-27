@@ -203,7 +203,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {formatPrice(product.basePrice)}
               </p>
               <div className="mt-2">
-                <PaymentMethodDisplay amount={product.basePrice} />
+                <PaymentMethodDisplay />
               </div>
             </div>
 
