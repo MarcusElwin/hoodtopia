@@ -39,10 +39,16 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Kustom ${method} ${path} failed: ${res.status} ${res.statusText} ${text}`
+    // Log the upstream body server-side for debugging, but don't leak it to
+    // the client — this error propagates through tRPC to the browser and the
+    // raw Kustom response can contain internal detail. Truncate it since it's
+    // external input of unbounded size.
+    const text = (await res.text().catch(() => "")).slice(0, 500);
+    console.error(
+      `[kustom] ${method} ${path} failed: ${res.status} ${res.statusText}`,
+      text
     );
+    throw new Error(`Kustom request failed (${res.status})`);
   }
 
   // Some endpoints (acknowledge) return 204 No Content

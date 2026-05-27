@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { ne, eq, desc } from "drizzle-orm";
-import { router, publicProcedure } from "../trpc";
+import { ne, eq } from "drizzle-orm";
+import { router, publicProcedure, rateLimit } from "../trpc";
 import { db, products, chatMessages } from "@/db";
 import {
   chatWithAssistant,
@@ -14,18 +14,25 @@ import { PROFILES, type ProfileType } from "@/lib/shopper-profiles";
 // Demo session ID (in production, use real user sessions)
 const DEMO_SESSION_ID = "demo-chat-session";
 
-// Message schema for chat
+// Per-IP throttle for the procedures that call the paid LLM, shared across the
+// three so total model calls per client are bounded.
+const llmProcedure = publicProcedure.use(
+  rateLimit({ name: "ai", limit: 30, windowMs: 60_000 })
+);
+
+// Message schema for chat. Cap content length so a single unauthenticated
+// request can't push an unbounded prompt to the paid LLM / fill the DB.
 const MessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string(),
+  content: z.string().max(4000),
 });
 
 export const aiRouter = router({
   // Chat with AI assistant
-  chat: publicProcedure
+  chat: llmProcedure
     .input(
       z.object({
-        messages: z.array(MessageSchema),
+        messages: z.array(MessageSchema).max(50),
         profileType: ShopperProfileTypeSchema,
       })
     )
@@ -82,10 +89,10 @@ export const aiRouter = router({
     }),
 
   // Get AI-powered product recommendations
-  recommend: publicProcedure
+  recommend: llmProcedure
     .input(
       z.object({
-        preferences: z.string(),
+        preferences: z.string().max(2000),
         personalizationContext: PersonalizationContextSchema.optional(),
       })
     )
@@ -106,7 +113,7 @@ export const aiRouter = router({
     }),
 
   // AI-powered semantic search
-  search: publicProcedure.input(z.string()).mutation(async ({ input }) => {
+  search: llmProcedure.input(z.string().max(500)).mutation(async ({ input }) => {
     // Get all products for context (exclude custom designs)
     const allProducts = await db.query.products.findMany({
       where: ne(products.category, "custom"),
@@ -138,8 +145,8 @@ export const aiRouter = router({
     .input(
       z.object({
         role: z.enum(["user", "assistant"]),
-        content: z.string(),
-        products: z.array(z.any()).optional(),
+        content: z.string().max(8000),
+        products: z.array(z.any()).max(20).optional(),
       })
     )
     .mutation(async ({ input }) => {

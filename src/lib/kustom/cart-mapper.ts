@@ -122,11 +122,18 @@ export function buildCreateOrderPayload({
     };
   }
 
+  // Protect the push webhook with the same HMAC token as the other callbacks
+  // when a secret is configured. Kustom echoes back the exact URL we register,
+  // so the token survives the {checkout.order.id} substitution.
+  const pushToken = process.env.KUSTOM_CALLBACK_SECRET
+    ? `&token=${callbackToken("push")}`
+    : "";
+
   const merchant_urls: MerchantUrls = {
     terms: `${site}/terms`,
     checkout: `${site}/checkout`,
     confirmation: `${site}/checkout/confirmation?order_id={checkout.order.id}`,
-    push: `${site}/api/kustom/push?order_id={checkout.order.id}`,
+    push: `${site}/api/kustom/push?order_id={checkout.order.id}${pushToken}`,
     ...cb,
   };
 

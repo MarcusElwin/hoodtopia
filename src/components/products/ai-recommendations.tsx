@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import type { inferRouterOutputs } from "@trpc/server";
 import { Sparkles, Send, Loader2, ThumbsUp, ThumbsDown, ShoppingCart, Check, GitCompare, Save, BookmarkCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { useBrowseHistory } from "@/hooks/use-browse-history";
+import type { AppRouter } from "@/server/root";
 import { ProductComparison } from "./product-comparison";
+
+type ProductItem = inferRouterOutputs<AppRouter>["products"]["list"][number];
+type VariantItem = ProductItem["variants"][number];
 
 const EXAMPLE_PROMPTS = [
   "I need a warm hoodie for hiking in cold weather",
@@ -143,7 +148,7 @@ export function AIRecommendations() {
     }));
   };
 
-  const getSelectedVariant = (product: any) => {
+  const getSelectedVariant = (product: ProductItem) => {
     const selection = selections[product.id];
     if (!selection?.color || !selection?.size) {
       // Return first variant as default
@@ -151,11 +156,11 @@ export function AIRecommendations() {
     }
 
     return product.variants.find(
-      (v: any) => v.color === selection.color && v.size === selection.size
+      (v: VariantItem) => v.color === selection.color && v.size === selection.size
     );
   };
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: ProductItem) => {
     // Get selected variant
     const selectedVariant = getSelectedVariant(product);
 
@@ -211,9 +216,11 @@ export function AIRecommendations() {
     });
   };
 
-  // Pre-fill prompt from saved preferences on mount
+  // Pre-fill prompt from saved preferences on mount. Syncing local state from
+  // a server query is a valid effect use; the lint rule flags the setState.
   useEffect(() => {
     if (savedPreferences && !hasSearched && !prompt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPrompt(savedPreferences.preferences.description);
     }
   }, [savedPreferences, hasSearched, prompt]);
@@ -438,7 +445,7 @@ export function AIRecommendations() {
 
                   // Get unique colors and sizes for this product
                   const colors = product!.variants.reduce(
-                    (acc: { color: string; colorHex: string }[], v: any) => {
+                    (acc: { color: string; colorHex: string }[], v: VariantItem) => {
                       if (!acc.find((c) => c.color === v.color)) {
                         acc.push({ color: v.color, colorHex: v.colorHex });
                       }
@@ -446,7 +453,7 @@ export function AIRecommendations() {
                     },
                     []
                   );
-                  const sizes = [...new Set(product!.variants.map((v: any) => v.size))];
+                  const sizes = [...new Set(product!.variants.map((v: VariantItem) => v.size))];
                   const sizeOrder = ["XS", "S", "M", "L", "XL", "XXL"];
                   const sortedSizes = sizes.sort((a, b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
 
@@ -457,7 +464,7 @@ export function AIRecommendations() {
 
                   // Get the image for the selected color
                   const selectedVariant = product!.variants.find(
-                    (v: any) => v.color === selectedColor
+                    (v: VariantItem) => v.color === selectedColor
                   );
                   const displayImage = selectedVariant?.imageUrl || product!.imageUrl;
 
@@ -558,7 +565,7 @@ export function AIRecommendations() {
                         {/* Add to Cart button */}
                         <Button
                           className="w-full h-8 text-xs"
-                          onClick={() => handleAddToCart(product)}
+                          onClick={() => handleAddToCart(product!)}
                           disabled={addToCartMutation.isPending && addedToCartId === product!.id}
                         >
                           {addToCartMutation.isPending && addedToCartId === product!.id ? (
