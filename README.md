@@ -53,7 +53,7 @@
 - 🧩 **Kustom On-site Elements** — `<kustom-payment-method-display>` on PDP and cart
 - 📬 Push webhook → Order Management acknowledge with idempotent local sync
 
-See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup and verification.
+See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup, and [`docs/DEPLOY.md`](./docs/DEPLOY.md) for shipping it to Vercel + a custom domain.
 
 **Core E-commerce:**
 - 💱 Multi-currency support (USD, SEK, JPY, GBP, EUR)

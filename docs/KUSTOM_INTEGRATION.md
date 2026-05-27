@@ -272,7 +272,32 @@ After the first deploy:
 
 ---
 
-## 9. References
+## 9. Roadmap — Checkout Callbacks (next PR)
+
+Beyond the four `merchant_urls` Hoodtopia sends today (`terms`, `checkout`, `confirmation`, `push`), Kustom supports six **server-side callback URLs** that fire mid-checkout for richer UX:
+
+| Key | Purpose | When Kustom calls it |
+|---|---|---|
+| `address_update` | Recompute totals for a new address | User edits shipping/billing address |
+| `country_change` | Switch tax/currency/options on country swap | User picks a new country |
+| `shipping_option_update` | Recompute on shipping-option swap | User picks a different shipping option |
+| `validation` | Final server-side check before payment | Just before "Pay now" |
+| `upsell` | Inject extra `order_lines[]` on confirmation page | After purchase complete |
+| `upsell_validation` | Validate an upsell selection | User clicks an upsell offer |
+
+All six follow the same contract: Kustom `POST`s the current order, you return `{ order_lines, order_amount, order_tax_amount, ... }` (or `{ error }`). Response time budget is ~5 s before Kustom falls back to the cached state.
+
+Planned scope (split into a separate PR after the current one merges):
+
+1. **Routes:** `src/app/api/kustom/callbacks/{address,country,shipping-option,validation}/route.ts` — each takes the order, runs the same `buildCreateOrderPayload` math against the new inputs, and returns the recomputed lines.
+2. **Auth:** these callbacks are server-to-server from Kustom; protect with the same shared-secret HMAC pattern as the push webhook, or a `?token=` query param (Kustom doesn't sign callback requests by default).
+3. **`merchant_urls`:** extend `cart-mapper.ts` to emit the four URLs above.
+4. **`options.require_validate_callback_success: true`:** flip on to force Kustom to wait for our `validation` callback before authorising payment.
+5. **Upsells:** the `upsell` callback is where Hoodtopia's existing AI recommendation engine becomes a revenue lever — return 1-3 complementary products from `getCartRecommendations` and they render inside the Kustom confirmation iframe before the customer leaves.
+
+Reference: cached at `.firecrawl/kustom/api-checkout-callback.md` (full payload examples for all six callback types).
+
+## 10. References
 
 - [Kustom Checkout overview](https://docs.kustom.co/contents/checkout)
 - [Create Order](https://docs.kustom.co/contents/checkout/integrate-kco-in-your-ecommerce/create-order)
