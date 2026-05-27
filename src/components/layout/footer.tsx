@@ -5,6 +5,8 @@ import { Sparkles, Mail, Instagram, Twitter, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HoodtopiaLogo } from "@/components/ui/logo";
+import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
+import { DeliveryMethodDisplay } from "@/components/kustom/delivery-method-display";
 
 export function Footer() {
   return (
@@ -140,6 +142,25 @@ export function Footer() {
             <p className="text-xs text-muted-foreground/60">
               This is a demo. No emails will be sent.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment + Delivery method logo strips — pulled from Kustom Elements
+          so they auto-update if we enable more methods/carriers in the Portal. */}
+      <div className="border-t border-border/40">
+        <div className="container mx-auto px-4 py-6 space-y-4">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Payment methods
+            </p>
+            <PaymentMethodDisplay />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Delivery partners
+            </p>
+            <DeliveryMethodDisplay />
           </div>
         </div>
       </div>

@@ -4,23 +4,17 @@ import { useSyncExternalStore } from "react";
 import { useCurrency } from "@/lib/currency";
 import { elementsEnabled, localeFor } from "./elements-config";
 
-interface PaymentMethodDisplayProps {
-  /** Override locale. Defaults to deriving it from useCurrency(). */
+interface ExpressButtonsProps {
   locale?: string;
-  /** Comma-separated payment method ids to hide. */
-  exclude?: string;
   className?: string;
 }
 
 const subscribe = () => () => {};
 
-// Renders <kustom-payment-method-display>. Gated on BOTH elements env vars
-// matching layout.tsx so we never emit a tag the install script can't upgrade.
-export function PaymentMethodDisplay({
-  locale,
-  exclude,
-  className,
-}: PaymentMethodDisplayProps) {
+// <kustom-express-buttons> — Apple Pay / Klarna / Google Pay / PayPal /
+// Amazon Pay one-click checkout. Push / Validation / Confirmation URLs are
+// configured in the Portal (Express buttons → Setup), not on the tag.
+export function ExpressButtons({ locale, className }: ExpressButtonsProps) {
   const { country, currency } = useCurrency();
 
   const mounted = useSyncExternalStore(
@@ -35,10 +29,7 @@ export function PaymentMethodDisplay({
 
   return (
     <div className={className}>
-      <kustom-payment-method-display
-        locale={resolvedLocale}
-        {...(exclude ? { exclude } : {})}
-      />
+      <kustom-express-buttons locale={resolvedLocale} />
     </div>
   );
 }

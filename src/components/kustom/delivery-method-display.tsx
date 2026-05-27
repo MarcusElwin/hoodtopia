@@ -4,23 +4,18 @@ import { useSyncExternalStore } from "react";
 import { useCurrency } from "@/lib/currency";
 import { elementsEnabled, localeFor } from "./elements-config";
 
-interface PaymentMethodDisplayProps {
-  /** Override locale. Defaults to deriving it from useCurrency(). */
+interface DeliveryMethodDisplayProps {
   locale?: string;
-  /** Comma-separated payment method ids to hide. */
-  exclude?: string;
   className?: string;
 }
 
 const subscribe = () => () => {};
 
-// Renders <kustom-payment-method-display>. Gated on BOTH elements env vars
-// matching layout.tsx so we never emit a tag the install script can't upgrade.
-export function PaymentMethodDisplay({
+// <kustom-delivery-method-display> — carrier logos for the shopper's market.
+export function DeliveryMethodDisplay({
   locale,
-  exclude,
   className,
-}: PaymentMethodDisplayProps) {
+}: DeliveryMethodDisplayProps) {
   const { country, currency } = useCurrency();
 
   const mounted = useSyncExternalStore(
@@ -35,10 +30,7 @@ export function PaymentMethodDisplay({
 
   return (
     <div className={className}>
-      <kustom-payment-method-display
-        locale={resolvedLocale}
-        {...(exclude ? { exclude } : {})}
-      />
+      <kustom-delivery-method-display locale={resolvedLocale} />
     </div>
   );
 }

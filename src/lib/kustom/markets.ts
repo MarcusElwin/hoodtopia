@@ -62,17 +62,18 @@ export const MARKETS: Record<string, MarketConfig> = {
       free_label: "1000 kr",
     },
     carriers: {
-      // PostNord is the de facto SE postal carrier; Budbee owns same/next-day
-      // home delivery in the Nordics; Instabox parcel lockers blanket Sweden.
+      // PostNord is the SE postal default; Klarna Logistics for express (also
+      // signals the full Klarna stack — Klarna owns Kustom); Instabox parcel
+      // lockers blanket Sweden.
       standard: {
         carrier: "postnord",
         name: "PostNord Standard",
         tracking_format: "{RAND12}SE",
       },
       express: {
-        carrier: "budbee",
-        name: "Budbee 2-day",
-        tracking_format: "BB-{RAND12}",
+        carrier: "klarna-logistics",
+        name: "Klarna Logistics Next-Day",
+        tracking_format: "KL-{RAND12}",
       },
       pickup: {
         carrier: "instabox",

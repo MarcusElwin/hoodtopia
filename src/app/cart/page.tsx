@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 import { CartRecommendations } from "@/components/cart/cart-recommendations";
 import { PaymentMethodDisplay } from "@/components/kustom/payment-method-display";
+import { ExpressButtons } from "@/components/kustom/express-buttons";
 import { track } from "@/lib/analytics";
 
 export default function CartPage() {
@@ -246,8 +247,19 @@ export default function CartPage() {
                   )}
                 </Button>
 
+                {/* Express checkout below the main CTA — Apple Pay, Klarna,
+                    Google Pay etc. Skips the full checkout iframe. */}
+                {!isEmpty && (
+                  <div className="mt-3">
+                    <p className="text-xs text-muted-foreground text-center mb-2">
+                      or pay instantly with
+                    </p>
+                    <ExpressButtons />
+                  </div>
+                )}
+
                 <div className="mt-4">
-                  <PaymentMethodDisplay amount={cart?.subtotal || 0} />
+                  <PaymentMethodDisplay />
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">

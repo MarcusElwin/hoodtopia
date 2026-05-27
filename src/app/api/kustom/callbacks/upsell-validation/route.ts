@@ -29,7 +29,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const lines = (body.upsell_lines ?? []).filter((l) => l.reference && l.quantity > 0);
+  // Narrow to lines with a SKU reference — reference is recommended-not-required
+  // in the spec so the type is optional, but we can't look up stock without one.
+  const lines = (body.upsell_lines ?? []).filter(
+    (l): l is typeof l & { reference: string } =>
+      typeof l.reference === "string" && l.reference.length > 0 && l.quantity > 0
+  );
   if (lines.length === 0) return NextResponse.json({});
 
   // Map SKU → variantId once so we can target updates by primary key.
