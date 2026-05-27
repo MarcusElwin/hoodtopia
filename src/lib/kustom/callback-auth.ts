@@ -37,6 +37,9 @@ export function verifyCallbackToken(
   provided: string | null
 ): boolean {
   if (!provided) return false;
+  // Fail closed when the secret isn't set — callbacks are "disabled" and the
+  // route should reject (401) instead of throwing (500).
+  if (!process.env.KUSTOM_CALLBACK_SECRET) return false;
   const expected = callbackToken(kind);
   if (expected.length !== provided.length) return false;
   return timingSafeEqual(
