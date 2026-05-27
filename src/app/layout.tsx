@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Playfair_Display, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -11,13 +11,29 @@ import { Footer } from "@/components/layout/footer";
 import { ProfileBanner } from "@/components/profiles/profile-banner";
 import { DemoBanner } from "@/components/layout/demo-banner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Savile Row typography pairing:
+//   Playfair Display — high-contrast serif for display / hero / H1-H3
+//   DM Sans         — neutral grotesque for body, labels, UI
+//   Geist Mono      — kept for prices / SKUs (warmer than its replacement)
+//
+// Geist Sans intentionally removed — the previous neutral grotesque body
+// font fought the new serif display rather than supporting it. DM Sans
+// pairs cleanly with Playfair.
+const dmSans = DM_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  style: ["normal", "italic"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
@@ -67,7 +83,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        className={`${dmSans.variable} ${playfair.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
         suppressHydrationWarning
       >
         {elementsEnabled ? (

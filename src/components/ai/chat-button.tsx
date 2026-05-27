@@ -17,7 +17,7 @@ export function AIChatButton() {
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg shadow-primary/25 z-50"
       >
         <MessageCircle className="h-6 w-6" />
-        <span className="sr-only">Open AI Assistant</span>
+        <span className="sr-only">Ask the Stylist</span>
       </Button>
 
       {/* Chat Dialog */}

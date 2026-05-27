@@ -6,8 +6,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -43,76 +44,80 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Hoodtopia Dark Theme with Purple Accents */
+/* Hoodtopia — Savile Row warm-dark palette.
+ * Replaces the previous cold-indigo (hue 285) with warm amber-gold
+ * (hue 75) to feel like a heritage menswear shop rather than generic
+ * SaaS tech. Burnished brass primary, midnight navy ground, ivory
+ * type. Stays dark-mode; this is "warm dark", not light. */
 :root {
   --radius: 0.625rem;
-  /* Dark theme by default for this demo */
-  --background: oklch(0.08 0.01 285);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0.01 285);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0.01 285);
-  --popover-foreground: oklch(0.98 0 0);
-  /* Purple primary color */
-  --primary: oklch(0.65 0.25 285);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.18 0.02 285);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.18 0.02 285);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.55 0.2 285);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.65 0.25 25);
-  --border: oklch(0.25 0.02 285);
-  --input: oklch(0.2 0.02 285);
-  --ring: oklch(0.65 0.25 285);
-  --chart-1: oklch(0.65 0.25 285);
-  --chart-2: oklch(0.7 0.2 300);
-  --chart-3: oklch(0.75 0.15 320);
-  --chart-4: oklch(0.6 0.22 270);
-  --chart-5: oklch(0.55 0.18 250);
-  --sidebar: oklch(0.1 0.01 285);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.65 0.25 285);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.18 0.02 285);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.02 285);
-  --sidebar-ring: oklch(0.65 0.25 285);
+  /* Midnight Navy ground. */
+  --background: oklch(0.08 0.015 75);
+  --foreground: oklch(0.95 0.01 75);
+  --card: oklch(0.13 0.015 75);
+  --card-foreground: oklch(0.95 0.01 75);
+  --popover: oklch(0.15 0.02 75);
+  --popover-foreground: oklch(0.95 0.01 75);
+  /* Burnished Brass primary. */
+  --primary: oklch(0.7 0.13 75);
+  --primary-foreground: oklch(0.1 0.01 75);
+  --secondary: oklch(0.2 0.02 75);
+  --secondary-foreground: oklch(0.95 0.01 75);
+  --muted: oklch(0.2 0.02 75);
+  --muted-foreground: oklch(0.62 0.015 75);
+  --accent: oklch(0.55 0.12 75);
+  --accent-foreground: oklch(0.95 0.01 75);
+  --destructive: oklch(0.5 0.15 25);
+  --border: oklch(0.28 0.03 75);
+  --input: oklch(0.22 0.025 75);
+  --ring: oklch(0.7 0.13 75);
+  --chart-1: oklch(0.7 0.13 75);
+  --chart-2: oklch(0.65 0.11 90);
+  --chart-3: oklch(0.6 0.1 105);
+  --chart-4: oklch(0.55 0.12 60);
+  --chart-5: oklch(0.5 0.1 45);
+  --sidebar: oklch(0.1 0.015 75);
+  --sidebar-foreground: oklch(0.95 0.01 75);
+  --sidebar-primary: oklch(0.7 0.13 75);
+  --sidebar-primary-foreground: oklch(0.1 0.01 75);
+  --sidebar-accent: oklch(0.2 0.02 75);
+  --sidebar-accent-foreground: oklch(0.95 0.01 75);
+  --sidebar-border: oklch(0.28 0.03 75);
+  --sidebar-ring: oklch(0.7 0.13 75);
 }
 
 .dark {
-  --background: oklch(0.08 0.01 285);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0.01 285);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0.01 285);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.65 0.25 285);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.18 0.02 285);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.18 0.02 285);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.55 0.2 285);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.65 0.25 25);
-  --border: oklch(0.25 0.02 285);
-  --input: oklch(0.2 0.02 285);
-  --ring: oklch(0.65 0.25 285);
-  --chart-1: oklch(0.65 0.25 285);
-  --chart-2: oklch(0.7 0.2 300);
-  --chart-3: oklch(0.75 0.15 320);
-  --chart-4: oklch(0.6 0.22 270);
-  --chart-5: oklch(0.55 0.18 250);
-  --sidebar: oklch(0.1 0.01 285);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.65 0.25 285);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.18 0.02 285);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.02 285);
-  --sidebar-ring: oklch(0.65 0.25 285);
+  --background: oklch(0.08 0.015 75);
+  --foreground: oklch(0.95 0.01 75);
+  --card: oklch(0.13 0.015 75);
+  --card-foreground: oklch(0.95 0.01 75);
+  --popover: oklch(0.15 0.02 75);
+  --popover-foreground: oklch(0.95 0.01 75);
+  --primary: oklch(0.7 0.13 75);
+  --primary-foreground: oklch(0.1 0.01 75);
+  --secondary: oklch(0.2 0.02 75);
+  --secondary-foreground: oklch(0.95 0.01 75);
+  --muted: oklch(0.2 0.02 75);
+  --muted-foreground: oklch(0.62 0.015 75);
+  --accent: oklch(0.55 0.12 75);
+  --accent-foreground: oklch(0.95 0.01 75);
+  --destructive: oklch(0.5 0.15 25);
+  --border: oklch(0.28 0.03 75);
+  --input: oklch(0.22 0.025 75);
+  --ring: oklch(0.7 0.13 75);
+  --chart-1: oklch(0.7 0.13 75);
+  --chart-2: oklch(0.65 0.11 90);
+  --chart-3: oklch(0.6 0.1 105);
+  --chart-4: oklch(0.55 0.12 60);
+  --chart-5: oklch(0.5 0.1 45);
+  --sidebar: oklch(0.1 0.015 75);
+  --sidebar-foreground: oklch(0.95 0.01 75);
+  --sidebar-primary: oklch(0.7 0.13 75);
+  --sidebar-primary-foreground: oklch(0.1 0.01 75);
+  --sidebar-accent: oklch(0.2 0.02 75);
+  --sidebar-accent-foreground: oklch(0.95 0.01 75);
+  --sidebar-border: oklch(0.28 0.03 75);
+  --sidebar-ring: oklch(0.7 0.13 75);
 }
 
 @layer base {
@@ -121,17 +126,28 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+  /* Savile Row heading treatment — serif display on h1–h3, tighter
+   * tracking, slightly lifted weight. h4+ stay on the body sans so
+   * smaller hierarchy levels don't compete for attention. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    font-weight: 500;
   }
 }
 
-/* Custom gradient for hero sections */
+/* Custom gradient for hero sections — kept .gradient-purple class
+ * name so existing markup doesn't break, but the colours are brass. */
 .gradient-purple {
-  background: linear-gradient(135deg, oklch(0.55 0.2 285) 0%, oklch(0.45 0.25 300) 100%);
+  background: linear-gradient(135deg, oklch(0.55 0.12 75) 0%, oklch(0.4 0.1 60) 100%);
 }
 
-/* Glow effect for AI elements */
+/* Glow effect for AI elements — brass bloom, not purple. Repositions
+ * the AI features as quietly curated rather than generic-tech. */
 .ai-glow {
-  box-shadow: 0 0 20px oklch(0.65 0.25 285 / 30%);
+  box-shadow: 0 0 24px oklch(0.7 0.13 75 / 18%);
 }
 
 /* Smooth transitions */
@@ -155,27 +171,27 @@
 }
 
 .prose-invert li::marker {
-  color: oklch(0.65 0.25 285);
+  color: oklch(0.7 0.13 75);
 }
 
 .prose-invert a {
-  color: oklch(0.7 0.2 285);
+  color: oklch(0.75 0.12 75);
   text-decoration: underline;
 }
 
 .prose-invert a:hover {
-  color: oklch(0.8 0.2 285);
+  color: oklch(0.85 0.13 75);
 }
 
 .prose-invert code {
-  background: oklch(0.15 0.02 285);
+  background: oklch(0.15 0.02 75);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   font-size: 0.875em;
 }
 
 .prose-invert pre {
-  background: oklch(0.12 0.02 285);
+  background: oklch(0.12 0.02 75);
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -188,8 +204,8 @@
 }
 
 .prose-invert blockquote {
-  border-left: 3px solid oklch(0.65 0.25 285);
+  border-left: 3px solid oklch(0.7 0.13 75);
   padding-left: 1rem;
   font-style: italic;
-  color: oklch(0.7 0 0);
+  color: oklch(0.7 0.015 75);
 }
