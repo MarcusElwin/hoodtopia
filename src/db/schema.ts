@@ -19,17 +19,22 @@ export const products = sqliteTable("products", {
 });
 
 // Extra product images (lifestyle, back, detail). The main hero shot stays
-// on products.imageUrl; this table holds the *additional* angles that the
-// PDP carousel + Google Shopping additional_image_link fields consume.
+// on productVariants.imageUrl; this table holds the *additional* angles that
+// the PDP carousel + Google Shopping additional_image_link fields consume.
+// Each row is tied to a specific variant so each colour gets its own
+// lifestyle + close-up shots.
 export const productImages = sqliteTable("product_images", {
   id: text("id").primaryKey(),
   productId: text("product_id")
     .notNull()
     .references(() => products.id, { onDelete: "cascade" }),
+  variantId: text("variant_id")
+    .notNull()
+    .references(() => productVariants.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
-  /** 0-based render order in the carousel. */
-  position: integer("position").notNull().default(0),
-  /** Short prompt-derived caption (e.g. "back view", "fabric close-up"). */
+  /** 1-based render order in the carousel (0 = hero on productVariants.imageUrl). */
+  position: integer("position").notNull().default(1),
+  /** Short prompt-derived caption (e.g. "lifestyle shot", "fabric close-up"). */
   alt: text("alt"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

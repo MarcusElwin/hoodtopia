@@ -60,6 +60,12 @@ export const productsRouter = router({
       where: eq(products.slug, input),
       with: {
         variants: true,
+        // Per-variant extra angle/lifestyle shots for the PDP carousel +
+        // Google Shopping additional_image_link. Each row is tied to a
+        // specific variantId so colour switches show that colour's extras.
+        images: {
+          orderBy: (img, { asc }) => [asc(img.position)],
+        },
       },
     });
 
