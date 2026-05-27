@@ -6,6 +6,17 @@ import * as schema from "./schema";
 const sqlite = new Database("./db/hoodtopia.db");
 const db = drizzle(sqlite, { schema });
 
+// Deterministic scarcity buckets so the demo always has a few "Only X left" SKUs.
+// ~80% well-stocked, ~15% medium, ~5% scarce.
+function stockBucket(key: string): "scarce" | "medium" | "well" {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  const r = h % 100;
+  if (r < 5) return "scarce";
+  if (r < 20) return "medium";
+  return "well";
+}
+
 // Product definitions
 const productData = [
   {
@@ -424,6 +435,18 @@ async function seed() {
         const sku = `${product.slug.toUpperCase().slice(0, 3)}-${colorSlug.toUpperCase().slice(0, 3)}-${size}`;
         const imageUrl = `/images/products/${product.slug}-${colorSlug}.jpg`;
 
+        // Stock buckets so the demo shows variety:
+        //   ~80% well-stocked (50-100), ~15% medium (10-30), ~5% scarce (1-5)
+        // Deterministic per (productId, sku) so reseeds produce the same scarcity
+        // story (good for live demos that need predictable "only 2 left" moments).
+        const bucket = stockBucket(`${product.id}:${sku}`);
+        const stock =
+          bucket === "scarce"
+            ? 1 + ((sku.charCodeAt(0) + sku.charCodeAt(1)) % 5)
+            : bucket === "medium"
+              ? 10 + (sku.charCodeAt(0) % 21)
+              : 50 + (sku.charCodeAt(1) % 51);
+
         db.insert(schema.productVariants)
           .values({
             id: variantId,
@@ -431,7 +454,7 @@ async function seed() {
             color: color.name,
             colorHex: color.hex,
             size,
-            stock: Math.floor(Math.random() * 50) + 10, // Random stock 10-60
+            stock,
             imageUrl,
             sku,
           })
@@ -486,6 +509,14 @@ async function seed() {
     // Use full slug (with hyphens replaced) to ensure unique SKUs
     const sku = `ACC-${slug.replace(/-/g, "").toUpperCase().slice(0, 12)}-OS`;
 
+    const accBucket = stockBucket(`acc:${id}`);
+    const accStock =
+      accBucket === "scarce"
+        ? 1 + (sku.charCodeAt(4) % 5)
+        : accBucket === "medium"
+          ? 10 + (sku.charCodeAt(4) % 21)
+          : 50 + (sku.charCodeAt(4) % 51);
+
     db.insert(schema.productVariants)
       .values({
         id: variantId,
@@ -493,7 +524,7 @@ async function seed() {
         color: "Default",
         colorHex: "#a855f7", // Purple for Hoodtopia brand
         size: "One Size",
-        stock: Math.floor(Math.random() * 100) + 20,
+        stock: accStock,
         imageUrl,
         sku,
       })

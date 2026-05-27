@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { eq, and, ne } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
-import { db, carts, cartItems, products } from "@/db";
+import { db, carts, cartItems, products, productVariants } from "@/db";
 import { getCartRecommendations } from "@/services/ai";
 
 // For demo purposes, we use a fixed session ID
@@ -12,6 +13,36 @@ const DEMO_SESSION_ID = "demo-session";
 // Carts idle longer than this are treated as a new session and auto-cleared.
 // Keeps the demo state fresh between attendees / browser sessions.
 const CART_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// Atomic stock delta. Returns the row only if the update would not leave
+// stock negative — better-sqlite3 returns `changes: 0` when the WHERE
+// clause rejects, so we surface that as an explicit out-of-stock error.
+function adjustStock(variantId: string, delta: number) {
+  if (delta === 0) return;
+  const stmt =
+    delta < 0
+      ? db
+          .update(productVariants)
+          .set({ stock: sql`${productVariants.stock} + ${delta}` })
+          .where(
+            and(
+              eq(productVariants.id, variantId),
+              sql`${productVariants.stock} + ${delta} >= 0`
+            )
+          )
+      : db
+          .update(productVariants)
+          .set({ stock: sql`${productVariants.stock} + ${delta}` })
+          .where(eq(productVariants.id, variantId));
+
+  const result = stmt.run();
+  if (delta < 0 && result.changes === 0) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Not enough stock for that quantity.",
+    });
+  }
+}
 
 export const cartRouter = router({
   // Get current cart with items
@@ -35,6 +66,10 @@ export const cartRouter = router({
       cart.items.length > 0 &&
       Date.now() - cart.updatedAt.getTime() > CART_SESSION_TTL_MS
     ) {
+      // Restore stock for everything we're about to drop.
+      for (const item of cart.items) {
+        adjustStock(item.variantId, item.quantity);
+      }
       await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
       cart = { ...cart, items: [] };
     }
@@ -101,7 +136,10 @@ export const cartRouter = router({
       }
 
       if (!cart) {
-        throw new Error("Failed to create cart");
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create cart",
+        });
       }
 
       // Get product price
@@ -110,8 +148,14 @@ export const cartRouter = router({
       });
 
       if (!product) {
-        throw new Error("Product not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Product not found",
+        });
       }
+
+      // Atomic stock decrement — throws CONFLICT if insufficient.
+      adjustStock(input.variantId, -input.quantity);
 
       // Check if item already exists in cart
       const existingItem = await db.query.cartItems.findFirst({
@@ -157,11 +201,22 @@ export const cartRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const item = await db.query.cartItems.findFirst({
+        where: eq(cartItems.id, input.itemId),
+      });
+      if (!item) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cart item not found" });
+      }
+
+      const delta = input.quantity - item.quantity;
+      if (delta === 0) return { success: true };
+
+      // Move stock to match the new quantity. Negative delta = need more stock.
+      adjustStock(item.variantId, -delta);
+
       if (input.quantity === 0) {
-        // Remove item if quantity is 0
         await db.delete(cartItems).where(eq(cartItems.id, input.itemId));
       } else {
-        // Update quantity
         await db
           .update(cartItems)
           .set({ quantity: input.quantity })
@@ -173,20 +228,42 @@ export const cartRouter = router({
 
   // Remove item from cart
   removeItem: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-    await db.delete(cartItems).where(eq(cartItems.id, input));
+    const item = await db.query.cartItems.findFirst({
+      where: eq(cartItems.id, input),
+    });
+    if (item) {
+      adjustStock(item.variantId, item.quantity);
+      await db.delete(cartItems).where(eq(cartItems.id, input));
+    }
     return { success: true };
   }),
 
-  // Clear entire cart
+  // Clear entire cart (user-initiated — restores stock since items weren't bought).
   clear: publicProcedure.mutation(async () => {
     const cart = await db.query.carts.findFirst({
       where: eq(carts.sessionId, DEMO_SESSION_ID),
+      with: { items: true },
     });
 
     if (cart) {
+      for (const item of cart.items) {
+        adjustStock(item.variantId, item.quantity);
+      }
       await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     }
 
+    return { success: true };
+  }),
+
+  // Clear cart after a successful purchase — items already left inventory at
+  // add-to-cart time, so we DO NOT restore stock here.
+  clearAfterPurchase: publicProcedure.mutation(async () => {
+    const cart = await db.query.carts.findFirst({
+      where: eq(carts.sessionId, DEMO_SESSION_ID),
+    });
+    if (cart) {
+      await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
+    }
     return { success: true };
   }),
 

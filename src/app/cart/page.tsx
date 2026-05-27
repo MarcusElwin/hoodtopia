@@ -16,22 +16,21 @@ export default function CartPage() {
   const { data: cart, isLoading } = trpc.cart.get.useQuery();
   const { formatPrice } = useCurrency();
 
+  const invalidateCartAndProducts = () => {
+    utils.cart.get.invalidate();
+    utils.products.invalidate();
+  };
+
   const updateQuantityMutation = trpc.cart.updateQuantity.useMutation({
-    onSuccess: () => {
-      utils.cart.get.invalidate();
-    },
+    onSuccess: invalidateCartAndProducts,
   });
 
   const removeItemMutation = trpc.cart.removeItem.useMutation({
-    onSuccess: () => {
-      utils.cart.get.invalidate();
-    },
+    onSuccess: invalidateCartAndProducts,
   });
 
   const clearCartMutation = trpc.cart.clear.useMutation({
-    onSuccess: () => {
-      utils.cart.get.invalidate();
-    },
+    onSuccess: invalidateCartAndProducts,
   });
 
   if (isLoading) {
