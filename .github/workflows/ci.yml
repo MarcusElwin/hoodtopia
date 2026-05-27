@@ -121,12 +121,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
-      - name: Setup database
-        run: |
-          npm run db:push
-          npm run db:seed
-
       - name: Build application
+        # No DB seeding needed — the libSQL client is lazy-initialised
+        # (src/db/index.ts) and every Kustom API route is force-dynamic, so
+        # the build never opens a connection. Prod runs against Turso.
         run: npm run build
         env:
           # Dummy keys for build (not used at build time)
