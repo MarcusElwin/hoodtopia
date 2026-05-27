@@ -62,22 +62,22 @@ export function Hero() {
             </Link>
           </div>
 
-          {/* Stats as hairline-framed callouts. Brass top rule, small
-              caps label above the figure (semantically the LABEL is
-              the term, the FIGURE is its value — dt holds the label,
-              dd holds the value). */}
+          {/* Stats as hairline-framed callouts. The brass top rule used
+              to be a sibling <div>, but HTML's description-list spec
+              only allows <dt> and <dd> as children of <dl> (or a wrapper
+              that itself contains only those). Moved the rule onto <dt>
+              as a top border to keep semantics clean. */}
           <dl className="grid grid-cols-3 gap-8 max-w-md mx-auto pt-12 text-center">
             {[
               { figure: "6", label: "Styles" },
               { figure: "8", label: "Colours" },
               { figure: "288", label: "Variants" },
             ].map((stat) => (
-              <div key={stat.label} className="space-y-2">
-                <div className="h-px w-8 bg-primary/40 mx-auto" />
-                <dt className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              <div key={stat.label}>
+                <dt className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground pt-3 border-t border-primary/40 max-w-[2rem] mx-auto">
                   {stat.label}
                 </dt>
-                <dd className="text-2xl font-display font-normal">{stat.figure}</dd>
+                <dd className="text-2xl font-display font-normal mt-2">{stat.figure}</dd>
               </div>
             ))}
           </dl>

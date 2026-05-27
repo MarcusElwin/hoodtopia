@@ -4,9 +4,8 @@ import { useState, useMemo } from "react";
 import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, Minus, Plus, ShoppingBag, Check, Loader2 } from "lucide-react";
+import { ChevronLeft, Minus, Plus, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { AIChatButton } from "@/components/ai/chat-button";
@@ -189,16 +188,20 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Breadcrumb */}
+      {/* Breadcrumb — "Collection / {product name}" in small caps, no
+          icon. Editorial, not chevron-back-to-list. */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <Link
-            href="/products"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Products
-          </Link>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <Link
+              href="/products"
+              className="hover:text-foreground transition-colors"
+            >
+              Collection
+            </Link>
+            <span className="mx-2 text-muted-foreground/60">/</span>
+            <span className="text-foreground">{product.name}</span>
+          </p>
         </div>
       </div>
 
@@ -218,33 +221,53 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 key={currentImage}
               />
               {product.featured && (
-                <Badge className="absolute top-4 left-4">Featured</Badge>
+                // Same brass hang-tag treatment as the product card so
+                // the PDP doesn't break the visual language we just
+                // established. Plain <span> + Tailwind, no shadcn Badge
+                // wrapper — Badge's defaults reintroduce the filled pill.
+                <span className="absolute top-4 left-4 border border-primary text-primary bg-transparent px-2.5 py-1 text-[9px] uppercase tracking-[0.12em]">
+                  Editor&apos;s Choice
+                </span>
               )}
             </div>
             {carouselImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex gap-3 overflow-x-auto pb-2">
                 {carouselImages.map((img, i) => {
                   const isActive =
                     (activeThumbIdx === null && i === 0) || activeThumbIdx === i;
                   return (
-                    <button
-                      key={`${img.url}-${i}`}
-                      onClick={() => setActiveThumbIdx(i)}
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
-                        isActive
-                          ? "border-primary"
-                          : "border-border hover:border-foreground/40"
-                      }`}
-                      aria-label={`Show image ${i + 1}: ${img.alt}`}
-                    >
-                      <Image
-                        src={img.url}
-                        alt={img.alt}
-                        fill
-                        className="object-cover"
-                        sizes="80px"
+                    // Wrapper holds the image AND the active underline
+                    // as siblings. The previous :after-on-the-button
+                    // approach had two bugs: Tailwind's `after:` utilities
+                    // do nothing without `after:content-['']`, and even
+                    // with it the underline was clipped by the button's
+                    // `overflow-hidden` + negative `-bottom-1`. Real
+                    // siblings render reliably.
+                    <div key={`${img.url}-${i}`} className="shrink-0 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveThumbIdx(i)}
+                        className={`relative block h-20 w-20 overflow-hidden transition-opacity ${
+                          isActive ? "opacity-100" : "opacity-60 hover:opacity-100"
+                        }`}
+                        aria-label={`Show image ${i + 1}: ${img.alt}`}
+                        aria-pressed={isActive}
+                      >
+                        <Image
+                          src={img.url}
+                          alt={img.alt}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                        />
+                      </button>
+                      <div
+                        aria-hidden="true"
+                        className={`h-[2px] w-20 transition-colors ${
+                          isActive ? "bg-primary" : "bg-transparent"
+                        }`}
                       />
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -263,9 +286,22 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <p className="text-2xl font-semibold mt-4">
                 {formatPrice(product.basePrice)}
               </p>
-              <div className="mt-2 space-y-2">
-                <PaymentMethodDisplay />
-                <DeliveryMethodDisplay />
+              {/* Payment + delivery logos sit inside hairline-bordered
+                  trays with small-caps labels — frames the brand logos
+                  as considered information rather than visual noise. */}
+              <div className="mt-4 space-y-3">
+                <div className="border border-border/60 px-3 py-2">
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+                    Payment
+                  </p>
+                  <PaymentMethodDisplay />
+                </div>
+                <div className="border border-border/60 px-3 py-2">
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+                    Delivery
+                  </p>
+                  <DeliveryMethodDisplay />
+                </div>
               </div>
             </div>
 
@@ -375,17 +411,19 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 }`}
               >
                 {selectedVariant.stock > 10
-                  ? "In Stock"
+                  ? "Available"
                   : selectedVariant.stock > 0
-                    ? `Only ${selectedVariant.stock} left`
-                    : "Out of Stock"}
+                    ? `${selectedVariant.stock} remaining`
+                    : "Spoken for"}
               </p>
             )}
 
-            {/* Add to Cart */}
+            {/* Reserve This Piece — squared button, no icon, small-caps
+                tracked label so the primary action reads like the shop's
+                voice rather than a generic e-commerce CTA. */}
             <Button
               size="lg"
-              className="w-full h-12 text-base"
+              className="w-full h-12 text-sm tracking-[0.12em] uppercase rounded-none"
               onClick={handleAddToCart}
               disabled={
                 !selectedVariant ||
@@ -395,10 +433,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             >
               {addToCartMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              ) : (
-                <ShoppingBag className="h-5 w-5 mr-2" />
-              )}
-              {addToCartMutation.isSuccess ? "Added to Cart!" : "Add to Cart"}
+              ) : null}
+              {addToCartMutation.isSuccess ? "Held for You" : "Reserve This Piece"}
             </Button>
 
             {addToCartMutation.error ? (
@@ -410,23 +446,36 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             {/* Express checkout — Apple Pay / Klarna / Google Pay etc.
                 Skips the cart and goes straight to a Kustom-hosted
                 one-click payment for the just-selected variant. */}
-            <ExpressButtons
-              className="mt-2"
-              variantName={product.name}
-              variantSku={selectedVariant?.sku}
-              unitPriceMinor={product.basePrice}
-              quantity={quantity}
-              countryCode={country.code}
-            />
+            <div className="mt-4">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground text-center mb-2">
+                — or express checkout —
+              </p>
+              <ExpressButtons
+                variantName={product.name}
+                variantSku={selectedVariant?.sku}
+                unitPriceMinor={product.basePrice}
+                quantity={quantity}
+                countryCode={country.code}
+              />
+            </div>
 
             <Separator />
 
-            {/* Product Details */}
+            {/* Notes — small-caps eyebrow + brass hairline, matching the
+                rest of the PDP. Material label is now its own caps tag
+                to the left of the value, like a swatch card. */}
             <div className="space-y-4">
-              <h3 className="font-semibold">Product Details</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                  Notes
+                </h3>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
               {product.material && (
                 <p className="text-sm text-muted-foreground">
-                  <span className="text-foreground">Material:</span>{" "}
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-foreground mr-2">
+                    Cloth
+                  </span>
                   {product.material}
                 </p>
               )}
@@ -435,9 +484,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                   {features.map((feature, i) => (
                     <li
                       key={i}
-                      className="text-sm text-muted-foreground flex items-start gap-2"
+                      className="text-sm text-muted-foreground flex items-start gap-3"
                     >
-                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <Check className="h-3.5 w-3.5 text-primary shrink-0 mt-1" />
                       {feature}
                     </li>
                   ))}

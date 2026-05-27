@@ -65,11 +65,13 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Hover Overlay */}
         <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
 
-        {/* Featured Badge */}
+        {/* Editor's Choice Badge — brass-bordered transparent hang-tag,
+            replaces the filled SaaS-style pill so it reads like a garment
+            label rather than a status chip. */}
         {product.featured && (
           <div className="absolute top-3 left-3">
-            <span className="bg-primary px-2 py-1 text-xs font-medium text-primary-foreground rounded">
-              Featured
+            <span className="border border-primary text-primary bg-transparent px-2.5 py-1 text-[9px] uppercase tracking-[0.12em]">
+              Editor&apos;s Choice
             </span>
           </div>
         )}
@@ -86,8 +88,8 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        {/* Category */}
-        <p className="text-xs text-muted-foreground capitalize">
+        {/* Category — small-caps, tracked, removes the lowercase tone. */}
+        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           {product.category}
         </p>
 
