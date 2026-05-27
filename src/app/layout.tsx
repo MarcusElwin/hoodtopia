@@ -72,16 +72,18 @@ export default function RootLayout({
       >
         {elementsEnabled ? (
           <>
+            {/* Init MUST run first — pre-load.js looks for window.kustomElements
+                on load. Snippet order matches Kustom's portal example. */}
+            <Script
+              id="kustom-elements-init"
+              strategy="beforeInteractive"
+              dangerouslySetInnerHTML={{ __html: KUSTOM_ELEMENTS_INIT }}
+            />
             <Script
               id="kustom-elements-script"
               src={elementsSrc}
               strategy="beforeInteractive"
               data-public-api-key={elementsKey}
-            />
-            <Script
-              id="kustom-elements-init"
-              strategy="beforeInteractive"
-              dangerouslySetInnerHTML={{ __html: KUSTOM_ELEMENTS_INIT }}
             />
           </>
         ) : null}

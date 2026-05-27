@@ -143,7 +143,18 @@ export function buildCreateOrderPayload({
     options: {
       allow_separate_shipping_address: enableShippingAssistant,
       require_validate_callback_success: Boolean(process.env.KUSTOM_CALLBACK_SECRET),
-      confirmation_page_upsell: Boolean(process.env.KUSTOM_CALLBACK_SECRET),
+      // Upsell modes per https://docs.kustom.co/contents/checkout/use-cases/upsell:
+      //   "per-order" (default) → set confirmation_page_upsell=true in the
+      //     create-order payload. Each session opts in via code.
+      //   "global"             → omit the flag and enable upsell globally on
+      //     the MID via the Kustom Portal. Lets non-code merchants flip it.
+      //   "off"                → don't set the flag, no portal config — never
+      //     fire upsells.
+      // The /upsell merchant_urls callback is configured independently above
+      // so KUSTOM_UPSELL_MODE controls only *whether* Kustom invokes it.
+      confirmation_page_upsell:
+        Boolean(process.env.KUSTOM_CALLBACK_SECRET) &&
+        (process.env.KUSTOM_UPSELL_MODE ?? "per-order") === "per-order",
       // Match the Hoodtopia dark theme — these style the Kustom iframe and
       // the post-purchase confirmation snippet so the white card doesn't
       // clash with our dark surface.

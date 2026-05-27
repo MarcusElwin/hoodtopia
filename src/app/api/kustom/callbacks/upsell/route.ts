@@ -91,9 +91,18 @@ export async function POST(request: Request) {
 
     const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     const productUrl = site ? `${site}/products/${full!.slug}` : undefined;
+    const rawImageUrl = variant.imageUrl ?? full!.imageUrl;
+
+    // Spec caps image_url / product_url / description at 1024 chars. Truncate
+    // (drop the URL entirely if it's somehow too long — Kustom rejects on
+    // length and a missing image just hides the tile, missing url is fine).
+    const safeImage =
+      rawImageUrl && rawImageUrl.length <= 1024 ? rawImageUrl : undefined;
+    const safeProductUrl =
+      productUrl && productUrl.length <= 1024 ? productUrl : undefined;
 
     upsell_lines.push({
-      name: full!.name,
+      name: full!.name.slice(0, 255), // spec: max 255
       reference: variant.sku,
       quantity: 1,
       max_allowed_quantity: Math.min(variant.stock, 3),
@@ -102,8 +111,8 @@ export async function POST(request: Request) {
       tax_rate: 2000,
       total_amount,
       total_tax_amount,
-      image_url: variant.imageUrl ?? full!.imageUrl,
-      product_url: productUrl,
+      image_url: safeImage,
+      product_url: safeProductUrl,
       description: full!.description?.slice(0, 1024),
       type: "physical",
     });

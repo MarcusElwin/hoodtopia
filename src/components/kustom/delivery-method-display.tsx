@@ -2,31 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 import { useCurrency } from "@/lib/currency";
+import { elementsEnabled, localeFor } from "./elements-config";
 
 interface DeliveryMethodDisplayProps {
-  /** Override locale. Defaults to deriving from the active country picker. */
   locale?: string;
   className?: string;
 }
 
 const subscribe = () => () => {};
 
-function localeFor(countryCode: string, currencyCode: string): string {
-  const m: Record<string, string> = {
-    SE: "sv-SE",
-    GB: "en-GB",
-    US: "en-US",
-    DE: "de-DE",
-    JP: "ja-JP",
-  };
-  if (m[countryCode]) return m[countryCode];
-  if (currencyCode === "EUR") return "de-DE";
-  return "en-US";
-}
-
-// <kustom-delivery-method-display> — shows the carrier logos available for
-// the shopper's market (PostNord, DHL, Budbee, etc). Mirror of
-// PaymentMethodDisplay; same gate, same locale derivation.
+// <kustom-delivery-method-display> — carrier logos for the shopper's market.
 export function DeliveryMethodDisplay({
   locale,
   className,
@@ -39,8 +24,7 @@ export function DeliveryMethodDisplay({
     () => false
   );
 
-  const enabled = Boolean(process.env.NEXT_PUBLIC_KUSTOM_ELEMENTS_API_KEY);
-  if (!mounted || !enabled) return null;
+  if (!mounted || !elementsEnabled()) return null;
 
   const resolvedLocale = locale ?? localeFor(country.code, currency.code);
 
