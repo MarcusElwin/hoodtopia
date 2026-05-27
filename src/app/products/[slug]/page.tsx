@@ -29,6 +29,9 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  // null = follow the color-driven variant image. A number means the user
+  // tapped a thumbnail in the carousel and we should stop tracking colour.
+  const [activeThumbIdx, setActiveThumbIdx] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const addToCartMutation = trpc.cart.addItem.useMutation({
@@ -69,13 +72,45 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const actualSelectedColor = selectedColor ?? defaultColor;
   const actualSelectedSize = selectedSize ?? defaultSize;
 
-  // Get current image based on selected color
-  const currentImage = useMemo(() => {
-    if (!product || !actualSelectedColor) return product?.imageUrl || "";
-    // Find a variant with the selected color to get its image
-    const colorVariant = product.variants.find((v) => v.color === actualSelectedColor);
-    return colorVariant?.imageUrl || product.imageUrl;
+  // Variant matching the selected colour (any size; image is colour-driven).
+  const colorVariant = useMemo(() => {
+    if (!product || !actualSelectedColor) return null;
+    return product.variants.find((v) => v.color === actualSelectedColor) ?? null;
   }, [product, actualSelectedColor]);
+
+  // Hero image for the selected colour, falling back to product.imageUrl.
+  const colorHero = colorVariant?.imageUrl || product?.imageUrl || "";
+
+  // Carousel for the currently selected colour:
+  //   1. colour-specific hero
+  //   2. colour-specific extras (lifestyle, fabric close-up) from product_images
+  //   3. other-colour heroes so the customer can preview without clicking swatches
+  const carouselImages = useMemo(() => {
+    if (!product) return [] as { url: string; alt: string }[];
+
+    const heroSet: { url: string; alt: string }[] = colorHero
+      ? [{ url: colorHero, alt: `${product.name} — ${actualSelectedColor ?? ""}` }]
+      : [];
+
+    const extras = (product.images ?? [])
+      .filter((img) => colorVariant && img.variantId === colorVariant.id)
+      .map((img) => ({ url: img.url, alt: img.alt ?? product.name }));
+
+    const otherColors: { url: string; alt: string }[] = [];
+    const seen = new Set<string>([actualSelectedColor ?? ""]);
+    for (const v of product.variants) {
+      if (seen.has(v.color) || !v.imageUrl) continue;
+      seen.add(v.color);
+      otherColors.push({ url: v.imageUrl, alt: `${product.name} — ${v.color}` });
+    }
+
+    return [...heroSet, ...extras, ...otherColors];
+  }, [product, colorHero, actualSelectedColor, colorVariant]);
+
+  // What we actually show in the big frame.
+  const currentImage = activeThumbIdx !== null && carouselImages[activeThumbIdx]
+    ? carouselImages[activeThumbIdx].url
+    : colorHero;
 
   // Get selected variant
   const selectedVariant = useMemo(() => {
@@ -176,19 +211,49 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       {/* Product Content */}
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-          {/* Product Image */}
-          <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
-            <Image
-              src={currentImage}
-              alt={`${product.name} - ${actualSelectedColor || ""}`}
-              fill
-              className="object-cover transition-opacity duration-300"
-              priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-              key={currentImage}
-            />
-            {product.featured && (
-              <Badge className="absolute top-4 left-4">Featured</Badge>
+          {/* Product Image + carousel thumbnails */}
+          <div className="space-y-3">
+            <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary/50">
+              <Image
+                src={currentImage}
+                alt={`${product.name} - ${actualSelectedColor || ""}`}
+                fill
+                className="object-cover transition-opacity duration-300"
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
+                key={currentImage}
+              />
+              {product.featured && (
+                <Badge className="absolute top-4 left-4">Featured</Badge>
+              )}
+            </div>
+            {carouselImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto">
+                {carouselImages.map((img, i) => {
+                  const isActive =
+                    (activeThumbIdx === null && i === 0) || activeThumbIdx === i;
+                  return (
+                    <button
+                      key={`${img.url}-${i}`}
+                      onClick={() => setActiveThumbIdx(i)}
+                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
+                        isActive
+                          ? "border-primary"
+                          : "border-border hover:border-foreground/40"
+                      }`}
+                      aria-label={`Show image ${i + 1}: ${img.alt}`}
+                    >
+                      <Image
+                        src={img.url}
+                        alt={img.alt}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
@@ -228,7 +293,13 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {colors.map((c) => (
                   <button
                     key={c.color}
-                    onClick={() => setSelectedColor(c.color)}
+                    onClick={() => {
+                      setSelectedColor(c.color);
+                      // Snap back to the colour-hero when picking a new colour
+                      // so the user doesn't stay on the fabric close-up of the
+                      // previous colour.
+                      setActiveThumbIdx(null);
+                    }}
                     className={`relative h-10 w-10 rounded-full border-2 transition-all ${
                       actualSelectedColor === c.color
                         ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background"

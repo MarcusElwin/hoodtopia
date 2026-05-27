@@ -10,6 +10,11 @@ import {
 } from "@/services/ai";
 import { PersonalizationContextSchema, ShopperProfileTypeSchema } from "@/services/schemas";
 import { PROFILES, type ProfileType } from "@/lib/shopper-profiles";
+import {
+  runInputGuardrails,
+  detectPromptLeak,
+  logSafetyEvent,
+} from "@/lib/ai/guardrails";
 
 // Demo session ID (in production, use real user sessions)
 const DEMO_SESSION_ID = "demo-chat-session";
@@ -37,6 +42,25 @@ export const aiRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // Guardrails — gate the latest user message before hitting the LLM.
+      // If the user has somehow sent a message list ending on assistant,
+      // we still apply rate-limit but skip pattern/moderation (nothing
+      // new to check).
+      const latestUser = [...input.messages].reverse().find((m) => m.role === "user");
+      if (latestUser) {
+        const guard = await runInputGuardrails({
+          sessionId: DEMO_SESSION_ID,
+          userMessage: latestUser.content,
+        });
+        if (!guard.allowed) {
+          return {
+            message: guard.reply,
+            showProducts: false,
+            products: [],
+          };
+        }
+      }
+
       // Get all products for context (exclude custom designs)
       const allProducts = await db.query.products.findMany({
         where: ne(products.category, "custom"),
@@ -47,6 +71,25 @@ export const aiRouter = router({
       const profile = input.profileType ? PROFILES[input.profileType as ProfileType] : null;
 
       const { response, matchedProducts } = await chatWithAssistant(input.messages, allProducts, profile);
+
+      // Output guardrail: if the model echoed the system prompt or our
+      // catalog formatting, swap in a generic safe message and log.
+      if (detectPromptLeak(response.message)) {
+        await logSafetyEvent({
+          sessionId: DEMO_SESSION_ID,
+          kind: "leak",
+          reasons: ["system-prompt-leak"],
+          excerpt: response.message,
+          blocked: true,
+        });
+        return {
+          message:
+            "Sorry, something went wrong with my response. Could you rephrase " +
+            "what you're looking for in a hoodie?",
+          showProducts: false,
+          products: [],
+        };
+      }
 
       // Get variants for each product (for add-to-cart with color matching)
       const productsFromDb = await db.query.products.findMany({
@@ -97,6 +140,16 @@ export const aiRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // Same guardrails as chat — preferences string is free-form user
+      // input that hits the LLM, so the same risks apply.
+      const guard = await runInputGuardrails({
+        sessionId: DEMO_SESSION_ID,
+        userMessage: input.preferences,
+      });
+      if (!guard.allowed) {
+        return { recommendations: [], followUpQuestion: guard.reply };
+      }
+
       // Get all products for context (exclude custom designs)
       const allProducts = await db.query.products.findMany({
         where: ne(products.category, "custom"),
@@ -114,6 +167,17 @@ export const aiRouter = router({
 
   // AI-powered semantic search
   search: llmProcedure.input(z.string().max(500)).mutation(async ({ input }) => {
+    // Guardrails on the search query too — semantic search uses the LLM
+    // and was the original entry point for jailbreak attempts. The IP
+    // rate-limit is already applied by llmProcedure above.
+    const guard = await runInputGuardrails({
+      sessionId: DEMO_SESSION_ID,
+      userMessage: input,
+    });
+    if (!guard.allowed) {
+      return [];
+    }
+
     // Get all products for context (exclude custom designs)
     const allProducts = await db.query.products.findMany({
       where: ne(products.category, "custom"),

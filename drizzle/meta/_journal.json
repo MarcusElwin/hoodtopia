@@ -8,6 +8,34 @@
       "when": 1764101384602,
       "tag": "0000_fat_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779890625451,
+      "tag": "0001_product_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779892921609,
+      "tag": "0002_product_images_variant",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779912000000,
+      "tag": "0003_product_images_cascade",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1779909130935,
+      "tag": "0004_chat_safety_events",
+      "breakpoints": true
     }
   ]
 }

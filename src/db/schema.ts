@@ -18,6 +18,29 @@ export const products = sqliteTable("products", {
     .$defaultFn(() => new Date()),
 });
 
+// Extra product images (lifestyle, back, detail). The main hero shot stays
+// on productVariants.imageUrl; this table holds the *additional* angles that
+// the PDP carousel + Google Shopping additional_image_link fields consume.
+// Each row is tied to a specific variant so each colour gets its own
+// lifestyle + close-up shots.
+export const productImages = sqliteTable("product_images", {
+  id: text("id").primaryKey(),
+  productId: text("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  variantId: text("variant_id")
+    .notNull()
+    .references(() => productVariants.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  /** 1-based render order in the carousel (0 = hero on productVariants.imageUrl). */
+  position: integer("position").notNull().default(1),
+  /** Short prompt-derived caption (e.g. "lifestyle shot", "fabric close-up"). */
+  alt: text("alt"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Product variants table (color + size combinations)
 export const productVariants = sqliteTable("product_variants", {
   id: text("id").primaryKey(),
@@ -64,6 +87,14 @@ export const cartItems = sqliteTable("cart_items", {
 // Relations
 export const productsRelations = relations(products, ({ many }) => ({
   variants: many(productVariants),
+  images: many(productImages),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  product: one(products, {
+    fields: [productImages.productId],
+    references: [products.id],
+  }),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one }) => ({
@@ -139,6 +170,25 @@ export const orders = sqliteTable("orders", {
     .$defaultFn(() => new Date()),
 });
 
+// Safety events from the AI chat — every time guardrails flag input
+// (prompt injection, moderation hit, rate-limit, prompt leak) we log
+// here for audit. Write-only at runtime; nothing in the app reads it.
+export const chatSafetyEvents = sqliteTable("chat_safety_events", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  /** "injection" | "moderation" | "leak" | "blocked-recommendation" */
+  kind: text("kind").notNull(),
+  /** JSON array of pattern labels / category names that triggered. */
+  reasons: text("reasons").notNull(),
+  /** First 1000 chars of the offending message. */
+  excerpt: text("excerpt").notNull(),
+  /** True if the request was rejected, false if we let it through anyway. */
+  blocked: integer("blocked", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Chat messages table for conversation history
 export const chatMessages = sqliteTable("chat_messages", {
   id: text("id").primaryKey(),
@@ -168,3 +218,7 @@ export type CustomDesign = typeof customDesigns.$inferSelect;
 export type NewCustomDesign = typeof customDesigns.$inferInsert;
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
+export type ProductImage = typeof productImages.$inferSelect;
+export type NewProductImage = typeof productImages.$inferInsert;
+export type ChatSafetyEvent = typeof chatSafetyEvents.$inferSelect;
+export type NewChatSafetyEvent = typeof chatSafetyEvents.$inferInsert;

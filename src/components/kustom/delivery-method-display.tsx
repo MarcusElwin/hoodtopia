@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { useCurrency } from "@/lib/currency";
-import { elementsEnabled, localeFor } from "./elements-config";
+import { ELEMENTS_ENABLED, localeFor } from "./elements-config";
 
 interface DeliveryMethodDisplayProps {
   locale?: string;
@@ -24,7 +24,7 @@ export function DeliveryMethodDisplay({
     () => false
   );
 
-  if (!mounted || !elementsEnabled()) return null;
+  if (!mounted || !ELEMENTS_ENABLED) return null;
 
   const resolvedLocale = locale ?? localeFor(country.code, currency.code);
 

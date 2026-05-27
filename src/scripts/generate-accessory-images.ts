@@ -17,8 +17,10 @@ if (!apiKey) {
 // Initialize Gemini
 const ai = new GoogleGenAI({ apiKey });
 
-// Using Gemini 3 Pro Image Preview for highest quality
-const IMAGE_MODEL = "gemini-3-pro-image-preview";
+// Gemini 3.1 Flash Image Preview ("Nano Banana 2") is Google's recommended
+// default — best cost/quality balance for high-volume catalog assets.
+// Pro is reserved for hero shots and customer-watching generations.
+const IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
 // Output directory
 const OUTPUT_DIR = path.join(process.cwd(), "public/images/accessories");
