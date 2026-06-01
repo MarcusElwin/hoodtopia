@@ -17,7 +17,7 @@
  * cart-session.ts) so it survives across requests without cookies — matching
  * the app's existing fixed-DEMO_SESSION model.
  */
-import { medusa } from "@/lib/medusa"
+import { medusa, medusaAdmin } from "@/lib/medusa"
 import { resolveRegionId } from "@/lib/commerce/medusa-products"
 
 // ── Minimal Medusa cart shapes (only fields we read) ────────────────────────
@@ -266,6 +266,17 @@ export async function completeCart(
   // 4. Complete.
   const res = await medusa.store.cart.complete(cartId)
   if (res.type === "order") {
+    // Cart metadata isn't copied to the order, so stamp the Kustom order id
+    // (and any other correlation data) onto the order itself via the admin API.
+    if (input.metadata) {
+      try {
+        await medusaAdmin.admin.order.update(res.order.id, {
+          metadata: input.metadata,
+        })
+      } catch {
+        // Non-fatal: the order exists; metadata is best-effort correlation.
+      }
+    }
     return { type: "order", orderId: res.order.id }
   }
   return { type: "cart", error: res.error?.message ?? "cart not completed" }
