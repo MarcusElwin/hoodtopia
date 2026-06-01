@@ -6,6 +6,8 @@
 .env
 .env.local
 .env.*.local
+# but DO track the committed template (overrides root .gitignore's .env*)
+!.env.template
 .DS_Store
 uploads
 
