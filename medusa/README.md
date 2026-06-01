@@ -30,7 +30,8 @@ this backend over Medusa's Store API.
 ## Local setup
 
 ```bash
-# 1. Postgres must be running (see ../docker-compose.yml `db` service)
+# 1. Postgres must be running:
+#    docker compose up -d medusa-db   (host port 5434)
 # 2. Configure env
 cp .env.template .env          # then edit DATABASE_URL etc.
 
