@@ -209,7 +209,29 @@ export interface CompleteAddress {
 export interface CompleteCartInput {
   email?: string | null
   address?: CompleteAddress | null
+  /** Separate billing address if it differs from shipping. */
+  billingAddress?: CompleteAddress | null
+  phone?: string | null
+  /**
+   * Carrier/shipping code chosen in Kustom (e.g. "standard", "express",
+   * "postnord"). We match it to a Medusa shipping option by its type.code so
+   * the Medusa order reflects the customer's actual choice.
+   */
+  shippingCode?: string | null
   metadata?: Record<string, unknown>
+}
+
+/** Normalize a partial address into Medusa's required shape. */
+function toMedusaAddress(a?: CompleteAddress | null) {
+  const x = a ?? {}
+  return {
+    first_name: x.first_name || "Hoodtopia",
+    last_name: x.last_name || "Customer",
+    address_1: x.address_1 || "N/A",
+    city: x.city || "N/A",
+    postal_code: x.postal_code || "00000",
+    country_code: (x.country_code || "us").toLowerCase(),
+  }
 }
 
 /**
@@ -227,34 +249,36 @@ export async function completeCart(
   cartId: string,
   input: CompleteCartInput = {}
 ): Promise<CompleteCartResult> {
-  // Build a safe address (Medusa requires the required fields to complete).
-  const a = input.address ?? {}
-  const address = {
-    first_name: a.first_name || "Hoodtopia",
-    last_name: a.last_name || "Customer",
-    address_1: a.address_1 || "N/A",
-    city: a.city || "N/A",
-    postal_code: a.postal_code || "00000",
-    country_code: (a.country_code || "us").toLowerCase(),
-  }
-
-  // 1. Email + shipping/billing addresses + metadata.
+  // 1. Email + phone + the REAL shipping/billing addresses from Kustom.
+  const shippingAddr = toMedusaAddress(input.address)
+  const billingAddr = toMedusaAddress(input.billingAddress ?? input.address)
   await medusa.store.cart.update(cartId, {
     email: input.email || "demo@hoodtopia.co",
-    shipping_address: address,
-    billing_address: address,
+    shipping_address: shippingAddr,
+    billing_address: billingAddr,
     ...(input.metadata ? { metadata: input.metadata } : {}),
   })
 
-  // 2. Pick the first shipping option available for this cart.
+  // 2. Pick the shipping option the customer chose in Kustom (match by the
+  // option's type.code, e.g. "standard"/"express"/"postnord"); fall back to the
+  // first available if no match.
   const { shipping_options } = await medusa.store.fulfillment.listCartOptions({
     cart_id: cartId,
   })
   if (!shipping_options?.length) {
     return { type: "cart", error: "no shipping options for cart" }
   }
+  const code = (input.shippingCode || "").toLowerCase()
+  const chosen =
+    (code &&
+      shipping_options.find(
+        (o: { id: string; name?: string | null; type?: { code?: string } }) =>
+          o.type?.code?.toLowerCase() === code ||
+          o.name?.toLowerCase().includes(code)
+      )) ||
+    shipping_options[0]
   await medusa.store.cart.addShippingMethod(cartId, {
-    option_id: shipping_options[0].id,
+    option_id: chosen.id,
   })
 
   // 3. Payment session with the system/manual provider (auto-authorizes).
@@ -264,6 +288,13 @@ export async function completeCart(
   })
 
   // 4. Complete.
+  return finishComplete(cartId, input)
+}
+
+async function finishComplete(
+  cartId: string,
+  input: CompleteCartInput
+): Promise<CompleteCartResult> {
   const res = await medusa.store.cart.complete(cartId)
   if (res.type === "order") {
     // Cart metadata isn't copied to the order, so stamp the Kustom order id
@@ -280,4 +311,26 @@ export async function completeCart(
     return { type: "order", orderId: res.order.id }
   }
   return { type: "cart", error: res.error?.message ?? "cart not completed" }
+}
+
+/**
+ * Idempotency: find an existing Medusa order already synced for this Kustom
+ * order id (so push + the instant-sync fallback don't double-create).
+ */
+export async function findMedusaOrderByKustomId(
+  kustomOrderId: string
+): Promise<string | null> {
+  try {
+    const { orders } = await medusaAdmin.admin.order.list({
+      fields: "id,metadata",
+      limit: 100,
+    })
+    const match = orders.find(
+      (o: { id: string; metadata?: Record<string, unknown> | null }) =>
+        o.metadata?.kustom_order_id === kustomOrderId
+    )
+    return match?.id ?? null
+  } catch {
+    return null
+  }
 }

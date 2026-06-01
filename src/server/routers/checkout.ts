@@ -16,6 +16,7 @@ import {
 } from "@/lib/commerce/cart-session";
 import { retrieveCart } from "@/lib/commerce/medusa-cart";
 import { listProducts } from "@/lib/commerce/medusa-products";
+import { syncKustomOrder } from "@/lib/commerce/order-sync";
 
 function siteUrl(): string {
   return (
@@ -136,6 +137,24 @@ export const checkoutRouter = router({
         status: order.status,
         trace_id: traceId,
       };
+    }),
+
+  // Instant order sync for the confirmation page. The Kustom push webhook is
+  // async (~2 min); the confirmation page calls this right after payment so the
+  // Medusa order appears immediately. Idempotent — safe to call alongside push.
+  syncOrder: publicProcedure
+    .input(z.object({ orderId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await syncKustomOrder(input.orderId);
+        return result;
+      } catch (err) {
+        console.error("[checkout/syncOrder] failed", err);
+        return {
+          status: "skipped" as const,
+          reason: err instanceof Error ? err.message : "sync failed",
+        };
+      }
     }),
 
   // Read an order's current state. On checkout_complete, html_snippet contains the confirmation iframe.
