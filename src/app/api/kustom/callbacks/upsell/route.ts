@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   const purchased = (body.order_lines ?? [])
-    .filter((l) => l.type !== "shipping_fee" && l.reference)
+    .filter((l) => (l.type === "physical" || l.type === "digital") && l.reference)
     .map((l) => l.reference);
 
   if (purchased.length === 0) {

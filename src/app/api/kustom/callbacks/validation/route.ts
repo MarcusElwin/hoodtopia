@@ -29,7 +29,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const lines = (body.order_lines ?? []).filter((l) => l.type !== "shipping_fee");
+  // Only validate real product lines. Discount / shipping_fee / sales_tax
+  // lines carry non-SKU references (e.g. a promo code) and must be skipped —
+  // otherwise the discount line's code gets stock-checked and rejected.
+  const lines = (body.order_lines ?? []).filter(
+    (l) => l.type === "physical" || l.type === "digital"
+  );
   const skus = lines.map((l) => l.reference).filter(Boolean);
 
   if (skus.length === 0) {
