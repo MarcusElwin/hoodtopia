@@ -1,0 +1,14 @@
+/node_modules
+/dist
+/.medusa
+/.cache
+*.log
+.env
+.env.local
+.env.*.local
+.DS_Store
+uploads
+
+# compiled config artifacts (ts-node/tsc output)
+medusa-config.js
+medusa-config.js.map
