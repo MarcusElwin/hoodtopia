@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
-import { ne } from "drizzle-orm";
-import { db, products as productsTable } from "@/db";
+import { listProducts } from "@/lib/commerce/medusa-products";
 import { getMarket } from "@/lib/kustom/markets";
 
 // Google Shopping Merchant Center XML feed.
@@ -75,16 +74,8 @@ export async function GET(
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? url.origin).replace(/\/$/, "");
 
-  // Pull every catalog product + variants + per-variant extra images.
-  const rows = await db.query.products.findMany({
-    where: ne(productsTable.category, "custom"),
-    with: {
-      variants: true,
-      images: {
-        orderBy: (img, { asc }) => [asc(img.position)],
-      },
-    },
-  });
+  // Pull every catalog product + variants + per-variant extra images (Medusa).
+  const rows = await listProducts();
 
   // Only hoodies in the feed for now — accessories priced/sized differently.
   const hoodies = rows.filter((p) => HOODIE_CATEGORIES.has(p.category));
