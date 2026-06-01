@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, Minus, Plus, Trash2, ShoppingBag, Loader2 } from "lucide-react";
+import { ChevronLeft, Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +46,27 @@ export default function CartPage() {
 
   const clearCartMutation = trpc.cart.clear.useMutation({
     onSuccess: invalidateCartAndProducts,
+  });
+
+  const [promoInput, setPromoInput] = useState("");
+  const [promoMessage, setPromoMessage] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+
+  const applyPromoMutation = trpc.cart.applyPromo.useMutation({
+    onSuccess: (res) => {
+      setPromoMessage({ ok: res.success, text: res.message });
+      if (res.success) setPromoInput("");
+      utils.cart.get.invalidate();
+    },
+  });
+
+  const removePromoMutation = trpc.cart.removePromo.useMutation({
+    onSuccess: () => {
+      setPromoMessage(null);
+      utils.cart.get.invalidate();
+    },
   });
 
   if (isLoading) {
@@ -217,6 +239,17 @@ export default function CartPage() {
                     </span>
                     <span>{formatPrice(cart?.subtotal || 0)}</span>
                   </div>
+                  {(cart?.discount ?? 0) > 0 && (
+                    <div className="flex justify-between text-green-500">
+                      <span>
+                        Discount
+                        {cart?.promoCodes?.length
+                          ? ` (${cart.promoCodes.join(", ")})`
+                          : ""}
+                      </span>
+                      <span>−{formatPrice(cart?.discount || 0)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     <span className="text-green-500">Free</span>
@@ -227,11 +260,87 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* Promo code */}
+                {!isEmpty && (
+                  <div className="mt-4">
+                    {cart?.promoCodes?.length ? (
+                      <div className="space-y-2">
+                        {cart.promoCodes.map((code) => (
+                          <div
+                            key={code}
+                            className="flex items-center justify-between rounded-md border border-green-500/30 bg-green-500/5 px-3 py-2 text-sm"
+                          >
+                            <span className="flex items-center gap-2 text-green-500">
+                              <Tag className="h-3.5 w-3.5" />
+                              {code}
+                            </span>
+                            <button
+                              onClick={() =>
+                                removePromoMutation.mutate({ code })
+                              }
+                              disabled={removePromoMutation.isPending}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={`Remove ${code}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-2">
+                          <input
+                            value={promoInput}
+                            onChange={(e) => {
+                              setPromoInput(e.target.value);
+                              setPromoMessage(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && promoInput.trim()) {
+                                applyPromoMutation.mutate({ code: promoInput });
+                              }
+                            }}
+                            placeholder="Promo code"
+                            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm uppercase placeholder:normal-case placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              applyPromoMutation.mutate({ code: promoInput })
+                            }
+                            disabled={
+                              !promoInput.trim() || applyPromoMutation.isPending
+                            }
+                          >
+                            {applyPromoMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Apply"
+                            )}
+                          </Button>
+                        </div>
+                        {promoMessage && (
+                          <p
+                            className={`text-xs ${promoMessage.ok ? "text-green-500" : "text-destructive"}`}
+                          >
+                            {promoMessage.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Separator className="my-4" />
 
                 <div className="flex justify-between text-lg font-semibold mb-6">
                   <span>Total</span>
-                  <span>{formatPrice(cart?.subtotal || 0)}</span>
+                  <span>
+                    {formatPrice(
+                      (cart?.total ?? cart?.subtotal) || 0
+                    )}
+                  </span>
                 </div>
 
                 <Button

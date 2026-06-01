@@ -35,13 +35,21 @@ export interface MedusaLineItem {
   thumbnail?: string | null
 }
 
+export interface MedusaPromotion {
+  id?: string
+  code?: string | null
+}
+
 export interface MedusaCart {
   id: string
   region_id?: string | null
   currency_code?: string | null
   item_total?: number | null
   subtotal?: number | null
+  discount_total?: number | null
+  total?: number | null
   items?: MedusaLineItem[] | null
+  promotions?: MedusaPromotion[] | null
 }
 
 // ── Adapted (legacy) cart shape the UI consumes ─────────────────────────────
@@ -59,9 +67,15 @@ export interface AdaptedCartItem {
 export interface AdaptedCart {
   id: string
   items: AdaptedCartItem[]
-  /** cents */
+  /** cents — line-item subtotal BEFORE discounts */
   subtotal: number
+  /** cents — total discount from applied promotions */
+  discount: number
+  /** cents — final payable total (subtotal − discount) */
+  total: number
   itemCount: number
+  /** Applied promo codes (e.g. ["WELCOME10"]). */
+  promoCodes: string[]
 }
 
 const toCents = (major?: number | null) =>
@@ -111,11 +125,22 @@ export function adaptCartItem(li: MedusaLineItem): AdaptedCartItem {
 
 export function adaptCart(cart: MedusaCart): AdaptedCart {
   const items = (cart.items ?? []).map(adaptCartItem)
+  // item_total already nets out item-level discounts, so subtotal = the
+  // pre-discount line sum; discount = discount_total; total = subtotal − discount.
+  const discount = toCents(cart.discount_total)
+  const subtotal =
+    toCents(cart.subtotal ?? cart.item_total) ||
+    items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0)
   return {
     id: cart.id,
     items,
-    subtotal: toCents(cart.item_total ?? cart.subtotal),
+    subtotal,
+    discount,
+    total: cart.total != null ? toCents(cart.total) : subtotal - discount,
     itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+    promoCodes: (cart.promotions ?? [])
+      .map((p) => p.code)
+      .filter((c): c is string => Boolean(c)),
   }
 }
 
@@ -126,6 +151,9 @@ const CART_FIELDS = [
   "currency_code",
   "item_total",
   "subtotal",
+  "discount_total",
+  "total",
+  "*promotions",
   "*items",
   "items.product_title",
   "items.product_handle",
@@ -189,6 +217,60 @@ export async function removeLineItem(
   lineItemId: string
 ): Promise<void> {
   await medusa.store.cart.deleteLineItem(cartId, lineItemId)
+}
+
+export interface ApplyPromoResult {
+  cart: AdaptedCart
+  applied: boolean
+  /** Set when the code was rejected (invalid/expired/not applicable). */
+  error?: string
+}
+
+/** Apply a promo code to the cart. `applied=false` if Medusa didn't accept it. */
+export async function applyPromo(
+  cartId: string,
+  code: string
+): Promise<ApplyPromoResult> {
+  try {
+    const { cart } = await medusa.store.cart.addPromotions(
+      cartId,
+      { promo_codes: [code] },
+      { fields: CART_FIELDS }
+    )
+    const adapted = adaptCart(cart as unknown as MedusaCart)
+    // Medusa silently ignores codes it can't apply, so confirm it landed.
+    const applied = adapted.promoCodes.some(
+      (c) => c.toLowerCase() === code.toLowerCase()
+    )
+    return {
+      cart: adapted,
+      applied,
+      error: applied ? undefined : "That code isn't valid for this cart.",
+    }
+  } catch (err) {
+    const { cart } = await medusa.store.cart.retrieve(cartId, {
+      fields: CART_FIELDS,
+    })
+    return {
+      cart: adaptCart(cart as unknown as MedusaCart),
+      applied: false,
+      error:
+        err instanceof Error ? err.message : "That code isn't valid for this cart.",
+    }
+  }
+}
+
+/** Remove an applied promo code from the cart. */
+export async function removePromo(
+  cartId: string,
+  code: string
+): Promise<AdaptedCart> {
+  const { cart } = await medusa.store.cart.removePromotions(
+    cartId,
+    { promo_codes: [code] },
+    { fields: CART_FIELDS }
+  )
+  return adaptCart(cart as unknown as MedusaCart)
 }
 
 export interface CompleteCartResult {

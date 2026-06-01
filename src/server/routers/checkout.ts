@@ -43,6 +43,8 @@ export const checkoutRouter = router({
       // data source changed (Medusa cart instead of the old Drizzle cart).
       const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
       const cart = await retrieveCart(cartId);
+      const discountMinor = cart?.discount ?? 0;
+      const promoCodes = cart?.promoCodes ?? [];
       const items: CartItemForKustom[] = (cart?.items ?? []).map((i) => ({
         quantity: i.quantity,
         priceAtAdd: i.priceAtAdd,
@@ -72,6 +74,8 @@ export const checkoutRouter = router({
         countryCode: input?.countryCode,
         sessionId: DEMO_SESSION_ID,
         traceId,
+        discountMinor,
+        promoCodes,
       });
 
       console.log("[checkout/init] traceId=%s sessionId=%s country=%s items=%d",

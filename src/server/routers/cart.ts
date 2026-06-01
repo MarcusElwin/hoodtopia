@@ -6,6 +6,8 @@ import {
   addLineItem,
   updateLineItem,
   removeLineItem,
+  applyPromo,
+  removePromo,
 } from "@/lib/commerce/medusa-cart";
 import {
   DEMO_SESSION_ID,
@@ -32,7 +34,17 @@ export const cartRouter = router({
       const cart = await retrieveCart(cartId);
       // getOrCreateCartId guarantees the cart exists; null would mean a race —
       // return an empty cart shape rather than throwing.
-      return cart ?? { id: cartId, items: [], subtotal: 0, itemCount: 0 };
+      return (
+        cart ?? {
+          id: cartId,
+          items: [],
+          subtotal: 0,
+          discount: 0,
+          total: 0,
+          itemCount: 0,
+          promoCodes: [],
+        }
+      );
     }),
 
   // Add a variant to the cart. Medusa reserves inventory and rejects if the
@@ -98,6 +110,33 @@ export const cartRouter = router({
     await removeLineItem(cartId, input);
     return { success: true };
   }),
+
+  // Apply a promo code (Medusa promotion). Returns success + a message so the
+  // UI can show "applied!" or the rejection reason.
+  applyPromo: publicProcedure
+    .input(z.object({ code: z.string().min(1).max(64) }))
+    .mutation(async ({ input }) => {
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const res = await applyPromo(cartId, input.code.trim());
+      return {
+        success: res.applied,
+        message: res.applied
+          ? `Code ${input.code.trim().toUpperCase()} applied.`
+          : res.error ?? "That code isn't valid.",
+        discount: res.cart.discount,
+        total: res.cart.total,
+        promoCodes: res.cart.promoCodes,
+      };
+    }),
+
+  // Remove an applied promo code.
+  removePromo: publicProcedure
+    .input(z.object({ code: z.string().min(1).max(64) }))
+    .mutation(async ({ input }) => {
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const cart = await removePromo(cartId, input.code.trim());
+      return { success: true, discount: cart.discount, total: cart.total, promoCodes: cart.promoCodes };
+    }),
 
   // Clear the cart (user-initiated). Starting a fresh Medusa cart is the
   // simplest way to empty it and release any inventory reservations.

@@ -91,6 +91,13 @@ export interface BuildCreateOrderInput {
    * server logs even when multiple orders share the same sessionId.
    */
   traceId?: string;
+  /**
+   * Total discount in minor units (cents) from applied Medusa promotions, and
+   * the codes that produced it. Added as a negative `discount` order_line so
+   * the Kustom payment total matches the discounted cart.
+   */
+  discountMinor?: number;
+  promoCodes?: string[];
 }
 
 /**
@@ -202,6 +209,8 @@ export function buildCreateOrderPayload({
   countryCode,
   sessionId,
   traceId,
+  discountMinor = 0,
+  promoCodes = [],
 }: BuildCreateOrderInput): CreateOrderPayload {
   if (items.length === 0) {
     throw new Error("Cannot create checkout for an empty cart");
@@ -210,6 +219,30 @@ export function buildCreateOrderPayload({
   const market = getMarket(countryCode);
 
   const order_lines = items.map((i) => lineFromItem(i, market));
+
+  // Promotion discount → a negative `discount` order_line so the Kustom total
+  // matches the discounted cart. VAT-inclusive: back out the tax portion.
+  if (discountMinor > 0) {
+    const total_amount = -discountMinor;
+    const total_tax_amount = Math.round(
+      total_amount - total_amount / market.vat_divisor
+    );
+    order_lines.push({
+      type: "discount",
+      reference: promoCodes[0] ?? "PROMO",
+      name: promoCodes.length
+        ? `Discount (${promoCodes.join(", ")})`
+        : "Discount",
+      quantity: 1,
+      quantity_unit: "pcs",
+      unit_price: total_amount,
+      tax_rate: market.vat_rate_bp,
+      total_amount,
+      total_discount_amount: 0,
+      total_tax_amount,
+    });
+  }
+
   const order_amount = order_lines.reduce((s, l) => s + l.total_amount, 0);
   const order_tax_amount = order_lines.reduce(
     (s, l) => s + l.total_tax_amount,
