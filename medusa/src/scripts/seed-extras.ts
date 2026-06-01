@@ -1,6 +1,7 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import {
+  createApiKeysWorkflow,
   createCollectionsWorkflow,
   createPriceListsWorkflow,
   createProductTagsWorkflow,
@@ -281,6 +282,28 @@ export default async function seedExtras({ container }: ExecArgs) {
     typed++
   }
   logger.info(`Assigned type + tags to ${typed} products.`)
+
+  // ── 8. Admin secret API key (storefront server-to-server writes) ──────────
+  // Used by the storefront to create one-off products for custom AI designs.
+  const { data: secretKeys } = await query.graph({
+    entity: "api_key",
+    fields: ["id", "token"],
+    filters: { type: "secret" },
+  })
+  if (!secretKeys?.length) {
+    const { result } = await createApiKeysWorkflow(container).run({
+      input: {
+        api_keys: [
+          { title: "Storefront Server", type: "secret", created_by: "system" },
+        ],
+      },
+    })
+    logger.info(
+      `Admin secret API key (set as MEDUSA_ADMIN_API_KEY in storefront): ${result[0].token}`
+    )
+  } else {
+    logger.info("Admin secret API key already exists, skipping.")
+  }
 
   logger.info("✅ seed-extras complete.")
 }

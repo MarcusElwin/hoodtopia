@@ -27,3 +27,16 @@ export const medusa = new Medusa({
   baseUrl: MEDUSA_BACKEND_URL,
   publishableKey: MEDUSA_PUBLISHABLE_KEY,
 })
+
+/**
+ * Admin-authenticated client for the few server-only writes the storefront
+ * needs (e.g. creating a one-off product for a custom AI design). Uses a secret
+ * API key — SERVER ONLY, never exposed to the browser. Create one with the
+ * Medusa CLI / seed and set MEDUSA_ADMIN_API_KEY.
+ */
+export const MEDUSA_ADMIN_API_KEY = process.env.MEDUSA_ADMIN_API_KEY || ""
+
+export const medusaAdmin = new Medusa({
+  baseUrl: MEDUSA_BACKEND_URL,
+  apiKey: MEDUSA_ADMIN_API_KEY,
+})
