@@ -117,6 +117,43 @@ export async function getProductByHandle(
   return adaptProduct(products[0] as unknown as MedusaProduct)
 }
 
+/**
+ * Look up current inventory_quantity for a set of variant SKUs (Medusa is now
+ * the inventory source). Returns a map SKU -> stock; SKUs not found are absent.
+ * Used by the Kustom validation callback to re-check stock at payment time.
+ */
+export async function getStockBySku(
+  skus: string[]
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (!skus.length) return map
+  // The catalog is small; fetch all variants with sku + inventory and filter.
+  const { products } = await medusa.store.product.list({
+    fields: "variants.sku,variants.inventory_quantity,variants.manage_inventory",
+    limit: 200,
+  })
+  const wanted = new Set(skus)
+  for (const p of products) {
+    for (const v of (p.variants ?? []) as {
+      sku?: string | null
+      inventory_quantity?: number | null
+      manage_inventory?: boolean | null
+    }[]) {
+      if (v.sku && wanted.has(v.sku)) {
+        // Variants that don't manage inventory (e.g. custom designs) are always
+        // available — represent that as a large number.
+        map.set(
+          v.sku,
+          v.manage_inventory === false
+            ? Number.MAX_SAFE_INTEGER
+            : v.inventory_quantity ?? 0
+        )
+      }
+    }
+  }
+  return map
+}
+
 /** Resolve a category name (old schema) to a Medusa category id. */
 export async function resolveCategoryId(name: string): Promise<string | null> {
   const { product_categories } = (await medusa.store.category.list({

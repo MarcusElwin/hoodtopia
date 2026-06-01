@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { inArray } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
-import { db, productVariants } from "@/db";
+import { getStockBySku } from "@/lib/commerce/medusa-products";
 import type { OrderLine } from "@/lib/kustom/types";
 
 // Force runtime execution — these routes hit the DB / Kustom API; Next would
@@ -38,18 +37,14 @@ export async function POST(request: Request) {
     return NextResponse.json({});
   }
 
-  const variants = await db.query.productVariants.findMany({
-    where: inArray(productVariants.sku, skus),
-  });
-
-  const stockBySku = new Map(variants.map((v) => [v.sku, v.stock]));
+  // Re-check stock against Medusa (the inventory source) at payment time.
+  const stockBySku = await getStockBySku(skus as string[]);
   const insufficient = lines.filter((l) => {
-    const stock = stockBySku.get(l.reference);
-    // Stock has already been decremented at add-to-cart time, so 0 means
-    // the inventory is fully reserved for this exact purchase — that's OK.
-    // We reject only if stock went negative (impossible today, defensive)
-    // or if the SKU vanished entirely.
-    return stock === undefined || stock < 0;
+    const stock = stockBySku.get(l.reference as string);
+    // Reject only if the SKU genuinely has no stock left. Custom-design SKUs
+    // don't manage inventory and come back as MAX_SAFE_INTEGER. A missing SKU
+    // (undefined) is treated as out-of-stock.
+    return stock === undefined || stock <= 0;
   });
 
   if (insufficient.length > 0) {
