@@ -44,11 +44,21 @@ npx medusa db:migrate
 # 5. Create an admin user for the dashboard
 npx medusa user -e admin@hoodtopia.co -p supersecret
 
-# 6. Run it (API + admin on :9000)
-npm run dev
+# 6. Run it. Default port is 9000, but a pimir-minio container squats :9000
+#    on this machine, so run on 9010 instead:
+PORT=9010 npm run dev
 ```
 
-Admin dashboard: <http://localhost:9000/app>
+Admin dashboard: <http://localhost:9010/app>
+
+> **Local port = 9010** (not Medusa's default 9000 — a `pimir-minio` container
+> occupies 9000 here). `MEDUSA_BACKEND_URL` in `.env` is set to `:9010` to match,
+> so the admin POSTs auth to Medusa and not MinIO.
+>
+> **If the admin shows an S3/XML error on login**, your browser cached an older
+> admin bundle — load `http://localhost:9010/app?nocache=1` or use incognito.
+> **If a page shows "Failed to fetch dynamically imported module"**, Vite
+> re-optimized its deps (e.g. after a restart) — just reload `/app`.
 
 ## Scripts
 

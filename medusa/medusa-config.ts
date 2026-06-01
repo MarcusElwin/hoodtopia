@@ -35,7 +35,7 @@ module.exports = defineConfig({
     // the port Medusa actually listens on. Locally that's :9009 (a pimir-minio
     // container squats :9000 — pointing here at :9000 makes the admin send
     // /auth/* to MinIO, which returns an S3 error). Prod: https://api.hoodtopia.co.
-    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9009",
+    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9010",
   },
   // When REDIS_URL is present, route the infra modules through Redis so multiple
   // instances share cache/events/workflow state. Omitted entirely otherwise.
