@@ -30,6 +30,7 @@ import {
 import {
   createApiKeysWorkflow,
   createInventoryLevelsWorkflow,
+  createPriceListsWorkflow,
   createProductCategoriesWorkflow,
   createProductsWorkflow,
   createRegionsWorkflow,
@@ -199,25 +200,43 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
     [Modules.FULFILLMENT]: { fulfillment_set_id: fulfillmentSet.id },
   })
 
+  // Shipping options mirror the Kustom/KSA market carriers (src/lib/kustom/
+  // markets.ts) so the Medusa admin reflects the same per-market carriers the
+  // checkout uses. Prices are the markets.ts shipping_minor rates in major
+  // units. Kustom/KSA stays authoritative at checkout; these make Medusa's
+  // shipping picture match it (and let Medusa carts complete with real options).
+  const SHIPPING_OPTIONS = [
+    { name: "Standard Shipping", code: "standard", desc: "3–5 business days.",
+      prices: { usd: 6, sek: 49, gbp: 5, eur: 5, jpy: 600 } },
+    { name: "Express Shipping", code: "express", desc: "1–2 business days.",
+      prices: { usd: 13, sek: 99, gbp: 10, eur: 10, jpy: 1500 } },
+    { name: "Pickup Point", code: "pickup", desc: "Collect from a parcel locker.",
+      prices: { usd: 4, sek: 29, gbp: 3, eur: 3, jpy: 400 } },
+    // Named carriers per market (PostNord/Royal Mail/USPS/DHL/Japan Post …).
+    { name: "PostNord (SE)", code: "postnord", desc: "PostNord Standard — Sweden.",
+      prices: { sek: 49 } },
+    { name: "Royal Mail (GB)", code: "royal-mail", desc: "Royal Mail Tracked 48.",
+      prices: { gbp: 5 } },
+    { name: "USPS (US)", code: "usps", desc: "USPS Ground Advantage.",
+      prices: { usd: 6 } },
+    { name: "DHL (DE)", code: "dhl", desc: "DHL Paket — Germany.",
+      prices: { eur: 5 } },
+    { name: "Japan Post (JP)", code: "japan-post", desc: "Japan Post Yū-Pack.",
+      prices: { jpy: 600 } },
+  ]
+
   await createShippingOptionsWorkflow(container).run({
-    input: ["Standard", "Express"].map((label) => ({
-      name: `${label} Shipping`,
+    input: SHIPPING_OPTIONS.map((o) => ({
+      name: o.name,
       price_type: "flat" as const,
       provider_id: "manual_manual",
       service_zone_id: fulfillmentSet.service_zones[0].id,
       shipping_profile_id: shippingProfile!.id,
-      type: {
-        label,
-        description: label === "Standard" ? "Ship in 3-5 days." : "Ship in 1-2 days.",
-        code: label.toLowerCase(),
-      },
-      prices: [
-        { currency_code: "usd", amount: label === "Standard" ? 6 : 13 },
-        { currency_code: "sek", amount: label === "Standard" ? 49 : 99 },
-        { currency_code: "gbp", amount: label === "Standard" ? 5 : 10 },
-        { currency_code: "eur", amount: label === "Standard" ? 5 : 10 },
-        { currency_code: "jpy", amount: label === "Standard" ? 600 : 1500 },
-      ],
+      type: { label: o.name, description: o.desc, code: o.code },
+      prices: Object.entries(o.prices).map(([currency_code, amount]) => ({
+        currency_code,
+        amount,
+      })),
       rules: [
         { attribute: "enabled_in_store", value: "true", operator: "eq" as const },
         { attribute: "is_return", value: "false", operator: "eq" as const },
@@ -276,6 +295,9 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
     status: ProductStatus.PUBLISHED,
     category_ids: [categoryId(h.category)],
     shipping_profile_id: shippingProfile!.id,
+    // Native Medusa material column (shows in the admin); also kept in metadata
+    // for the storefront adapter + features/featured which have no native field.
+    material: h.material,
     metadata: {
       material: h.material,
       features: h.features,
@@ -308,6 +330,7 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
     status: ProductStatus.PUBLISHED,
     category_ids: [categoryId(a.category)],
     shipping_profile_id: shippingProfile!.id,
+    material: a.material,
     metadata: {
       material: a.material,
       features: a.features,
@@ -333,6 +356,48 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
   logger.info(
     `Seeded ${hoodieProducts.length} hoodies + ${accessoryProducts.length} accessories.`
   )
+
+  // ── Sale price list (20% off hoodies) ────────────────────────────────────
+  // Demonstrates Medusa Price Lists (sale/override pricing on top of the base
+  // price sets). Applies a 20% discount to every hoodie variant in USD/EUR.
+  logger.info("Seeding sale price list...")
+  const hoodieHandles = hoodies.map((h) => h.slug)
+  const { data: saleVariants } = await query.graph({
+    entity: "product_variant",
+    fields: ["id", "product.handle", "prices.amount", "prices.currency_code"],
+  })
+  type VariantWithPrices = {
+    id: string
+    product?: { handle?: string } | null
+    prices?: { amount: number; currency_code: string }[] | null
+  }
+  const salePrices = (saleVariants as VariantWithPrices[])
+    .filter((v) => hoodieHandles.includes(v.product?.handle ?? ""))
+    .flatMap((v) =>
+      (v.prices ?? [])
+        .filter((p) => ["usd", "eur"].includes(p.currency_code))
+        .map((p) => ({
+          variant_id: v.id,
+          currency_code: p.currency_code,
+          amount: Math.round(p.amount * 0.8 * 100) / 100, // 20% off
+        }))
+    )
+
+  if (salePrices.length) {
+    await createPriceListsWorkflow(container).run({
+      input: {
+        price_lists_data: [
+          {
+            title: "Summer Sale",
+            description: "20% off all hoodies (USD/EUR).",
+            status: "active" as const,
+            prices: salePrices,
+          },
+        ],
+      },
+    })
+    logger.info(`Sale price list created with ${salePrices.length} prices.`)
+  }
 
   // ── Inventory levels (per-variant stock from the ported buckets) ─────────
   logger.info("Seeding inventory levels...")
