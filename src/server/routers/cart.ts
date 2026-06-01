@@ -1,198 +1,70 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, ne, sql } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
-import { db, carts, cartItems, products, productVariants } from "@/db";
+import {
+  retrieveCart,
+  addLineItem,
+  updateLineItem,
+  removeLineItem,
+} from "@/lib/commerce/medusa-cart";
+import {
+  DEMO_SESSION_ID,
+  getOrCreateCartId,
+  resetCart,
+} from "@/lib/commerce/cart-session";
 import { getCartRecommendations } from "@/services/ai";
+import { listProducts, getProductById } from "@/lib/commerce/medusa-products";
 
-// For demo purposes, we use a fixed session ID
-// In production, you'd get this from cookies/auth
-const DEMO_SESSION_ID = "demo-session";
-
-// Carts idle longer than this are treated as a new session and auto-cleared.
-// Keeps the demo state fresh between attendees / browser sessions.
-const CART_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
-
-// Atomic stock delta. The libSQL driver reports rowsAffected=0 when the WHERE
-// clause rejects (stock would go negative), which we surface as a clean
-// out-of-stock error instead of a silent no-op.
-async function adjustStock(variantId: string, delta: number) {
-  if (delta === 0) return;
-  const stmt =
-    delta < 0
-      ? db
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} + ${delta}` })
-          .where(
-            and(
-              eq(productVariants.id, variantId),
-              sql`${productVariants.stock} + ${delta} >= 0`
-            )
-          )
-      : db
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} + ${delta}` })
-          .where(eq(productVariants.id, variantId));
-
-  const result = await stmt.run();
-  if (delta < 0 && result.rowsAffected === 0) {
-    throw new TRPCError({
-      code: "CONFLICT",
-      message: "Not enough stock for that quantity.",
-    });
-  }
-}
-
+/**
+ * Cart router — now backed by a real MedusaJS cart instead of the Drizzle
+ * carts/cartItems tables. Medusa owns line items, totals, and inventory
+ * reservations, so the old manual adjustStock logic is gone (out-of-stock is
+ * surfaced from Medusa). The Medusa cart id is persisted per demo session in
+ * the medusa_carts table (see cart-session.ts); procedure signatures and the
+ * returned cart shape are unchanged, so the cart UI is untouched.
+ */
 export const cartRouter = router({
-  // Get current cart with items
-  get: publicProcedure.query(async () => {
-    // Find or create cart for session
-    let cart = await db.query.carts.findFirst({
-      where: eq(carts.sessionId, DEMO_SESSION_ID),
-      with: {
-        items: {
-          with: {
-            product: true,
-            variant: true,
-          },
-        },
-      },
-    });
+  // Current cart with items + totals.
+  get: publicProcedure
+    .input(z.object({ currency: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID, input?.currency);
+      const cart = await retrieveCart(cartId);
+      // getOrCreateCartId guarantees the cart exists; null would mean a race —
+      // return an empty cart shape rather than throwing.
+      return cart ?? { id: cartId, items: [], subtotal: 0, itemCount: 0 };
+    }),
 
-    // Auto-clear stale sessions so each demo run starts fresh.
-    if (
-      cart &&
-      cart.items.length > 0 &&
-      Date.now() - cart.updatedAt.getTime() > CART_SESSION_TTL_MS
-    ) {
-      // Restore stock for everything we're about to drop.
-      for (const item of cart.items) {
-        await adjustStock(item.variantId, item.quantity);
-      }
-      await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
-      cart = { ...cart, items: [] };
-    }
-
-    if (!cart) {
-      const cartId = uuidv4();
-      await db.insert(carts).values({
-        id: cartId,
-        sessionId: DEMO_SESSION_ID,
-      });
-
-      cart = await db.query.carts.findFirst({
-        where: eq(carts.id, cartId),
-        with: {
-          items: {
-            with: {
-              product: true,
-              variant: true,
-            },
-          },
-        },
-      });
-    }
-
-    // Calculate totals
-    const items = cart?.items || [];
-    const subtotal = items.reduce(
-      (sum, item) => sum + item.priceAtAdd * item.quantity,
-      0
-    );
-    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
-    return {
-      ...cart,
-      subtotal,
-      itemCount,
-    };
-  }),
-
-  // Add item to cart
+  // Add a variant to the cart. Medusa reserves inventory and rejects if the
+  // requested quantity isn't available.
   addItem: publicProcedure
     .input(
       z.object({
-        productId: z.string(),
+        // productId kept for input compatibility with the existing UI; Medusa
+        // only needs the variant id.
+        productId: z.string().optional(),
         variantId: z.string(),
         quantity: z.number().min(1).default(1),
+        currency: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      // Get or create cart
-      let cart = await db.query.carts.findFirst({
-        where: eq(carts.sessionId, DEMO_SESSION_ID),
-      });
-
-      if (!cart) {
-        const cartId = uuidv4();
-        await db.insert(carts).values({
-          id: cartId,
-          sessionId: DEMO_SESSION_ID,
-        });
-        cart = await db.query.carts.findFirst({
-          where: eq(carts.id, cartId),
-        });
-      }
-
-      if (!cart) {
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID, input.currency);
+      try {
+        await addLineItem(cartId, input.variantId, input.quantity);
+        return { success: true };
+      } catch (err) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create cart",
+          code: "CONFLICT",
+          message:
+            err instanceof Error && /stock|inventory|quantity/i.test(err.message)
+              ? "Not enough stock for that quantity."
+              : "Could not add that item to the cart.",
         });
       }
-
-      // Get product price
-      const product = await db.query.products.findFirst({
-        where: eq(products.id, input.productId),
-      });
-
-      if (!product) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Product not found",
-        });
-      }
-
-      // Atomic stock decrement — throws CONFLICT if insufficient.
-      await adjustStock(input.variantId, -input.quantity);
-
-      // Check if item already exists in cart
-      const existingItem = await db.query.cartItems.findFirst({
-        where: and(
-          eq(cartItems.cartId, cart.id),
-          eq(cartItems.variantId, input.variantId)
-        ),
-      });
-
-      if (existingItem) {
-        // Update quantity
-        await db
-          .update(cartItems)
-          .set({ quantity: existingItem.quantity + input.quantity })
-          .where(eq(cartItems.id, existingItem.id));
-      } else {
-        // Add new item
-        await db.insert(cartItems).values({
-          id: uuidv4(),
-          cartId: cart.id,
-          productId: input.productId,
-          variantId: input.variantId,
-          quantity: input.quantity,
-          priceAtAdd: product.basePrice,
-        });
-      }
-
-      // Update cart timestamp
-      await db
-        .update(carts)
-        .set({ updatedAt: new Date() })
-        .where(eq(carts.id, cart.id));
-
-      return { success: true };
     }),
 
-  // Update item quantity
+  // Update a line item's quantity (0 removes it).
   updateQuantity: publicProcedure
     .input(
       z.object({
@@ -201,77 +73,50 @@ export const cartRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const item = await db.query.cartItems.findFirst({
-        where: eq(cartItems.id, input.itemId),
-      });
-      if (!item) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Cart item not found" });
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      try {
+        if (input.quantity === 0) {
+          await removeLineItem(cartId, input.itemId);
+        } else {
+          await updateLineItem(cartId, input.itemId, input.quantity);
+        }
+        return { success: true };
+      } catch (err) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            err instanceof Error && /stock|inventory|quantity/i.test(err.message)
+              ? "Not enough stock for that quantity."
+              : "Could not update the cart.",
+        });
       }
-
-      const delta = input.quantity - item.quantity;
-      if (delta === 0) return { success: true };
-
-      // Move stock to match the new quantity. Negative delta = need more stock.
-      await adjustStock(item.variantId, -delta);
-
-      if (input.quantity === 0) {
-        await db.delete(cartItems).where(eq(cartItems.id, input.itemId));
-      } else {
-        await db
-          .update(cartItems)
-          .set({ quantity: input.quantity })
-          .where(eq(cartItems.id, input.itemId));
-      }
-
-      return { success: true };
     }),
 
-  // Remove item from cart
+  // Remove a line item.
   removeItem: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-    const item = await db.query.cartItems.findFirst({
-      where: eq(cartItems.id, input),
-    });
-    if (item) {
-      await adjustStock(item.variantId, item.quantity);
-      await db.delete(cartItems).where(eq(cartItems.id, input));
-    }
+    const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+    await removeLineItem(cartId, input);
     return { success: true };
   }),
 
-  // Clear entire cart (user-initiated — restores stock since items weren't bought).
+  // Clear the cart (user-initiated). Starting a fresh Medusa cart is the
+  // simplest way to empty it and release any inventory reservations.
   clear: publicProcedure.mutation(async () => {
-    const cart = await db.query.carts.findFirst({
-      where: eq(carts.sessionId, DEMO_SESSION_ID),
-      with: { items: true },
-    });
-
-    if (cart) {
-      for (const item of cart.items) {
-        await adjustStock(item.variantId, item.quantity);
-      }
-      await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
-    }
-
+    await resetCart(DEMO_SESSION_ID);
+    // Recreate immediately so the next get() has a cart ready.
+    await getOrCreateCartId(DEMO_SESSION_ID);
     return { success: true };
   }),
 
-  // Clear cart after a successful purchase — items already left inventory at
-  // add-to-cart time, so we DO NOT restore stock here.
+  // Clear after a successful purchase. The Medusa cart that was paid for is
+  // completed into an order in Phase 5; here we just drop the session pointer
+  // so the shopper starts a new cart.
   clearAfterPurchase: publicProcedure.mutation(async () => {
-    const cart = await db.query.carts.findFirst({
-      where: eq(carts.sessionId, DEMO_SESSION_ID),
-    });
-    if (cart) {
-      await db.delete(cartItems).where(eq(cartItems.cartId, cart.id));
-    }
+    await resetCart(DEMO_SESSION_ID);
     return { success: true };
   }),
 
-  // Get AI-powered cart recommendations. The caller passes the active
-  // currency symbol so the prompt + cartAnalysis text use the right glyph
-  // ("under 300 kr" instead of "under $30" when the shopper is in SEK).
-  // budgetCap is in the same currency's minor-unit major number (e.g. 300
-  // for "300 kr" or "£300"), not converted between currencies.
+  // AI cross-sell recommendations based on the current cart's products.
   getRecommendations: publicProcedure
     .input(
       z
@@ -282,44 +127,24 @@ export const cartRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      // Get current cart
-      const cart = await db.query.carts.findFirst({
-        where: eq(carts.sessionId, DEMO_SESSION_ID),
-        with: {
-          items: {
-            with: {
-              product: true,
-            },
-          },
-        },
-      });
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const cart = await retrieveCart(cartId);
 
-      // If cart is empty, return empty recommendations
       if (!cart || cart.items.length === 0) {
         return {
           recommendations: [],
-          cartAnalysis: "Add items to your cart to see personalized recommendations.",
+          cartAnalysis:
+            "Add items to your cart to see personalized recommendations.",
         };
       }
 
-      // Get all products for recommendations with variants (exclude custom designs)
-      const allProducts = await db.query.products.findMany({
-        where: ne(products.category, "custom"),
-        with: {
-          variants: true,
-        },
-      });
+      // Resolve the full product records for the cart's line items + the whole
+      // catalog (the AI service expects the legacy Product shape).
+      const allProducts = await listProducts();
+      const cartProducts = (
+        await Promise.all(cart.items.map((i) => getProductById(i.productId)))
+      ).filter((p): p is NonNullable<typeof p> => p !== null);
 
-      // Extract cart products
-      const cartProducts = cart.items.map((item) => item.product);
-
-      // Get AI recommendations
-      const recommendations = await getCartRecommendations(
-        cartProducts,
-        allProducts,
-        input
-      );
-
-      return recommendations;
+      return getCartRecommendations(cartProducts, allProducts, input);
     }),
 });

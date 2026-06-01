@@ -123,6 +123,19 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
   }),
 }));
 
+// Maps a storefront session to its MedusaJS cart id. The cart itself (line
+// items, totals, inventory reservations) lives in Medusa; this table is just
+// the pointer so the demo can find the same cart across requests without
+// cookies (matching the fixed DEMO_SESSION model). Replaces the old
+// carts/cartItems tables, which are gone.
+export const medusaCarts = sqliteTable("medusa_carts", {
+  sessionId: text("session_id").primaryKey(),
+  medusaCartId: text("medusa_cart_id").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // User preferences table
 export const userPreferences = sqliteTable("user_preferences", {
   id: text("id").primaryKey(),
@@ -222,3 +235,5 @@ export type ProductImage = typeof productImages.$inferSelect;
 export type NewProductImage = typeof productImages.$inferInsert;
 export type ChatSafetyEvent = typeof chatSafetyEvents.$inferSelect;
 export type NewChatSafetyEvent = typeof chatSafetyEvents.$inferInsert;
+export type MedusaCartRef = typeof medusaCarts.$inferSelect;
+export type NewMedusaCartRef = typeof medusaCarts.$inferInsert;
