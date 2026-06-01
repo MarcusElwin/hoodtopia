@@ -1,7 +1,11 @@
 import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import {
+  createCollectionsWorkflow,
   createPriceListsWorkflow,
+  createProductTagsWorkflow,
+  createProductTypesWorkflow,
+  createSalesChannelsWorkflow,
   createShippingOptionsWorkflow,
 } from "@medusajs/medusa/core-flows"
 import { hoodies, accessories } from "../data/catalog"
@@ -19,6 +23,7 @@ export default async function seedExtras({ container }: ExecArgs) {
   const productModule = container.resolve(Modules.PRODUCT)
   const fulfillmentModule = container.resolve(Modules.FULFILLMENT)
   const pricingModule = container.resolve(Modules.PRICING)
+  const salesChannelModule = container.resolve(Modules.SALES_CHANNEL)
 
   // ── 1. Native material ────────────────────────────────────────────────────
   const materialBySlug = new Map<string, string>()
@@ -90,7 +95,8 @@ export default async function seedExtras({ container }: ExecArgs) {
   }
 
   // ── 3. Summer Sale price list ─────────────────────────────────────────────
-  const existingLists = await pricingModule.listPriceLists({ title: ["Summer Sale"] })
+  const allLists = await pricingModule.listPriceLists({})
+  const existingLists = allLists.filter((l) => l.title === "Summer Sale")
   if (!existingLists.length) {
     const hoodieHandles = hoodies.map((h) => h.slug)
     type V = {
@@ -131,6 +137,150 @@ export default async function seedExtras({ container }: ExecArgs) {
   } else {
     logger.info("Summer Sale price list already exists, skipping.")
   }
+
+  // ── 4. Collections ────────────────────────────────────────────────────────
+  const hoodieSlugs = new Set(hoodies.map((h) => h.slug))
+  const featuredSlugs = new Set(
+    [...hoodies, ...accessories].filter((p) => p.featured).map((p) => p.slug)
+  )
+
+  const { data: allProducts } = await query.graph({
+    entity: "product",
+    fields: ["id", "handle", "collection_id"],
+  })
+
+  const existingCollections = await productModule.listProductCollections({
+    title: ["Hoodies", "Accessories", "Editor's Choice"],
+  })
+  const haveTitles = new Set(existingCollections.map((c) => c.title))
+
+  // A product can only belong to ONE collection in Medusa, so we use mutually
+  // exclusive buckets: Editor's Choice (featured) wins, else Hoodies/Accessories.
+  const wantedCollections = [
+    { title: "Editor's Choice", handle: "editors-choice" },
+    { title: "Hoodies", handle: "hoodies" },
+    { title: "Accessories", handle: "accessories" },
+  ].filter((c) => !haveTitles.has(c.title))
+
+  if (wantedCollections.length) {
+    const { result: created } = await createCollectionsWorkflow(container).run({
+      input: { collections: wantedCollections },
+    })
+    const idByTitle = new Map(created.map((c) => [c.title, c.id]))
+
+    let assigned = 0
+    for (const p of allProducts) {
+      const handle = p.handle as string
+      let title: string | null = null
+      if (featuredSlugs.has(handle)) title = "Editor's Choice"
+      else if (hoodieSlugs.has(handle)) title = "Hoodies"
+      else title = "Accessories"
+
+      const collectionId = idByTitle.get(title)
+      if (collectionId && p.collection_id !== collectionId) {
+        await productModule.updateProducts(p.id, { collection_id: collectionId })
+        assigned++
+      }
+    }
+    logger.info(
+      `Created ${created.length} collections, assigned ${assigned} products.`
+    )
+  } else {
+    logger.info("Collections already exist, skipping.")
+  }
+
+  // ── 5. Agentic sales channel (for AI chat / agentic commerce) ─────────────
+  const existingChannels = await salesChannelModule.listSalesChannels({
+    name: ["AI Agents"],
+  })
+  if (!existingChannels.length) {
+    await createSalesChannelsWorkflow(container).run({
+      input: {
+        salesChannelsData: [
+          {
+            name: "AI Agents",
+            description:
+              "Agentic commerce channel — AI chat assistant + autonomous shopping agents.",
+          },
+        ],
+      },
+    })
+    logger.info("Created 'AI Agents' sales channel.")
+  } else {
+    logger.info("'AI Agents' sales channel already exists, skipping.")
+  }
+
+  // ── 6. Product types ──────────────────────────────────────────────────────
+  const existingTypes = (await productModule.listProductTypes({})).filter((t) =>
+    ["Hoodie", "Accessory"].includes(t.value)
+  )
+  const haveTypeValues = new Set(existingTypes.map((t) => t.value))
+  const wantedTypes = ["Hoodie", "Accessory"].filter(
+    (v) => !haveTypeValues.has(v)
+  )
+  const typeIdByValue = new Map(existingTypes.map((t) => [t.value, t.id]))
+  if (wantedTypes.length) {
+    const { result: createdTypes } = await createProductTypesWorkflow(
+      container
+    ).run({
+      input: { product_types: wantedTypes.map((value) => ({ value })) },
+    })
+    for (const t of createdTypes) typeIdByValue.set(t.value, t.id)
+    logger.info(`Created product types: ${wantedTypes.join(", ")}`)
+  }
+
+  // ── 7. Tags (AI-shopping facets) ──────────────────────────────────────────
+  const TAGS = ["cozy", "athletic", "streetwear", "gift", "eco-friendly", "bestseller"]
+  const existingTags = (await productModule.listProductTags({})).filter((t) =>
+    TAGS.includes(t.value)
+  )
+  const haveTagValues = new Set(existingTags.map((t) => t.value))
+  const wantedTags = TAGS.filter((v) => !haveTagValues.has(v))
+  const tagIdByValue = new Map(existingTags.map((t) => [t.value, t.id]))
+  if (wantedTags.length) {
+    const { result: createdTags } = await createProductTagsWorkflow(container).run({
+      input: { product_tags: wantedTags.map((value) => ({ value })) },
+    })
+    for (const t of createdTags) tagIdByValue.set(t.value, t.id)
+    logger.info(`Created tags: ${wantedTags.join(", ")}`)
+  }
+
+  // Assign types + a couple of relevant tags per product.
+  const featuredSlugSet = new Set(
+    [...hoodies, ...accessories].filter((p) => p.featured).map((p) => p.slug)
+  )
+  const tagForCategory: Record<string, string[]> = {
+    casual: ["cozy", "bestseller"],
+    performance: ["athletic"],
+    athletic: ["athletic"],
+    streetwear: ["streetwear"],
+    premium: ["bestseller"],
+    outdoor: ["cozy"],
+  }
+  const catBySlug = new Map(
+    [...hoodies, ...accessories].map((p) => [p.slug, p.category])
+  )
+
+  let typed = 0
+  for (const p of allProducts) {
+    const handle = p.handle as string
+    const isHoodie = hoodieSlugs.has(handle)
+    const typeId = typeIdByValue.get(isHoodie ? "Hoodie" : "Accessory")
+    const cat = catBySlug.get(handle) ?? ""
+    const tagValues = new Set<string>(tagForCategory[cat] ?? [])
+    if (!isHoodie) tagValues.add("gift")
+    if (featuredSlugSet.has(handle)) tagValues.add("bestseller")
+    const tag_ids = [...tagValues]
+      .map((v) => tagIdByValue.get(v))
+      .filter((id): id is string => Boolean(id))
+
+    await productModule.updateProducts(p.id, {
+      type_id: typeId,
+      tag_ids,
+    })
+    typed++
+  }
+  logger.info(`Assigned type + tags to ${typed} products.`)
 
   logger.info("✅ seed-extras complete.")
 }

@@ -44,6 +44,7 @@ import {
   updateStoresStep,
 } from "@medusajs/medusa/core-flows"
 
+import seedExtras from "./seed-extras"
 import {
   ACCESSORY_COLOR,
   accessories,
@@ -438,5 +439,11 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
     input: { inventory_levels: inventoryLevels },
   })
   logger.info(`Set inventory for ${inventoryLevels.length} variants.`)
+
+  // Collections, "AI Agents" sales channel, product types + tags. Kept in
+  // seed-extras (also runnable standalone via `npm run seed:extras` against an
+  // already-seeded DB); idempotent, so calling it here is safe and DRY.
+  await seedExtras({ container } as ExecArgs)
+
   logger.info("✅ Hoodtopia seed complete.")
 }
