@@ -44,6 +44,7 @@ export interface MedusaCart {
   id: string
   region_id?: string | null
   currency_code?: string | null
+  completed_at?: string | null
   item_total?: number | null
   subtotal?: number | null
   discount_total?: number | null
@@ -66,6 +67,8 @@ export interface AdaptedCartItem {
 
 export interface AdaptedCart {
   id: string
+  /** Set once the cart has been completed into an order (then it's frozen). */
+  completedAt: string | null
   items: AdaptedCartItem[]
   /** cents — line-item subtotal BEFORE discounts */
   subtotal: number
@@ -133,6 +136,7 @@ export function adaptCart(cart: MedusaCart): AdaptedCart {
     items.reduce((s, i) => s + i.priceAtAdd * i.quantity, 0)
   return {
     id: cart.id,
+    completedAt: cart.completed_at ?? null,
     items,
     subtotal,
     discount,
@@ -149,6 +153,7 @@ const CART_FIELDS = [
   "id",
   "region_id",
   "currency_code",
+  "completed_at",
   "item_total",
   "subtotal",
   "discount_total",

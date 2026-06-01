@@ -26,10 +26,11 @@ export async function getOrCreateCartId(
   })
 
   if (existing) {
-    // Confirm the cart still exists in Medusa (it may have been completed or
-    // pruned). If so, reuse it; otherwise fall through and make a new one.
+    // Reuse the stored cart only if it still exists AND hasn't been completed
+    // into an order. A completed cart is frozen (can't add/update/remove items),
+    // so after checkout we must start a fresh one.
     const cart = await retrieveCart(existing.medusaCartId)
-    if (cart) return existing.medusaCartId
+    if (cart && !cart.completedAt) return existing.medusaCartId
   }
 
   const cartId = await createCart(currencyCode)

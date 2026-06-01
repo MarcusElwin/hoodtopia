@@ -37,6 +37,7 @@ export const cartRouter = router({
       return (
         cart ?? {
           id: cartId,
+          completedAt: null,
           items: [],
           subtotal: 0,
           discount: 0,
