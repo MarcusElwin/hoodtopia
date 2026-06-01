@@ -111,6 +111,9 @@ export default async function seedHoodtopia({ container }: ExecArgs) {
     defaultSalesChannel = result
   }
 
+  // Name the store so the admin header reads "Hoodtopia", not "Medusa Store".
+  await storeModuleService.updateStores(store.id, { name: "Hoodtopia" })
+
   await updateStoreCurrencies(container).run({
     input: {
       store_id: store.id,
