@@ -99,6 +99,25 @@ function colorSlug(color: string): string {
   return color.toLowerCase().replace(/ /g, "-")
 }
 
+// The seed stores ABSOLUTE image URLs (so the Medusa admin can preview them).
+// On the storefront these point back at our own origin, so normalize them to
+// RELATIVE paths — that way Next serves them same-origin without needing the
+// host in next.config images.remotePatterns. Leaves truly external URLs alone.
+const STOREFRONT_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3005"
+).replace(/\/$/, "")
+
+function normalizeImageUrl(url?: string | null): string | null {
+  if (!url) return null
+  if (url.startsWith(`${STOREFRONT_ORIGIN}/`)) {
+    return url.slice(STOREFRONT_ORIGIN.length)
+  }
+  // Also fold the common localhost storefront origin in case SITE_URL differs.
+  const localMatch = url.match(/^https?:\/\/localhost:\d+(\/images\/.*)$/)
+  if (localMatch) return localMatch[1]
+  return url
+}
+
 /**
  * Pick the per-colour hero image for a variant. Medusa images are product-level
  * and named `<handle>-<colour>.jpg` by the seed, so we match by filename. Falls
@@ -111,7 +130,9 @@ function variantImage(
 ): string | null {
   const wanted = `${product.handle}-${colorSlug(color)}`
   const byColor = product.images?.find((img) => img.url.includes(wanted))
-  return byColor?.url ?? variant.thumbnail ?? product.thumbnail ?? null
+  return normalizeImageUrl(
+    byColor?.url ?? variant.thumbnail ?? product.thumbnail ?? null
+  )
 }
 
 // ── Adapters ────────────────────────────────────────────────────────────────
@@ -148,7 +169,7 @@ export function adaptImages(product: MedusaProduct): ProductImage[] {
       id: img.id ?? `${product.id}-img-${i}`,
       productId: product.id,
       variantId: match?.id ?? variants[0]?.id ?? product.id,
-      url: img.url,
+      url: normalizeImageUrl(img.url) ?? img.url,
       position: img.rank ?? i,
       alt: (img.metadata?.alt as string) ?? product.title,
       createdAt: new Date(),
@@ -173,7 +194,8 @@ export function adaptProduct(product: MedusaProduct): AdaptedProduct {
     slug: product.handle,
     description: product.description ?? "",
     basePrice: Number.isFinite(basePrice) ? basePrice : 0,
-    imageUrl: product.thumbnail ?? product.images?.[0]?.url ?? "",
+    imageUrl:
+      normalizeImageUrl(product.thumbnail ?? product.images?.[0]?.url) ?? "",
     category: product.categories?.[0]?.name ?? "uncategorized",
     featured: Boolean(product.metadata?.featured),
     material: (product.metadata?.material as string) ?? null,
