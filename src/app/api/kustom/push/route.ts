@@ -62,7 +62,11 @@ export async function POST(request: Request) {
         total: totalAmount,
         currency,
         country: mgmt.purchase_country ?? "",
-        itemCount: (mgmt.order_lines ?? []).filter((l) => l.type !== "shipping_fee").length,
+        // Count only physical/digital product lines — exclude shipping fees,
+        // discount lines, and tax lines.
+        itemCount: (mgmt.order_lines ?? []).filter(
+          (l) => l.type === "physical" || l.type === "digital"
+        ).length,
       });
     } catch (analyticsErr) {
       console.warn("[kustom/push] analytics track failed", analyticsErr);
