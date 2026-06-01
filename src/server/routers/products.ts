@@ -1,174 +1,163 @@
 import { z } from "zod";
-import { eq, like, or, and, ne } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { router, publicProcedure } from "../trpc";
-import { db, products, productVariants } from "@/db";
+import {
+  listProducts,
+  getProductById,
+  getProductByHandle,
+  resolveCategoryId,
+} from "@/lib/commerce/medusa-products";
 
+// Hoodie categories (main products) vs accessories — same split the storefront
+// used against Drizzle, kept so featured()/featuredAccessories() behave the same.
+const HOODIE_CATEGORIES = [
+  "casual",
+  "performance",
+  "athletic",
+  "streetwear",
+  "premium",
+  "outdoor",
+];
+
+/**
+ * Products router — now backed by the MedusaJS Store API instead of Drizzle.
+ *
+ * The procedure names, inputs, and output shapes are unchanged: each returns
+ * the legacy `Product & { variants }` shape (produced by the product-adapter),
+ * so every UI/AI component keeps working without edits. tRPC stays the
+ * storefront's BFF; the Medusa SDK calls live behind these procedures.
+ *
+ * `currency` is an optional input on the read procedures so the storefront's
+ * currency switcher can request region-scoped prices (Phase 3). It defaults to
+ * the store's default region (USD) when omitted.
+ */
 export const productsRouter = router({
-  // Get all products with optional filtering
+  // All products with optional category/featured filtering.
   list: publicProcedure
     .input(
       z
         .object({
           category: z.string().optional(),
           featured: z.boolean().optional(),
+          currency: z.string().optional(),
         })
         .optional()
     )
     .query(async ({ input }) => {
-      const conditions = [
-        // Exclude custom designs from general product listings
-        ne(products.category, "custom")
-      ];
+      const categoryId = input?.category
+        ? await resolveCategoryId(input.category)
+        : undefined;
 
-      if (input?.category) {
-        conditions.push(eq(products.category, input.category));
-      }
-      if (input?.featured !== undefined) {
-        conditions.push(eq(products.featured, input.featured));
-      }
-
-      const result = await db.query.products.findMany({
-        where: and(...conditions),
-        with: {
-          variants: true,
-        },
-        orderBy: (products, { desc }) => [desc(products.featured), desc(products.createdAt)],
+      let products = await listProducts({
+        currencyCode: input?.currency,
+        categoryId: categoryId ?? undefined,
       });
 
-      return result;
+      // `featured` lives in product metadata, not a queryable column, so filter
+      // in memory (the catalog is small).
+      if (input?.featured !== undefined) {
+        products = products.filter((p) => p.featured === input.featured);
+      }
+      return products;
     }),
 
-  // Get single product by ID
-  byId: publicProcedure.input(z.string()).query(async ({ input }) => {
-    const result = await db.query.products.findFirst({
-      where: eq(products.id, input),
-      with: {
-        variants: true,
-      },
-    });
+  // Single product by Medusa id.
+  byId: publicProcedure
+    .input(
+      z.union([
+        z.string(),
+        z.object({ id: z.string(), currency: z.string().optional() }),
+      ])
+    )
+    .query(async ({ input }) => {
+      const id = typeof input === "string" ? input : input.id;
+      const currency = typeof input === "string" ? undefined : input.currency;
+      const product = await getProductById(id, { currencyCode: currency });
+      if (!product) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
+      }
+      return product;
+    }),
 
-    if (!result) {
-      throw new Error("Product not found");
-    }
+  // Single product by slug/handle (+ per-variant carousel images via adapter).
+  bySlug: publicProcedure
+    .input(
+      z.union([
+        z.string(),
+        z.object({ slug: z.string(), currency: z.string().optional() }),
+      ])
+    )
+    .query(async ({ input }) => {
+      const slug = typeof input === "string" ? input : input.slug;
+      const currency = typeof input === "string" ? undefined : input.currency;
+      const product = await getProductByHandle(slug, { currencyCode: currency });
+      if (!product) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
+      }
+      return product;
+    }),
 
-    return result;
-  }),
+  // Full-text search by name/description/category (Medusa `q`).
+  search: publicProcedure
+    .input(
+      z.union([
+        z.string(),
+        z.object({ term: z.string(), currency: z.string().optional() }),
+      ])
+    )
+    .query(async ({ input }) => {
+      const term = typeof input === "string" ? input : input.term;
+      const currency = typeof input === "string" ? undefined : input.currency;
+      return listProducts({ q: term, currencyCode: currency });
+    }),
 
-  // Get single product by slug
-  bySlug: publicProcedure.input(z.string()).query(async ({ input }) => {
-    const result = await db.query.products.findFirst({
-      where: eq(products.slug, input),
-      with: {
-        variants: true,
-        // Per-variant extra angle/lifestyle shots for the PDP carousel +
-        // Google Shopping additional_image_link. Each row is tied to a
-        // specific variantId so colour switches show that colour's extras.
-        images: {
-          orderBy: (img, { asc }) => [asc(img.position)],
-        },
-      },
-    });
+  // Featured hoodies for the homepage (max 4).
+  featured: publicProcedure
+    .input(z.object({ currency: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const products = await listProducts({ currencyCode: input?.currency });
+      return products
+        .filter((p) => p.featured && HOODIE_CATEGORIES.includes(p.category))
+        .slice(0, 4);
+    }),
 
-    if (!result) {
-      throw new Error("Product not found");
-    }
+  // Featured accessories for the homepage (anything featured that isn't a hoodie).
+  featuredAccessories: publicProcedure
+    .input(z.object({ currency: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const products = await listProducts({ currencyCode: input?.currency });
+      return products.filter(
+        (p) => p.featured && !HOODIE_CATEGORIES.includes(p.category)
+      );
+    }),
 
-    return result;
-  }),
-
-  // Search products by name or description
-  search: publicProcedure.input(z.string()).query(async ({ input }) => {
-    const searchTerm = `%${input}%`;
-
-    const result = await db.query.products.findMany({
-      where: and(
-        // Exclude custom designs from search
-        ne(products.category, "custom"),
-        or(
-          like(products.name, searchTerm),
-          like(products.description, searchTerm),
-          like(products.category, searchTerm)
-        )
-      ),
-      with: {
-        variants: true,
-      },
-    });
-
-    return result;
-  }),
-
-  // Get featured products for homepage (hoodies only)
-  featured: publicProcedure.query(async () => {
-    // Hoodie categories (main products)
-    const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
-    const result = await db.query.products.findMany({
-      where: and(
-        eq(products.featured, true),
-        ne(products.category, "custom")
-      ),
-      with: {
-        variants: true,
-      },
-      limit: 4,
-    });
-
-    // Filter to only hoodies
-    return result.filter((p) => hoodieCategories.includes(p.category));
-  }),
-
-  // Get featured accessories for homepage
-  featuredAccessories: publicProcedure.query(async () => {
-    // Hoodie categories to exclude
-    const hoodieCategories = ["casual", "performance", "athletic", "streetwear", "premium", "outdoor"];
-    const result = await db.query.products.findMany({
-      where: and(
-        eq(products.featured, true),
-        ne(products.category, "custom")
-      ),
-      with: {
-        variants: true,
-      },
-    });
-
-    // Filter to only accessories (anything not a hoodie or custom)
-    return result.filter((p) => !hoodieCategories.includes(p.category));
-  }),
-
-  // Get all categories
+  // Distinct category names (excludes custom, handled in listProducts).
   categories: publicProcedure.query(async () => {
-    const result = await db
-      .selectDistinct({ category: products.category })
-      .from(products)
-      .where(ne(products.category, "custom"));
-
-    return result.map((r) => r.category);
+    const products = await listProducts();
+    return Array.from(new Set(products.map((p) => p.category)));
   }),
 
-  // Get available colors for a product
+  // Available colors for a product (derived from variant options).
   getColors: publicProcedure.input(z.string()).query(async ({ input }) => {
-    const result = await db
-      .selectDistinct({
-        color: productVariants.color,
-        colorHex: productVariants.colorHex,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, input));
-
-    return result;
+    const product = await getProductById(input);
+    if (!product) return [];
+    const seen = new Map<string, { color: string; colorHex: string }>();
+    for (const v of product.variants) {
+      if (!seen.has(v.color)) {
+        seen.set(v.color, { color: v.color, colorHex: v.colorHex });
+      }
+    }
+    return Array.from(seen.values());
   }),
 
-  // Get available sizes for a product
+  // Available sizes for a product (derived from variant options).
   getSizes: publicProcedure.input(z.string()).query(async ({ input }) => {
-    const result = await db
-      .selectDistinct({ size: productVariants.size })
-      .from(productVariants)
-      .where(eq(productVariants.productId, input));
-
-    return result.map((r) => r.size);
+    const product = await getProductById(input);
+    if (!product) return [];
+    return Array.from(new Set(product.variants.map((v) => v.size)));
   }),
 
-  // Get specific variant
+  // Specific variant by (productId, color, size).
   getVariant: publicProcedure
     .input(
       z.object({
@@ -178,14 +167,10 @@ export const productsRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const result = await db.query.productVariants.findFirst({
-        where: and(
-          eq(productVariants.productId, input.productId),
-          eq(productVariants.color, input.color),
-          eq(productVariants.size, input.size)
-        ),
-      });
-
-      return result;
+      const product = await getProductById(input.productId);
+      if (!product) return undefined;
+      return product.variants.find(
+        (v) => v.color === input.color && v.size === input.size
+      );
     }),
 });
