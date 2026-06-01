@@ -1,18 +1,21 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, inArray, ne } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure } from "../trpc";
-import { db, carts, products } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 import {
   buildCreateOrderPayload,
   buildExpressOrderPayload,
+  type CartItemForKustom,
 } from "@/lib/kustom/cart-mapper";
 import { currencySymbol } from "@/lib/kustom/currency";
 import { getCartRecommendations } from "@/services/ai";
-
-const DEMO_SESSION_ID = "demo-session";
+import {
+  DEMO_SESSION_ID,
+  getOrCreateCartId,
+} from "@/lib/commerce/cart-session";
+import { retrieveCart } from "@/lib/commerce/medusa-cart";
+import { listProducts } from "@/lib/commerce/medusa-products";
 
 function siteUrl(): string {
   return (
@@ -34,19 +37,23 @@ export const checkoutRouter = router({
         .optional()
     )
     .mutation(async ({ input }) => {
-      const cart = await db.query.carts.findFirst({
-        where: eq(carts.sessionId, DEMO_SESSION_ID),
-        with: {
-          items: {
-            with: {
-              product: true,
-              variant: true,
-            },
-          },
+      // Load the current Medusa cart and map its line items into the shape the
+      // Kustom order builder expects. Kustom stays the payment step; only its
+      // data source changed (Medusa cart instead of the old Drizzle cart).
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const cart = await retrieveCart(cartId);
+      const items: CartItemForKustom[] = (cart?.items ?? []).map((i) => ({
+        quantity: i.quantity,
+        priceAtAdd: i.priceAtAdd,
+        product: { name: i.product.name, imageUrl: i.product.imageUrl },
+        variant: {
+          sku: i.variant.sku,
+          color: i.variant.color,
+          size: i.variant.size,
+          imageUrl: i.variant.imageUrl,
         },
-      });
+      }));
 
-      const items = cart?.items ?? [];
       if (items.length === 0) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -180,21 +187,16 @@ export const checkoutRouter = router({
         return { recommendations: [], cartAnalysis: "" };
       }
 
-      const purchasedVariants = await db.query.productVariants.findMany({
-        where: (v) => inArray(v.sku, skus),
-        with: { product: true },
-      });
-      const purchasedProducts = Array.from(
-        new Map(purchasedVariants.map((v) => [v.product.id, v.product])).values()
+      // Match the purchased SKUs back to Medusa products (the whole catalog is
+      // small, so fetch once and filter in memory).
+      const skuSet = new Set(skus);
+      const allProducts = await listProducts();
+      const purchasedProducts = allProducts.filter((p) =>
+        p.variants.some((v) => skuSet.has(v.sku))
       );
       if (purchasedProducts.length === 0) {
         return { recommendations: [], cartAnalysis: "" };
       }
-
-      const allProducts = await db.query.products.findMany({
-        where: ne(products.category, "custom"),
-        with: { variants: true },
-      });
 
       return getCartRecommendations(purchasedProducts, allProducts, {
         symbol: currencySymbol(order.purchase_currency).trim(),

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
-import { db, orders } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
+import { DEMO_SESSION_ID, getOrCreateCartId, resetCart } from "@/lib/commerce/cart-session";
+import { completeCart } from "@/lib/commerce/medusa-cart";
 
 // Force runtime execution — these routes hit the DB / Kustom API; Next would
 // otherwise try to collect page data at build time and crash without env vars.
@@ -40,45 +39,47 @@ export async function POST(request: Request) {
   try {
     const mgmt = await kustom.getManagementOrder(orderId);
 
-    const existing = await db.query.orders.findFirst({
-      where: eq(orders.kustomOrderId, orderId),
-    });
-
     const totalAmount = mgmt.order_amount ?? 0;
     const currency = mgmt.purchase_currency ?? "SEK";
-    const customerEmail = mgmt.billing_address?.email ?? null;
-    const snapshotJson = JSON.stringify(mgmt);
 
-    if (existing) {
-      await db
-        .update(orders)
-        .set({
-          status: mgmt.status,
-          totalAmount,
-          currency,
-          customerEmail,
-          snapshotJson,
-        })
-        .where(eq(orders.kustomOrderId, orderId));
-    } else {
-      await db.insert(orders).values({
-        id: uuidv4(),
-        kustomOrderId: orderId,
-        status: mgmt.status,
-        totalAmount,
-        currency,
-        customerEmail,
-        sessionId: "demo-session",
-        snapshotJson,
+    // Kustom took payment; now complete the corresponding Medusa cart into a
+    // paid Medusa order (Medusa is the order source of truth). The session's
+    // cart_id is resolved from the mapping; the Kustom order id is recorded in
+    // the Medusa order metadata for correlation. Completing the cart releases
+    // the session pointer so the shopper starts fresh.
+    try {
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const addr = mgmt.shipping_address ?? mgmt.billing_address ?? null;
+      const result = await completeCart(cartId, {
+        email: mgmt.billing_address?.email ?? null,
+        address: addr
+          ? {
+              first_name: addr.given_name ?? null,
+              last_name: addr.family_name ?? null,
+              address_1: addr.street_address ?? null,
+              city: addr.city ?? null,
+              postal_code: addr.postal_code ?? null,
+              country_code: addr.country ?? mgmt.purchase_country ?? null,
+            }
+          : null,
+        metadata: {
+          kustom_order_id: orderId,
+          kustom_status: mgmt.status,
+        },
       });
+      if (result.type === "order") {
+        console.log("[kustom/push] completed Medusa order %s for kustom %s",
+          result.orderId, orderId);
+        await resetCart(DEMO_SESSION_ID);
+      } else {
+        console.warn("[kustom/push] cart not completed for %s: %s",
+          orderId, result.error);
+      }
+    } catch (medusaErr) {
+      console.error("[kustom/push] Medusa cart completion failed", medusaErr);
     }
 
     await kustom.acknowledgeOrder(orderId);
-
-    await db
-      .update(orders)
-      .set({ acknowledgedAt: new Date() })
-      .where(eq(orders.kustomOrderId, orderId));
 
     // Fire purchase_completed on Vercel Analytics. Server-side track is
     // fire-and-forget; await so any error is logged in this try block.

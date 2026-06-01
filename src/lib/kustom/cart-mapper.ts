@@ -1,4 +1,3 @@
-import type { CartItem, Product, ProductVariant } from "@/db";
 import type {
   CreateOrderPayload,
   MerchantUrls,
@@ -8,12 +7,24 @@ import type {
 import { callbackToken } from "./callback-auth";
 import { type MarketConfig, getMarket } from "./markets";
 
-type CartItemWithJoins = CartItem & {
-  product: Product;
-  variant: ProductVariant;
+/**
+ * Minimal structural shape a cart item needs to become a Kustom order_line.
+ * Decoupled from the DB types so this works with a Medusa cart (mapped via the
+ * product/cart adapters) — `priceAtAdd` is in minor units (cents).
+ */
+export type CartItemForKustom = {
+  quantity: number;
+  priceAtAdd: number;
+  product: { name: string; imageUrl: string | null };
+  variant: {
+    sku: string;
+    color: string;
+    size: string;
+    imageUrl: string | null;
+  };
 };
 
-function lineFromItem(item: CartItemWithJoins, market: MarketConfig): OrderLine {
+function lineFromItem(item: CartItemForKustom, market: MarketConfig): OrderLine {
   const total_amount = item.priceAtAdd * item.quantity;
   // Prices are VAT-inclusive: tax portion = total - total/(1 + rate).
   // For markets without VAT (e.g. US), divisor is 1 so total_tax_amount is 0.
@@ -31,7 +42,7 @@ function lineFromItem(item: CartItemWithJoins, market: MarketConfig): OrderLine 
     total_amount,
     total_discount_amount: 0,
     total_tax_amount,
-    image_url: item.variant.imageUrl ?? item.product.imageUrl,
+    image_url: item.variant.imageUrl ?? item.product.imageUrl ?? undefined,
   };
 }
 
@@ -60,7 +71,7 @@ function fallbackShippingOptions(market: MarketConfig): ShippingOption[] {
 }
 
 export interface BuildCreateOrderInput {
-  items: CartItemWithJoins[];
+  items: CartItemForKustom[];
   siteUrl: string;
   enableShippingAssistant?: boolean;
   /**

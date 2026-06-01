@@ -190,3 +190,83 @@ export async function removeLineItem(
 ): Promise<void> {
   await medusa.store.cart.deleteLineItem(cartId, lineItemId)
 }
+
+export interface CompleteCartResult {
+  type: "order" | "cart"
+  orderId?: string
+  error?: string
+}
+
+export interface CompleteAddress {
+  first_name?: string | null
+  last_name?: string | null
+  address_1?: string | null
+  city?: string | null
+  postal_code?: string | null
+  country_code?: string | null
+}
+
+export interface CompleteCartInput {
+  email?: string | null
+  address?: CompleteAddress | null
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Complete a Medusa cart into a paid Medusa order.
+ *
+ * Kustom handled the actual payment in its iframe, so we drive Medusa's own
+ * checkout to mint a matching order: set email + addresses (from the Kustom
+ * order), pick a shipping method, create a payment session with the system/
+ * manual provider (pp_system_default — on every region from the seed), then
+ * complete. The Kustom order id is recorded in the order metadata.
+ *
+ * Returns gracefully on any failure so the push handler can still ACK Kustom.
+ */
+export async function completeCart(
+  cartId: string,
+  input: CompleteCartInput = {}
+): Promise<CompleteCartResult> {
+  // Build a safe address (Medusa requires the required fields to complete).
+  const a = input.address ?? {}
+  const address = {
+    first_name: a.first_name || "Hoodtopia",
+    last_name: a.last_name || "Customer",
+    address_1: a.address_1 || "N/A",
+    city: a.city || "N/A",
+    postal_code: a.postal_code || "00000",
+    country_code: (a.country_code || "us").toLowerCase(),
+  }
+
+  // 1. Email + shipping/billing addresses + metadata.
+  await medusa.store.cart.update(cartId, {
+    email: input.email || "demo@hoodtopia.co",
+    shipping_address: address,
+    billing_address: address,
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  })
+
+  // 2. Pick the first shipping option available for this cart.
+  const { shipping_options } = await medusa.store.fulfillment.listCartOptions({
+    cart_id: cartId,
+  })
+  if (!shipping_options?.length) {
+    return { type: "cart", error: "no shipping options for cart" }
+  }
+  await medusa.store.cart.addShippingMethod(cartId, {
+    option_id: shipping_options[0].id,
+  })
+
+  // 3. Payment session with the system/manual provider (auto-authorizes).
+  const { cart } = await medusa.store.cart.retrieve(cartId)
+  await medusa.store.payment.initiatePaymentSession(cart, {
+    provider_id: "pp_system_default",
+  })
+
+  // 4. Complete.
+  const res = await medusa.store.cart.complete(cartId)
+  if (res.type === "order") {
+    return { type: "order", orderId: res.order.id }
+  }
+  return { type: "cart", error: res.error?.message ?? "cart not completed" }
+}
