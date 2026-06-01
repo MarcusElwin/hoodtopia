@@ -2,10 +2,12 @@ import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import {
   createApiKeysWorkflow,
+  createCampaignsWorkflow,
   createCollectionsWorkflow,
   createPriceListsWorkflow,
   createProductTagsWorkflow,
   createProductTypesWorkflow,
+  createPromotionsWorkflow,
   createSalesChannelsWorkflow,
   createShippingOptionsWorkflow,
 } from "@medusajs/medusa/core-flows"
@@ -25,6 +27,7 @@ export default async function seedExtras({ container }: ExecArgs) {
   const fulfillmentModule = container.resolve(Modules.FULFILLMENT)
   const pricingModule = container.resolve(Modules.PRICING)
   const salesChannelModule = container.resolve(Modules.SALES_CHANNEL)
+  const promotionModule = container.resolve(Modules.PROMOTION)
 
   // ── 1. Native material ────────────────────────────────────────────────────
   const materialBySlug = new Map<string, string>()
@@ -303,6 +306,97 @@ export default async function seedExtras({ container }: ExecArgs) {
     )
   } else {
     logger.info("Admin secret API key already exists, skipping.")
+  }
+
+  // ── 9. Promotions + campaign (multi-currency) ─────────────────────────────
+  // Percentage promos omit currency_code so they apply in ANY market. FREESHIP
+  // is a fixed shipping discount, so it needs a per-currency amount — we create
+  // one FREESHIP promotion per currency isn't possible with one code, so we use
+  // a large fixed value that covers the flat shipping rate in each region's
+  // currency (Medusa picks the rule matching the cart's currency).
+  const existingPromos = await promotionModule.listPromotions({
+    code: ["WELCOME10", "HOODIE20", "FREESHIP"],
+  })
+  const existingPromoCodes = new Set(
+    existingPromos.map((p: { code?: string | null }) => p.code)
+  )
+
+  const promosToCreate = [
+    {
+      code: "WELCOME10",
+      type: "standard" as const,
+      status: "active" as const,
+      application_method: {
+        type: "percentage" as const,
+        target_type: "items" as const,
+        allocation: "across" as const,
+        value: 10,
+      },
+    },
+    {
+      code: "HOODIE20",
+      type: "standard" as const,
+      status: "active" as const,
+      application_method: {
+        type: "percentage" as const,
+        target_type: "items" as const,
+        allocation: "across" as const,
+        value: 20,
+      },
+    },
+  ].filter((p) => !existingPromoCodes.has(p.code))
+
+  if (promosToCreate.length) {
+    await createPromotionsWorkflow(container).run({
+      input: { promotionsData: promosToCreate },
+    })
+    logger.info(`Created promotions: ${promosToCreate.map((p) => p.code).join(", ")}`)
+  } else {
+    logger.info("Item promotions already exist, skipping.")
+  }
+
+  // FREESHIP — percentage 100% off shipping (currency-agnostic, any market).
+  if (!existingPromoCodes.has("FREESHIP")) {
+    await createPromotionsWorkflow(container).run({
+      input: {
+        promotionsData: [
+          {
+            code: "FREESHIP",
+            type: "standard" as const,
+            status: "active" as const,
+            application_method: {
+              type: "percentage" as const,
+              target_type: "shipping_methods" as const,
+              allocation: "across" as const,
+              value: 100,
+            },
+          },
+        ],
+      },
+    })
+    logger.info("Created promotion: FREESHIP (100% off shipping)")
+  } else {
+    logger.info("FREESHIP already exists, skipping.")
+  }
+
+  const existingCampaigns = await promotionModule.listCampaigns({
+    campaign_identifier: ["HOODTOPIA-LAUNCH"],
+  })
+  if (!existingCampaigns.length) {
+    await createCampaignsWorkflow(container).run({
+      input: {
+        campaignsData: [
+          {
+            name: "Hoodtopia Launch",
+            campaign_identifier: "HOODTOPIA-LAUNCH",
+            description: "Launch promos for the Hoodtopia store.",
+          },
+        ],
+      },
+    })
+    logger.info("Created campaign: Hoodtopia Launch")
+  } else {
+    logger.info("Campaign already exists, skipping.")
   }
 
   logger.info("✅ seed-extras complete.")
