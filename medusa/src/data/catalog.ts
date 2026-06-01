@@ -416,23 +416,17 @@ export function accessorySku(slug: string): string {
 }
 
 // ── Image URLs ──────────────────────────────────────────────────────────────
-// Images live in the storefront's /public folder. The admin is served by the
-// Medusa server on a different origin, so RELATIVE paths break its previews
-// (it'd look for the file on the Medusa host). We emit ABSOLUTE URLs pointing
-// at the storefront so both the storefront and the admin can load them.
-// Override STOREFRONT_URL in prod (e.g. https://hoodtopia.co); defaults to the
-// local storefront. Trailing slash trimmed.
-const STOREFRONT_URL = (
-  process.env.STOREFRONT_URL || "http://localhost:3005"
-).replace(/\/$/, "")
-
+// Images live in the storefront's /public folder. We store RELATIVE paths so
+// they resolve same-origin on the storefront regardless of how it's served
+// (localhost, an ngrok tunnel, or hoodtopia.co). Trade-off: the Medusa admin
+// (served from a different origin) can't preview them — purely cosmetic.
 export function hoodieImage(slug: string, colorName: string): string {
   const colorSlug = colorName.toLowerCase().replace(/ /g, "-")
-  return `${STOREFRONT_URL}/images/products/${slug}-${colorSlug}.jpg`
+  return `/images/products/${slug}-${colorSlug}.jpg`
 }
 
 export function accessoryImage(slug: string): string {
-  return `${STOREFRONT_URL}/images/accessories/${slug}.jpg`
+  return `/images/accessories/${slug}.jpg`
 }
 
 // ── Multi-currency pricing ──────────────────────────────────────────────────
