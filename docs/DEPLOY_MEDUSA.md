@@ -91,6 +91,10 @@ No Vercel proxy is needed — the subdomains point straight at Fly.
 
 ## Notes
 
+- **Build time**: the image is large (~1.3 GB) and `npm install` of Medusa's
+  dependency tree is slow (10–20 min on a cold cache locally; Fly's remote
+  builders + layer caching make redeploys much faster). The Dockerfile is
+  verified to build and produce a runnable image.
 - **Migrations** run automatically on every deploy via the Dockerfile
   `predeploy` step (idempotent).
 - **Admin URL**: open `https://admin.hoodtopia.co/app`. If a login hits an
