@@ -68,12 +68,19 @@ See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup, and 
 | **Framework** | Next.js 16 (App Router + Turbopack) |
 | **Language** | TypeScript 5 |
 | **Styling** | Tailwind CSS 4, shadcn/ui |
-| **Database** | SQLite with Drizzle ORM |
-| **API Layer** | tRPC with React Query |
+| **Commerce** | MedusaJS v2 (PostgreSQL) — catalog, cart, inventory, orders, promotions |
+| **App data** | SQLite + Drizzle ORM — AI designs, chat, preferences (non-commerce) |
+| **API Layer** | tRPC (BFF) + Medusa JS SDK + React Query |
+| **Checkout** | Kustom Checkout (payment) over a Medusa cart |
 | **AI Chat** | OpenAI GPT-5.1 via LangChain |
 | **Image Gen** | Google Gemini 3 Pro Image Preview |
 | **Validation** | Zod (structured AI outputs) |
 | **Testing** | Vitest |
+
+> **Commerce runs on MedusaJS.** Products, variants, inventory, cart, pricing,
+> promotions, and orders live in a Medusa v2 backend (`medusa/`); Kustom stays
+> the payment step over a Medusa cart. See
+> [`docs/MEDUSA_INTEGRATION.md`](./docs/MEDUSA_INTEGRATION.md).
 
 ## Quick Start
 
@@ -86,32 +93,36 @@ See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup, and 
 
 ### Installation
 
+The app has **two parts**: the Medusa commerce backend (`medusa/`) and the
+Next.js storefront (repo root). Full walkthrough in
+[`docs/MEDUSA_INTEGRATION.md`](./docs/MEDUSA_INTEGRATION.md); in short:
+
 ```bash
-# Clone the repository
 git clone https://github.com/your-username/hoodtopia.git
 cd hoodtopia
 
-# Install dependencies
+# 1. Medusa commerce backend (PostgreSQL via docker)
+docker compose up -d medusa-db          # host port 5434
+cd medusa && cp .env.template .env && npm install
+npx medusa db:migrate
+npx medusa user -e admin@hoodtopia.co -p supersecret
+npm run seed && npm run seed:extras     # catalog + promos/collections/etc.
+PORT=9010 npm run dev                   # API + admin on :9010/app
+
+# 2. Storefront (separate shell, from repo root)
 npm install
-
-# Copy environment file
-cp .env.example .env.local
-
-# Add your API keys to .env.local
-# OPENAI_API_KEY=sk-...
-# GOOGLE_AI_API_KEY=...
-
-# Push database schema
-npm run db:push
-
-# Seed the database
-npm run db:seed
-
-# Start development server
-npm run dev
+cp env.example .env.local               # add OPENAI/GEMINI keys + the Medusa
+                                        # NEXT_PUBLIC_MEDUSA_* keys printed above
+npm run db:push                         # non-commerce SQLite tables
+npm run dev                             # storefront on :3005
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Storefront: [http://localhost:3005](http://localhost:3005) ·
+Admin: [http://localhost:9010/app](http://localhost:9010/app)
+(`admin@hoodtopia.co` / `supersecret`)
+
+> For a full checkout (Kustom callbacks must reach your machine), run the
+> storefront via `npm run dev:tunnel` instead of `npm run dev`.
 
 ## Available Scripts
 
@@ -194,26 +205,32 @@ src/
 ├── hooks/
 │   └── use-browse-history.ts # Browse history tracking
 │
+├── lib/commerce/          # Medusa seam: SDK clients + product/cart adapters
+│
 ├── db/
-│   ├── schema.ts          # Drizzle schema (products, carts, custom designs, preferences)
-│   ├── index.ts           # DB connection
-│   └── seed.ts            # Seed script
+│   ├── schema.ts          # Drizzle schema (non-commerce: designs, chat, prefs)
+│   └── index.ts           # DB connection
 │
 └── scripts/
     ├── generate-images.ts          # Hoodie image generation
     └── generate-accessory-images.ts # Accessory image generation
 ```
 
-## Database
+> Commerce lives in `medusa/` (MedusaJS v2 + PostgreSQL). The product/cart
+> seed is `medusa/src/scripts/seed.ts`.
 
-The app uses SQLite with Drizzle ORM. The schema includes:
+## Data stores
 
-- **products** - 19 products (6 hoodies + 13 accessories)
-- **productVariants** - 301 variants (colors/sizes)
-- **carts** - Shopping cart sessions
-- **cartItems** - Items in carts
-- **customDesigns** - AI-generated custom hoodie designs
-- **userPreferences** - User preference storage for personalization
+**Commerce → MedusaJS (PostgreSQL):** 19 products / 301 variants (color×size),
+multi-currency pricing, cart, inventory, promotions, and orders. Seeded by
+`medusa/src/scripts/seed.ts` (+ `seed-extras.ts`).
+
+**App data → SQLite + Drizzle** (non-commerce only):
+
+- **customDesigns** - AI-generated custom hoodie design metadata
+- **chatMessages** / **chatSafetyEvents** - AI chat history + guardrail audit
+- **userPreferences** - personalization preferences
+- **medusa_carts** - session → Medusa cart-id pointer
 
 ### Product Categories
 
