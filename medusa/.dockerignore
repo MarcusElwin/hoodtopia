@@ -1,0 +1,12 @@
+node_modules
+.medusa
+.cache
+.git
+*.log
+.env
+.env.local
+.env.*.local
+.DS_Store
+uploads
+medusa-config.js
+medusa-config.js.map
