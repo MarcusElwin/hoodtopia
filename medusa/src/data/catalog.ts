@@ -420,13 +420,23 @@ export function accessorySku(slug: string): string {
 // they resolve same-origin on the storefront regardless of how it's served
 // (localhost, an ngrok tunnel, or hoodtopia.co). Trade-off: the Medusa admin
 // (served from a different origin) can't preview them — purely cosmetic.
+// Images physically live in the storefront's /public folder. We store ABSOLUTE
+// URLs so the Medusa admin (a different origin) can show product/order
+// thumbnails. The storefront's product-adapter normalizes these same-origin
+// absolute URLs back to relative paths (via NEXT_PUBLIC_SITE_URL), so the
+// storefront still serves them same-origin. Override STOREFRONT_URL for the
+// seed; defaults to the prod domain.
+const STOREFRONT_URL = (
+  process.env.STOREFRONT_URL || "https://hoodtopia.co"
+).replace(/\/$/, "")
+
 export function hoodieImage(slug: string, colorName: string): string {
   const colorSlug = colorName.toLowerCase().replace(/ /g, "-")
-  return `/images/products/${slug}-${colorSlug}.jpg`
+  return `${STOREFRONT_URL}/images/products/${slug}-${colorSlug}.jpg`
 }
 
 export function accessoryImage(slug: string): string {
-  return `/images/accessories/${slug}.jpg`
+  return `${STOREFRONT_URL}/images/accessories/${slug}.jpg`
 }
 
 // ── Multi-currency pricing ──────────────────────────────────────────────────
