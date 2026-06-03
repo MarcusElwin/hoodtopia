@@ -1,8 +1,13 @@
+# syntax=docker/dockerfile:1.7
 # Production image for the Hoodtopia MedusaJS backend.
 #
 # Medusa's `build` compiles the backend + admin into .medusa/server, which is a
 # self-contained app with its OWN package.json. We build there, install prod
 # deps, and run `predeploy` (migrations) + `start` at container start.
+#
+# Speed: `npm ci` (deterministic, no resolution) + a BuildKit cache mount on
+# ~/.npm so package tarballs are reused across builds — the first build still
+# downloads Medusa's large dep tree, but rebuilds are much faster.
 
 # ── Builder ──────────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
@@ -13,8 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json* ./
-RUN npm install
+# Install deps first (cached unless package*.json changes). Cache mount on the
+# npm download cache survives across builds even when the lockfile changes.
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci || npm install
 
 COPY . .
 
@@ -29,8 +37,11 @@ ENV NODE_ENV=production
 # The built server is self-contained under .medusa/server.
 COPY --from=builder /app/.medusa/server ./
 
-# Install only the production deps of the built server.
-RUN npm install --omit=dev
+# Install only the production deps of the built server (cached npm downloads).
+# `medusa build` generates this package-lock; fall back to `npm install` if it
+# isn't perfectly in sync with package.json (ci is strict about that).
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev || npm install --omit=dev
 
 # Medusa listens on 9000 inside the container (Fly maps it via fly.toml).
 EXPOSE 9000
