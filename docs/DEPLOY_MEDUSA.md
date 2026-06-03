@@ -59,8 +59,8 @@ fly certs add admin.hoodtopia.co
 #    → add the CNAME/A records Fly prints, at your DNS provider
 
 # 6. Seed the catalog once + create an admin user
-fly ssh console -C "npm run seed"
-fly ssh console -C "npm run seed:extras"
+fly ssh console -C "sh -c 'npm run seed:prod'"
+fly ssh console -C "sh -c 'npm run seed:extras:prod'"
 fly ssh console -C "npx medusa user -e admin@hoodtopia.co -p <strong-pw>"
 ```
 

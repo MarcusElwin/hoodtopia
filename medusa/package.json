@@ -11,6 +11,8 @@
     "build": "medusa build",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "seed:extras": "medusa exec ./src/scripts/seed-extras.ts",
+    "seed:prod": "medusa exec ./src/scripts/seed.js",
+    "seed:extras:prod": "medusa exec ./src/scripts/seed-extras.js",
     "predeploy": "medusa db:migrate",
     "start": "medusa start",
     "dev": "medusa develop",
