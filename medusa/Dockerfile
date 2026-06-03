@@ -26,6 +26,13 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY . .
 
+# The admin dashboard's backend URL is baked at BUILD time (medusa-config.ts
+# reads MEDUSA_BACKEND_URL). It's a Fly runtime secret, so it isn't present
+# during `medusa build` unless passed as a build arg — without it the admin
+# defaults to http://localhost:9010 and login CORS-fails in prod.
+ARG MEDUSA_BACKEND_URL=http://localhost:9010
+ENV MEDUSA_BACKEND_URL=${MEDUSA_BACKEND_URL}
+
 # Compile backend + admin → .medusa/server
 RUN npx medusa build
 

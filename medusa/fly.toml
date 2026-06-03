@@ -9,6 +9,11 @@ primary_region = 'arn'
 [build]
   dockerfile = 'Dockerfile'
 
+  [build.args]
+    # Baked into the admin dashboard at build time so its login/API calls go to
+    # the prod backend, not localhost. Must match the api subdomain.
+    MEDUSA_BACKEND_URL = 'https://api.hoodtopia.co'
+
 [env]
   NODE_ENV = 'production'
   PORT = '9000'
