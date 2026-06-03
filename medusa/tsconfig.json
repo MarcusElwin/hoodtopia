@@ -13,7 +13,6 @@
     "emitDecoratorMetadata": true,
     "noImplicitReturns": true,
     "outDir": "./.medusa/server",
-    "rootDir": "./src",
     "baseUrl": ".",
     "declaration": false,
     "sourceMap": true,
@@ -28,6 +27,6 @@
       "moduleResolution": "node"
     }
   },
-  "include": ["src", ".medusa/types/*.d.ts"],
+  "include": ["src", "medusa-config.ts", ".medusa/types/*.d.ts"],
   "exclude": ["node_modules", ".medusa/server", ".medusa/admin", ".cache"]
 }
