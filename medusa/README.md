@@ -15,9 +15,9 @@ this backend over Medusa's Store API.
 
 | Piece | Where | Port (dev) | URL (prod) |
 | --- | --- | --- | --- |
-| Storefront (Next.js) | repo root (`src/`) | 3000 | `hoodtopia.co` (Vercel) |
-| Store/Admin API (this) | `medusa/` | 9000 | `api.hoodtopia.co` (Fly.io) |
-| Admin dashboard | served by this at `/app` | 9000/app | `admin.hoodtopia.co` |
+| Storefront (Next.js) | repo root (`src/`) | 3005 | `hoodtopia.co` (Vercel) |
+| Store/Admin API (this) | `medusa/` | 9010 | `api.hoodtopia.co` (Fly.io) |
+| Admin dashboard | served by this at `/app` | 9010/app | `admin.hoodtopia.co` |
 
 - **Store API** (`/store/*`) — what the storefront calls (products, carts). Scoped
   by a *publishable API key* tied to a sales channel.

@@ -10,10 +10,10 @@ loadEnv(process.env.NODE_ENV || "development", process.cwd())
  * Concepts:
  * - `projectConfig.databaseUrl` points at PostgreSQL (Medusa's only supported DB).
  * - `http.*Cors` whitelists the origins allowed to call the Store/Admin/Auth APIs.
- *   In dev these are the storefront (:3000) + admin (:9000). In prod they become
+ *   In dev these are the storefront (:3005) + admin (:9010). In prod they become
  *   hoodtopia.co / admin.hoodtopia.co (see docs/MEDUSA_INTEGRATION.md).
  * - `admin.backendUrl` is the URL the admin dashboard uses to reach this server.
- *   Locally that's http://localhost:9000; in prod it's https://api.hoodtopia.co.
+ *   Locally that's http://localhost:9010; in prod it's https://api.hoodtopia.co.
  * - `redisUrl` (optional) moves the cache / event bus / workflow engine onto Redis.
  *   Without it Medusa uses in-memory implementations — fine for local dev, not prod.
  */
@@ -32,7 +32,7 @@ module.exports = defineConfig({
   },
   admin: {
     // URL the bundled admin dashboard POSTs to (login, API calls). MUST match
-    // the port Medusa actually listens on. Locally that's :9009 (a pimir-minio
+    // the port Medusa actually listens on. Locally that's :9010 (a pimir-minio
     // container squats :9000 — pointing here at :9000 makes the admin send
     // /auth/* to MinIO, which returns an S3 error). Prod: https://api.hoodtopia.co.
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9010",

@@ -79,7 +79,9 @@ export async function createCustomDesignProduct(
   const sku = `CUSTOM-${input.designId}-${input.size}`
   const { product } = await medusaAdmin.admin.product.create({
     title: input.title,
-    handle: `custom-design-${input.designId}`,
+    // One product per design+size so re-adding a different size doesn't collide
+    // on the handle or return the wrong variant.
+    handle: `custom-design-${input.designId}-${input.size.toLowerCase()}`,
     description: input.description,
     status: "published",
     thumbnail: input.imageUrl,
@@ -116,13 +118,21 @@ export async function createCustomDesignProduct(
   return { productId: product.id, variantId }
 }
 
-/** Look up an existing custom-design product's variant id by design id. */
+/**
+ * Look up an existing custom-design product's variant for a specific size.
+ * The variant SKU is `CUSTOM-<designId>-<size>`, so we match on that — returning
+ * the first variant regardless of size could add the wrong size to the cart.
+ * Returns null if the design product or that size's variant doesn't exist yet.
+ */
 export async function findCustomDesignVariant(
-  designId: string
+  designId: string,
+  size: string
 ): Promise<string | null> {
+  // One product per design+size (handle: custom-design-<id>-<size>), so a hit
+  // here is already the right size.
   const { products } = await medusa.store.product.list({
-    handle: `custom-design-${designId}`,
-    fields: "id,*variants",
+    handle: `custom-design-${designId}-${size.toLowerCase()}`,
+    fields: "id,variants.id",
   })
   return products?.[0]?.variants?.[0]?.id ?? null
 }

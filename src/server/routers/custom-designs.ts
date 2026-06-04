@@ -187,7 +187,7 @@ export const customDesignsRouter = router({
       // Reuse the Medusa product if this design was already added (avoids
       // duplicate one-off products on a second add-to-cart); otherwise create
       // it via the admin API.
-      let variantId = await findCustomDesignVariant(design.id);
+      let variantId = await findCustomDesignVariant(design.id, input.size);
       let productId: string | undefined;
       if (!variantId) {
         const created = await createCustomDesignProduct({

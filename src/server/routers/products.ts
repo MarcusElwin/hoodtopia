@@ -44,9 +44,12 @@ export const productsRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      const categoryId = input?.category
-        ? await resolveCategoryId(input.category)
-        : undefined;
+      let categoryId: string | null | undefined;
+      if (input?.category) {
+        categoryId = await resolveCategoryId(input.category);
+        // Unknown category → no matches (don't silently list everything).
+        if (categoryId === null) return [];
+      }
 
       let products = await listProducts({
         currencyCode: input?.currency,

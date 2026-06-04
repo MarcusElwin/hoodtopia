@@ -407,16 +407,26 @@ async function finishComplete(
 export async function findMedusaOrderByKustomId(
   kustomOrderId: string
 ): Promise<string | null> {
+  // Medusa's admin order list can't filter by arbitrary metadata, so page
+  // through (newest first, where a just-synced order will be) until found or
+  // exhausted. A hard cap guards against runaway loops.
+  const PAGE = 100
+  const MAX_PAGES = 50 // up to 5000 orders
   try {
-    const { orders } = await medusaAdmin.admin.order.list({
-      fields: "id,metadata",
-      limit: 100,
-    })
-    const match = orders.find(
-      (o: { id: string; metadata?: Record<string, unknown> | null }) =>
-        o.metadata?.kustom_order_id === kustomOrderId
-    )
-    return match?.id ?? null
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { orders, count } = await medusaAdmin.admin.order.list({
+        fields: "id,metadata",
+        limit: PAGE,
+        offset: page * PAGE,
+        order: "-created_at",
+      })
+      const match = (
+        orders as { id: string; metadata?: Record<string, unknown> | null }[]
+      ).find((o) => o.metadata?.kustom_order_id === kustomOrderId)
+      if (match) return match.id
+      if ((page + 1) * PAGE >= (count ?? 0)) break // no more pages
+    }
+    return null
   } catch {
     return null
   }
