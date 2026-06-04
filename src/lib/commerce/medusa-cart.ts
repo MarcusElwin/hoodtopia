@@ -18,7 +18,10 @@
  * the app's existing fixed-DEMO_SESSION model.
  */
 import { medusa, medusaAdmin } from "@/lib/medusa"
-import { resolveRegionId } from "@/lib/commerce/medusa-products"
+import {
+  resolveRegionId,
+  resolveRegionIdByCountry,
+} from "@/lib/commerce/medusa-products"
 
 // ── Minimal Medusa cart shapes (only fields we read) ────────────────────────
 export interface MedusaLineItem {
@@ -362,8 +365,16 @@ export async function completeCart(
   // 1. Email + phone + the REAL shipping/billing addresses from Kustom.
   const shippingAddr = toMedusaAddress(input.address)
   const billingAddr = toMedusaAddress(input.billingAddress ?? input.address)
+
+  // Medusa rejects an address whose country isn't in the cart's region
+  // ("Country with code se is not within region United States"). Move the cart
+  // into the region that covers the shipping country *before* setting the
+  // address — otherwise a cart still in the default (USD) region fails to
+  // complete and no order is created. No-op if no region covers the country.
+  const targetRegion = await resolveRegionIdByCountry(shippingAddr.country_code)
   await medusa.store.cart.update(cartId, {
     email: input.email || "demo@hoodtopia.co",
+    ...(targetRegion ? { region_id: targetRegion } : {}),
     shipping_address: shippingAddr,
     billing_address: billingAddr,
     ...(input.metadata ? { metadata: input.metadata } : {}),
