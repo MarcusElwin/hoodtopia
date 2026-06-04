@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import { and, eq, inArray, sql } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
-import { db, productVariants } from "@/db";
+import { getStockBySku } from "@/lib/commerce/medusa-products";
 import type { UpsellLine } from "@/lib/kustom/types";
 
 // Force runtime execution — these routes hit the DB / Kustom API; Next would
 // otherwise try to collect page data at build time and crash without env vars.
 export const dynamic = "force-dynamic";
 
-// Final stock check + atomic reservation before Kustom appends the upsell to
-// the captured order. Upsells bypass the cart, so unlike normal items they
-// haven't decremented stock yet — we have to do it here, atomically, or the
-// same scarce variant could be sold to N customers in a row.
-//
-// On reject we restore anything we already decremented in this batch so the
-// failure mode is "all-or-nothing".
+// Final stock check before Kustom appends the upsell to the captured order.
+// Inventory now lives in Medusa, which reserves stock when the items are added
+// to the order — so here we just verify each upsell SKU still has enough stock
+// (no manual decrement). Reject all-or-nothing if any line is short.
 export async function POST(request: Request) {
   const url = new URL(request.url);
   if (!verifyCallbackToken("upsell_validation", url.searchParams.get("token"))) {
@@ -37,62 +33,21 @@ export async function POST(request: Request) {
   );
   if (lines.length === 0) return NextResponse.json({});
 
-  // Map SKU → variantId once so we can target updates by primary key.
-  const variants = await db.query.productVariants.findMany({
-    where: inArray(productVariants.sku, lines.map((l) => l.reference)),
+  const stockBySku = await getStockBySku(lines.map((l) => l.reference));
+
+  const short = lines.find((line) => {
+    const stock = stockBySku.get(line.reference);
+    return stock === undefined || stock < line.quantity;
   });
-  const variantBySku = new Map(variants.map((v) => [v.sku, v]));
 
-  const decremented: Array<{ variantId: string; quantity: number }> = [];
-
-  for (const line of lines) {
-    const variant = variantBySku.get(line.reference);
-    if (!variant) {
-      // Restore anything reserved so far before rejecting.
-      for (const d of decremented) {
-        await db
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} + ${d.quantity}` })
-          .where(eq(productVariants.id, d.variantId));
-      }
-      return NextResponse.json(
-        {
-          error_type: "unavailable_shipping_address",
-          error_message: `Sorry — ${line.name} is no longer available.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const result = await db
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} - ${line.quantity}` })
-      .where(
-        and(
-          eq(productVariants.id, variant.id),
-          sql`${productVariants.stock} - ${line.quantity} >= 0`
-        )
-      )
-      .run();
-
-    if (result.rowsAffected === 0) {
-      // Stock raced out between recommendation and click — roll back.
-      for (const d of decremented) {
-        await db
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} + ${d.quantity}` })
-          .where(eq(productVariants.id, d.variantId));
-      }
-      return NextResponse.json(
-        {
-          error_type: "unavailable_shipping_address",
-          error_message: `Sorry — ${line.name} just sold out.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    decremented.push({ variantId: variant.id, quantity: line.quantity });
+  if (short) {
+    return NextResponse.json(
+      {
+        error_type: "unavailable_shipping_address",
+        error_message: `Sorry — ${short.name} is no longer available.`,
+      },
+      { status: 400 }
+    );
   }
 
   try {

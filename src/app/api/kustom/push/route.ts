@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
-import { db, orders } from "@/db";
 import { kustom } from "@/lib/kustom/client";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
+import { syncKustomOrder } from "@/lib/commerce/order-sync";
 
 // Force runtime execution — these routes hit the DB / Kustom API; Next would
 // otherwise try to collect page data at build time and crash without env vars.
@@ -40,45 +38,21 @@ export async function POST(request: Request) {
   try {
     const mgmt = await kustom.getManagementOrder(orderId);
 
-    const existing = await db.query.orders.findFirst({
-      where: eq(orders.kustomOrderId, orderId),
-    });
-
     const totalAmount = mgmt.order_amount ?? 0;
     const currency = mgmt.purchase_currency ?? "SEK";
-    const customerEmail = mgmt.billing_address?.email ?? null;
-    const snapshotJson = JSON.stringify(mgmt);
 
-    if (existing) {
-      await db
-        .update(orders)
-        .set({
-          status: mgmt.status,
-          totalAmount,
-          currency,
-          customerEmail,
-          snapshotJson,
-        })
-        .where(eq(orders.kustomOrderId, orderId));
-    } else {
-      await db.insert(orders).values({
-        id: uuidv4(),
-        kustomOrderId: orderId,
-        status: mgmt.status,
-        totalAmount,
-        currency,
-        customerEmail,
-        sessionId: "demo-session",
-        snapshotJson,
-      });
+    // Kustom took payment; sync it into a paid Medusa order (Medusa is the
+    // order source of truth). Idempotent + faithful to the Kustom order's
+    // address + chosen shipping — see order-sync.ts.
+    try {
+      const sync = await syncKustomOrder(orderId);
+      console.log("[kustom/push] sync %s -> %s (%s)",
+        orderId, sync.status, sync.medusaOrderId ?? sync.reason ?? "");
+    } catch (medusaErr) {
+      console.error("[kustom/push] Medusa order sync failed", medusaErr);
     }
 
     await kustom.acknowledgeOrder(orderId);
-
-    await db
-      .update(orders)
-      .set({ acknowledgedAt: new Date() })
-      .where(eq(orders.kustomOrderId, orderId));
 
     // Fire purchase_completed on Vercel Analytics. Server-side track is
     // fire-and-forget; await so any error is logged in this try block.
@@ -88,7 +62,11 @@ export async function POST(request: Request) {
         total: totalAmount,
         currency,
         country: mgmt.purchase_country ?? "",
-        itemCount: (mgmt.order_lines ?? []).filter((l) => l.type !== "shipping_fee").length,
+        // Count only physical/digital product lines — exclude shipping fees,
+        // discount lines, and tax lines.
+        itemCount: (mgmt.order_lines ?? []).filter(
+          (l) => l.type === "physical" || l.type === "digital"
+        ).length,
       });
     } catch (analyticsErr) {
       console.warn("[kustom/push] analytics track failed", analyticsErr);

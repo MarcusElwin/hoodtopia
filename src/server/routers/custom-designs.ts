@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { router, publicProcedure, rateLimit } from "../trpc";
-import { db, customDesigns, products, productVariants, carts, cartItems } from "@/db";
+import { db, customDesigns } from "@/db";
 import {
   generateCustomHoodie,
   refineCustomDesign,
@@ -11,13 +11,16 @@ import {
   CustomDesignInputSchema,
   CustomDesignRefinementSchema,
 } from "@/services/schemas";
+import {
+  createCustomDesignProduct,
+  findCustomDesignVariant,
+} from "@/lib/commerce/custom-design";
+import { addLineItem } from "@/lib/commerce/medusa-cart";
+import { getOrCreateCartId, DEMO_SESSION_ID } from "@/lib/commerce/cart-session";
 
-// For demo purposes, we use a fixed session ID
-// In production, you'd get this from cookies/auth
-const DEMO_SESSION_ID = "demo-session";
-
-// Fixed price for custom designs: $100 (10,000 cents)
-const CUSTOM_DESIGN_PRICE = 10000;
+// Fixed price for custom designs: $100. Medusa prices are in major units.
+const CUSTOM_DESIGN_PRICE = 10000; // cents (kept for the response)
+const CUSTOM_DESIGN_PRICE_MAJOR = 100;
 
 // Image generation (Gemini) is the most expensive call in the app — throttle
 // it harder than the text endpoints, per IP.
@@ -181,70 +184,30 @@ export const customDesignsRouter = router({
         throw new Error("Design not found");
       }
 
-      // Create a product for this custom design
-      const productId = uuidv4();
-      const productSlug = `custom-design-${design.id}`;
-
-      await db.insert(products).values({
-        id: productId,
-        name: `Custom Design - ${design.type === "text" ? "Text Based" : "Image Based"}`,
-        slug: productSlug,
-        description: `Custom AI-generated hoodie design. ${design.originalInput.substring(0, 100)}`,
-        basePrice: CUSTOM_DESIGN_PRICE,
-        imageUrl: design.generatedImageUrl,
-        category: "custom",
-        featured: false,
-        material: "Premium Cotton Blend",
-        features: JSON.stringify(["AI-Generated Design", "One of a Kind", "Custom Made"]),
-        createdAt: new Date(),
-      });
-
-      // Create a variant for the selected size
-      const variantId = uuidv4();
-      await db.insert(productVariants).values({
-        id: variantId,
-        productId: productId,
-        color: design.baseColor || "Black",
-        colorHex: "#000000",
-        size: input.size,
-        stock: 1, // Custom designs are one-of-a-kind
-        imageUrl: design.generatedImageUrl,
-        sku: `CUSTOM-${design.id}-${input.size}`,
-      });
-
-      // Get or create cart
-      let cart = await db.query.carts.findFirst({
-        where: eq(carts.sessionId, DEMO_SESSION_ID),
-      });
-
-      if (!cart) {
-        const cartId = uuidv4();
-        await db.insert(carts).values({
-          id: cartId,
-          sessionId: DEMO_SESSION_ID,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+      // Reuse the Medusa product if this design was already added (avoids
+      // duplicate one-off products on a second add-to-cart); otherwise create
+      // it via the admin API.
+      let variantId = await findCustomDesignVariant(design.id, input.size);
+      let productId: string | undefined;
+      if (!variantId) {
+        const created = await createCustomDesignProduct({
+          designId: design.id,
+          title: `Custom Design - ${design.type === "text" ? "Text Based" : "Image Based"}`,
+          description: `Custom AI-generated hoodie design. ${design.originalInput.substring(0, 100)}`,
+          imageUrl: design.generatedImageUrl,
+          color: design.baseColor || "Black",
+          size: input.size,
+          priceMajor: CUSTOM_DESIGN_PRICE_MAJOR,
         });
-        cart = await db.query.carts.findFirst({
-          where: eq(carts.id, cartId),
-        });
+        variantId = created.variantId;
+        productId = created.productId;
       }
 
-      if (!cart) {
-        throw new Error("Failed to create cart");
-      }
+      // Add the custom variant to the Medusa cart.
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      await addLineItem(cartId, variantId, 1);
 
-      // Add to cart
-      await db.insert(cartItems).values({
-        id: uuidv4(),
-        cartId: cart.id,
-        productId: productId,
-        variantId: variantId,
-        quantity: 1,
-        priceAtAdd: CUSTOM_DESIGN_PRICE,
-      });
-
-      // Update design status
+      // Mark the design as in-cart (design records stay in the storefront DB).
       await db
         .update(customDesigns)
         .set({ status: "in_cart" })
@@ -253,8 +216,8 @@ export const customDesignsRouter = router({
       return {
         success: true,
         price: CUSTOM_DESIGN_PRICE,
-        productId: productId,
-        variantId: variantId,
+        productId,
+        variantId,
       };
     }),
 });

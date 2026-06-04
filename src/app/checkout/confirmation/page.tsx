@@ -47,6 +47,12 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
     const [order, det] = await Promise.all([
       caller.checkout.getCheckoutOrder({ orderId: order_id }),
       caller.checkout.getConfirmationDetails({ orderId: order_id }),
+      // Instant sync to Medusa (idempotent) so the order shows in the admin
+      // immediately instead of waiting for Kustom's ~2 min push. Best-effort —
+      // never blocks the confirmation render.
+      caller.checkout
+        .syncOrder({ orderId: order_id })
+        .catch((e) => console.error("[confirmation] syncOrder failed", e)),
     ]);
     html = order.html_snippet;
     details = det;

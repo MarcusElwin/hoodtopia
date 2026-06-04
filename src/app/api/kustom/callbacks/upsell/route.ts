@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { inArray, ne } from "drizzle-orm";
 import { track } from "@vercel/analytics/server";
 import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
-import { db, products, productVariants } from "@/db";
+import { listProducts } from "@/lib/commerce/medusa-products";
 import { getCartRecommendations } from "@/services/ai";
 import { currencySymbol } from "@/lib/kustom/currency";
 import type { OrderLine, UpsellLine } from "@/lib/kustom/types";
@@ -42,29 +41,22 @@ export async function POST(request: Request) {
   }
 
   const purchased = (body.order_lines ?? [])
-    .filter((l) => l.type !== "shipping_fee" && l.reference)
+    .filter((l) => (l.type === "physical" || l.type === "digital") && l.reference)
     .map((l) => l.reference);
 
   if (purchased.length === 0) {
     return NextResponse.json({ upsell_lines: [], empty: true });
   }
 
-  // Map SKUs → local products so the AI has full context.
-  const purchasedVariants = await db.query.productVariants.findMany({
-    where: inArray(productVariants.sku, purchased),
-    with: { product: true },
-  });
-  const purchasedProducts = Array.from(
-    new Map(purchasedVariants.map((v) => [v.product.id, v.product])).values()
+  // Map SKUs → Medusa products so the AI has full context.
+  const catalog = await listProducts();
+  const purchasedSet = new Set(purchased);
+  const purchasedProducts = catalog.filter((p) =>
+    p.variants.some((v) => purchasedSet.has(v.sku))
   );
   if (purchasedProducts.length === 0) {
     return NextResponse.json({ upsell_lines: [], empty: true });
   }
-
-  const catalog = await db.query.products.findMany({
-    where: ne(products.category, "custom"),
-    with: { variants: true },
-  });
 
   const currency = body.purchase_currency ?? "GBP";
   const symbol = currencySymbol(currency).trim();

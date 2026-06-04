@@ -35,6 +35,29 @@ services:
       retries: 3
       start_period: 5s
 
+  # PostgreSQL for the MedusaJS commerce backend (medusa/).
+  # Medusa only supports Postgres. Run `docker compose up -d medusa-db`, then
+  # point medusa/.env DATABASE_URL at it:
+  #   postgres://medusa:medusa@localhost:5434/medusa
+  # Host port is 5434 to avoid clashing with a Postgres already on 5432.
+  medusa-db:
+    image: postgres:16-alpine
+    container_name: medusa-db
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=medusa
+      - POSTGRES_PASSWORD=medusa
+      - POSTGRES_DB=medusa
+    volumes:
+      - medusa-pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medusa"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   # Optional: Development mode with hot reload
   hoodtopia-dev:
     build:
@@ -61,4 +84,6 @@ volumes:
   hoodtopia-db:
     driver: local
   hoodtopia-images:
+    driver: local
+  medusa-pgdata:
     driver: local

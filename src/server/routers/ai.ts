@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { ne, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { router, publicProcedure, rateLimit } from "../trpc";
-import { db, products, chatMessages } from "@/db";
+import { db, chatMessages } from "@/db";
+import { listProducts } from "@/lib/commerce/medusa-products";
 import {
   chatWithAssistant,
   getProductRecommendations,
@@ -61,11 +62,8 @@ export const aiRouter = router({
         }
       }
 
-      // Get all products for context (exclude custom designs)
-      const allProducts = await db.query.products.findMany({
-        where: ne(products.category, "custom"),
-        with: { variants: true },
-      });
+      // Get all products for context (Medusa; excludes custom designs)
+      const allProducts = await listProducts();
 
       // Get profile config if profile type provided
       const profile = input.profileType ? PROFILES[input.profileType as ProfileType] : null;
@@ -91,18 +89,16 @@ export const aiRouter = router({
         };
       }
 
-      // Get variants for each product (for add-to-cart with color matching)
-      const productsFromDb = await db.query.products.findMany({
-        where: (products, { inArray }) =>
-          inArray(products.id, matchedProducts.map(mp => mp.product.id)),
-        with: { variants: true },
-      });
+      // Variants for matched products (for add-to-cart with colour matching).
+      // allProducts already carries variants, so filter rather than re-query.
+      const matchedIds = new Set(matchedProducts.map((mp) => mp.product.id));
+      const productsFromDb = allProducts.filter((p) => matchedIds.has(p.id));
 
       return {
         message: response.message,
         showProducts: response.showProducts,
         products: matchedProducts.map((mp) => {
-          const dbProduct = productsFromDb.find(db => db.id === mp.product.id);
+          const dbProduct = productsFromDb.find((db) => db.id === mp.product.id);
           const variants = dbProduct?.variants ?? [];
 
           // Find variant matching preferred color, or fall back to first variant
@@ -150,11 +146,8 @@ export const aiRouter = router({
         return { recommendations: [], followUpQuestion: guard.reply };
       }
 
-      // Get all products for context (exclude custom designs)
-      const allProducts = await db.query.products.findMany({
-        where: ne(products.category, "custom"),
-        with: { variants: true },
-      });
+      // Get all products for context (Medusa; excludes custom designs)
+      const allProducts = await listProducts();
 
       const recommendations = await getProductRecommendations(
         input.preferences,
@@ -178,11 +171,8 @@ export const aiRouter = router({
       return [];
     }
 
-    // Get all products for context (exclude custom designs)
-    const allProducts = await db.query.products.findMany({
-      where: ne(products.category, "custom"),
-      with: { variants: true },
-    });
+    // Get all products for context (Medusa; excludes custom designs)
+    const allProducts = await listProducts();
 
     const results = await searchProductsWithAI(input, allProducts);
 

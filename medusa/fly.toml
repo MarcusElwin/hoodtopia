@@ -1,0 +1,41 @@
+# fly.toml app configuration file generated for hoodtopia-medusa on 2026-06-03T09:50:14+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'hoodtopia-medusa'
+primary_region = 'arn'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+  [build.args]
+    # Baked into the admin dashboard at build time so its login/API calls go to
+    # the prod backend, not localhost. Must match the api subdomain.
+    MEDUSA_BACKEND_URL = 'https://api.hoodtopia.co'
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '9000'
+
+[http_service]
+  internal_port = 9000
+  force_https = true
+  # Keep the backend always-on: the storefront calls it constantly, and
+  # suspend/resume adds cold-start latency (and flaky first requests). For a
+  # cost-sensitive demo, switch back to 'suspend' and accept the cold starts.
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'get'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1gb'

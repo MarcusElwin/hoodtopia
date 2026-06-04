@@ -1,0 +1,16 @@
+/node_modules
+/dist
+/.medusa
+/.cache
+*.log
+.env
+.env.local
+.env.*.local
+# but DO track the committed template (overrides root .gitignore's .env*)
+!.env.template
+.DS_Store
+uploads
+
+# compiled config artifacts (ts-node/tsc output)
+medusa-config.js
+medusa-config.js.map

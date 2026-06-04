@@ -2,6 +2,11 @@
 
 Step-by-step guide for shipping the Kustom-integrated demo to a real domain. Assumes you've bought `hoodtopia.co` and have a Vercel account.
 
+> **This guide covers the storefront (Vercel).** Commerce now runs on a
+> MedusaJS backend that deploys separately to **Fly.io** — see
+> [`DEPLOY_MEDUSA.md`](./DEPLOY_MEDUSA.md). Deploy the backend first, then set
+> the storefront's `NEXT_PUBLIC_MEDUSA_*` and `MEDUSA_ADMIN_API_KEY` env vars.
+
 ---
 
 ## 1. Create the Vercel project

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Medusa backend is its own package with its own lint/build.
+    "medusa/**",
   ]),
 ]);
 

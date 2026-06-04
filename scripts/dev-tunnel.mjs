@@ -4,13 +4,17 @@
 // and merchant_urls validation (Playground rejects http://localhost URLs).
 //
 // Usage: npm run dev:tunnel
-// Env:   PORT=3000 (default)  NGROK_DOMAIN=<reserved-domain>  (optional, paid plan)
+// Env:   PORT=3005 (default)  NGROK_DOMAIN=<reserved-domain>  (optional, paid plan)
+//
+// Note: the Medusa backend (products/cart/orders) must be running separately
+// (cd medusa && PORT=9010 npm run dev) — this script only tunnels the storefront
+// so Kustom's KSA / push callbacks can reach your local /api/kustom/* routes.
 
 import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const PORT = process.env.PORT ?? "3000";
+const PORT = process.env.PORT ?? "3005";
 const ENV_FILE = ".env.local";
 const BACKUP_FILE = ".env.local.tunnel-backup";
 const NGROK_API = "http://127.0.0.1:4040/api/tunnels";
