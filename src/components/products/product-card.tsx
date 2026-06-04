@@ -22,7 +22,7 @@ function hashCode(str: string): number {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { formatPrice } = useCurrency();
+  const { formatMoney } = useCurrency();
 
   // Get unique colors with their variant images
   const colorVariants = useMemo(() => {
@@ -84,7 +84,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
           <span className="text-sm font-semibold whitespace-nowrap">
-            {formatPrice(product.basePrice)}
+            {formatMoney(product.basePrice)}
           </span>
         </div>
 

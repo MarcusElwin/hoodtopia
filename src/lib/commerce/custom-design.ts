@@ -9,6 +9,32 @@
  */
 import { medusa, medusaAdmin } from "@/lib/medusa"
 
+/**
+ * Demo FX vs 1 USD for custom designs — kept identical to the catalog seed's FX
+ * (medusa/src/data/catalog.ts) so a custom design's price is consistent with the
+ * rest of the store. Single source: used both to build the Medusa product's
+ * price set AND to display the price on the designer page, so display == cart.
+ * JPY/SEK have no minor unit (whole numbers).
+ */
+export const CUSTOM_DESIGN_FX: Record<string, number> = {
+  usd: 1,
+  eur: 0.92,
+  gbp: 0.79,
+  sek: 10.8,
+  jpy: 150,
+}
+
+/** Region price (major units) for a custom design in the given currency. */
+export function customDesignPriceMajor(
+  priceUsdMajor: number,
+  currencyCode: string
+): number {
+  const cc = currencyCode.toLowerCase()
+  const fx = CUSTOM_DESIGN_FX[cc] ?? 1
+  const raw = priceUsdMajor * fx
+  return cc === "jpy" || cc === "sek" ? Math.round(raw) : Math.round(raw * 100) / 100
+}
+
 export interface CustomDesignInput {
   designId: string
   title: string
@@ -99,13 +125,10 @@ export async function createCustomDesignProduct(
         sku,
         manage_inventory: false, // one-of-a-kind; skip inventory tracking
         options: { Color: input.color, Size: input.size },
-        prices: [
-          { currency_code: "usd", amount: input.priceMajor },
-          { currency_code: "eur", amount: Math.round(input.priceMajor * 0.92) },
-          { currency_code: "gbp", amount: Math.round(input.priceMajor * 0.79) },
-          { currency_code: "sek", amount: Math.round(input.priceMajor * 10.8) },
-          { currency_code: "jpy", amount: Math.round(input.priceMajor * 150) },
-        ],
+        prices: Object.keys(CUSTOM_DESIGN_FX).map((cc) => ({
+          currency_code: cc,
+          amount: customDesignPriceMajor(input.priceMajor, cc),
+        })),
       },
     ],
     ...(salesChannelId ? { sales_channels: [{ id: salesChannelId }] } : {}),

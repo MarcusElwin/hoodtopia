@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/products/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
 export function BestSellers() {
-  const { data: products, isLoading } = trpc.products.list.useQuery();
+  const { currency } = useCurrency();
+  const { data: products, isLoading } = trpc.products.list.useQuery({
+    currency: currency.code,
+  });
 
   // Simulate best sellers by taking products sorted by category variety
   const bestSellers = products

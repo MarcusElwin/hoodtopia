@@ -16,8 +16,10 @@ import { track } from "@/lib/analytics";
 
 export default function CartPage() {
   const utils = trpc.useUtils();
-  const { data: cart, isLoading } = trpc.cart.get.useQuery();
-  const { formatPrice } = useCurrency();
+  const { formatMoney, currency } = useCurrency();
+  const { data: cart, isLoading } = trpc.cart.get.useQuery({
+    currency: currency.code,
+  });
 
   const invalidateCartAndProducts = () => {
     utils.cart.get.invalidate();
@@ -150,7 +152,7 @@ export default function CartPage() {
                       {item.variant.color} / {item.variant.size}
                     </p>
                     <p className="font-semibold mt-2">
-                      {formatPrice(item.priceAtAdd)}
+                      {formatMoney(item.priceAtAdd)}
                     </p>
                   </div>
 
@@ -237,7 +239,7 @@ export default function CartPage() {
                     <span className="text-muted-foreground">
                       Subtotal ({cart?.itemCount} items)
                     </span>
-                    <span>{formatPrice(cart?.subtotal || 0)}</span>
+                    <span>{formatMoney(cart?.subtotal || 0)}</span>
                   </div>
                   {(cart?.discount ?? 0) > 0 && (
                     <div className="flex justify-between text-green-500">
@@ -247,7 +249,7 @@ export default function CartPage() {
                           ? ` (${cart.promoCodes.join(", ")})`
                           : ""}
                       </span>
-                      <span>−{formatPrice(cart?.discount || 0)}</span>
+                      <span>−{formatMoney(cart?.discount || 0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -337,7 +339,7 @@ export default function CartPage() {
                 <div className="flex justify-between text-lg font-semibold mb-6">
                   <span>Total</span>
                   <span>
-                    {formatPrice(
+                    {formatMoney(
                       (cart?.total ?? cart?.subtotal) || 0
                     )}
                   </span>

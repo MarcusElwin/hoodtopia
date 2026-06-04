@@ -10,11 +10,12 @@ import { track } from "@/lib/analytics";
 import type { CartRecommendationWithProduct } from "@/services/schemas";
 
 export function CartRecommendations() {
-  const { formatPrice, currency } = useCurrency();
+  const { formatMoney, currency } = useCurrency();
   const { data, isLoading } = trpc.cart.getRecommendations.useQuery({
     symbol: currency.symbol,
+    currency: currency.code,
   });
-  const cartQuery = trpc.cart.get.useQuery();
+  const cartQuery = trpc.cart.get.useQuery({ currency: currency.code });
   const addToCartMutation = trpc.cart.addItem.useMutation({
     onSuccess: () => {
       cartQuery.refetch();
@@ -66,6 +67,7 @@ export function CartRecommendations() {
         productId: recommendation.product.id,
         variantId: firstVariant.id,
         quantity: 1,
+        currency: currency.code,
       });
     } catch (error) {
       console.error("Failed to add to cart:", error);
@@ -139,7 +141,7 @@ export function CartRecommendations() {
                       {rec.product.name}
                     </h3>
                     <p className="text-sm font-semibold mt-1">
-                      {formatPrice(rec.product.basePrice)}
+                      {formatMoney(rec.product.basePrice)}
                     </p>
                   </div>
 

@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/products/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
 export function FeaturedProducts() {
-  const { data: products, isLoading } = trpc.products.featured.useQuery();
+  const { currency } = useCurrency();
+  const { data: products, isLoading } = trpc.products.featured.useQuery({
+    currency: currency.code,
+  });
 
   return (
     <section className="py-16 md:py-24">

@@ -199,7 +199,12 @@ export const checkoutRouter = router({
   // Post-purchase cross-sell. Matches purchased line items back to local
   // products by SKU, then asks the AI for complementary recommendations.
   getPostPurchaseRecommendations: publicProcedure
-    .input(z.object({ orderId: z.string().min(1) }))
+    .input(
+      z.object({
+        orderId: z.string().min(1),
+        currency: z.string().optional(),
+      })
+    )
     .query(async ({ input }) => {
       const order = await kustom.readOrder(input.orderId);
       const skus = (order.order_lines ?? [])
@@ -211,9 +216,12 @@ export const checkoutRouter = router({
       }
 
       // Match the purchased SKUs back to Medusa products (the whole catalog is
-      // small, so fetch once and filter in memory).
+      // small, so fetch once and filter in memory). Region-price by the order's
+      // own currency (fall back to the client's) so the rec cards match.
+      const currencyCode =
+        order.purchase_currency?.toLowerCase() || input.currency;
       const skuSet = new Set(skus);
-      const allProducts = await listProducts();
+      const allProducts = await listProducts({ currencyCode });
       const purchasedProducts = allProducts.filter((p) =>
         p.variants.some((v) => skuSet.has(v.sku))
       );

@@ -44,8 +44,10 @@ export function AIRecommendations() {
   const [showComparison, setShowComparison] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
-  const { data: allProducts } = trpc.products.list.useQuery();
-  const { formatPrice } = useCurrency();
+  const { formatMoney, currency } = useCurrency();
+  const { data: allProducts } = trpc.products.list.useQuery({
+    currency: currency.code,
+  });
   const { getPersonalizationContext } = useBrowseHistory();
   const utils = trpc.useUtils();
 
@@ -175,6 +177,7 @@ export function AIRecommendations() {
       productId: product.id,
       variantId: selectedVariant.id,
       quantity: 1,
+      currency: currency.code,
     });
   };
 
@@ -505,7 +508,7 @@ export function AIRecommendations() {
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <h3 className="font-medium text-sm leading-tight">{product!.name}</h3>
                           <span className="text-sm font-semibold whitespace-nowrap">
-                            {formatPrice(product!.basePrice)}
+                            {formatMoney(product!.basePrice)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground capitalize mb-2">

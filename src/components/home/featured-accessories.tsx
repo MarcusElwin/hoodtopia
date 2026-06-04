@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/products/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 
 export function FeaturedAccessories() {
-  const { data: products, isLoading } = trpc.products.featuredAccessories.useQuery();
+  const { currency } = useCurrency();
+  const { data: products, isLoading } =
+    trpc.products.featuredAccessories.useQuery({ currency: currency.code });
 
   if (!isLoading && (!products || products.length === 0)) {
     return null;

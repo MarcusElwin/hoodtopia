@@ -163,11 +163,12 @@ export const cartRouter = router({
         .object({
           symbol: z.string().optional(),
           budgetCap: z.number().optional(),
+          currency: z.string().optional(),
         })
         .optional()
     )
     .query(async ({ input }) => {
-      const cartId = await getOrCreateCartId(DEMO_SESSION_ID);
+      const cartId = await getOrCreateCartId(DEMO_SESSION_ID, input?.currency);
       const cart = await retrieveCart(cartId);
 
       if (!cart || cart.items.length === 0) {
@@ -179,10 +180,15 @@ export const cartRouter = router({
       }
 
       // Resolve the full product records for the cart's line items + the whole
-      // catalog (the AI service expects the legacy Product shape).
-      const allProducts = await listProducts();
+      // catalog (the AI service expects the legacy Product shape). Region-price
+      // them so recommended-product cards match the active currency.
+      const allProducts = await listProducts({ currencyCode: input?.currency });
       const cartProducts = (
-        await Promise.all(cart.items.map((i) => getProductById(i.productId)))
+        await Promise.all(
+          cart.items.map((i) =>
+            getProductById(i.productId, { currencyCode: input?.currency })
+          )
+        )
       ).filter((p): p is NonNullable<typeof p> => p !== null);
 
       return getCartRecommendations(cartProducts, allProducts, input);
