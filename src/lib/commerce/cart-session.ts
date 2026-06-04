@@ -8,7 +8,11 @@
  */
 import { eq } from "drizzle-orm"
 import { db, medusaCarts } from "@/db"
-import { createCart, retrieveCart } from "@/lib/commerce/medusa-cart"
+import {
+  createCart,
+  retrieveCart,
+  ensureCartCurrency,
+} from "@/lib/commerce/medusa-cart"
 
 /** For demo parity with the old cart router. */
 export const DEMO_SESSION_ID = "demo-session"
@@ -30,7 +34,13 @@ export async function getOrCreateCartId(
     // into an order. A completed cart is frozen (can't add/update/remove items),
     // so after checkout we must start a fresh one.
     const cart = await retrieveCart(existing.medusaCartId)
-    if (cart && !cart.completedAt) return existing.medusaCartId
+    if (cart && !cart.completedAt) {
+      // Keep the cart's region in sync with the shopper's selected currency —
+      // otherwise a cart created in USD keeps pricing line items in USD even
+      // after switching to SEK (the bug that showed "79.99 kr" in the cart).
+      await ensureCartCurrency(existing.medusaCartId, currencyCode)
+      return existing.medusaCartId
+    }
   }
 
   const cartId = await createCart(currencyCode)

@@ -178,6 +178,29 @@ export async function createCart(currencyCode?: string): Promise<string> {
   return cart.id
 }
 
+/**
+ * Ensure an existing cart is in the region for `currencyCode`. The cart's region
+ * is what Medusa prices line items in — a cart created in USD keeps returning USD
+ * `unit_price`s even after the shopper switches to SEK, so without this the cart
+ * (and the order it completes into) would be priced in the wrong currency.
+ *
+ * Switching the region makes Medusa re-price every line item. No-op when the
+ * currency already matches or none was requested.
+ */
+export async function ensureCartCurrency(
+  cartId: string,
+  currencyCode?: string
+): Promise<void> {
+  if (!currencyCode) return
+  const { cart } = await medusa.store.cart.retrieve(cartId, {
+    fields: "id,currency_code,region_id",
+  })
+  const current = (cart as { currency_code?: string | null }).currency_code
+  if (current?.toLowerCase() === currencyCode.toLowerCase()) return
+  const region_id = await resolveRegionId(currencyCode)
+  await medusa.store.cart.update(cartId, { region_id })
+}
+
 /** Retrieve a cart (mapped). Returns null if it no longer exists. */
 export async function retrieveCart(cartId: string): Promise<AdaptedCart | null> {
   try {
