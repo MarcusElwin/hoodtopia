@@ -99,6 +99,7 @@ export function AIRecommendations() {
     recommendMutation.mutate({
       preferences: prompt,
       personalizationContext,
+      currency: currency.code,
     });
   };
 
@@ -112,6 +113,7 @@ export function AIRecommendations() {
     recommendMutation.mutate({
       preferences: example,
       personalizationContext,
+      currency: currency.code,
     });
   };
 
@@ -127,6 +129,7 @@ export function AIRecommendations() {
     recommendMutation.mutate({
       preferences: refinementPrompt,
       personalizationContext,
+      currency: currency.code,
     });
   };
 

@@ -40,6 +40,7 @@ export const aiRouter = router({
       z.object({
         messages: z.array(MessageSchema).max(50),
         profileType: ShopperProfileTypeSchema,
+        currency: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -62,8 +63,10 @@ export const aiRouter = router({
         }
       }
 
-      // Get all products for context (Medusa; excludes custom designs)
-      const allProducts = await listProducts();
+      // Get all products for context (Medusa; excludes custom designs).
+      // Region-price by the active currency so chat product cards match the
+      // rest of the store.
+      const allProducts = await listProducts({ currencyCode: input.currency });
 
       // Get profile config if profile type provided
       const profile = input.profileType ? PROFILES[input.profileType as ProfileType] : null;
@@ -133,6 +136,7 @@ export const aiRouter = router({
       z.object({
         preferences: z.string().max(2000),
         personalizationContext: PersonalizationContextSchema.optional(),
+        currency: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -146,8 +150,9 @@ export const aiRouter = router({
         return { recommendations: [], followUpQuestion: guard.reply };
       }
 
-      // Get all products for context (Medusa; excludes custom designs)
-      const allProducts = await listProducts();
+      // Get all products for context (Medusa; excludes custom designs),
+      // region-priced by the active currency.
+      const allProducts = await listProducts({ currencyCode: input.currency });
 
       const recommendations = await getProductRecommendations(
         input.preferences,

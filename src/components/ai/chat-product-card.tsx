@@ -25,7 +25,7 @@ interface ChatProductCardProps {
 }
 
 export function ChatProductCard({ product }: ChatProductCardProps) {
-  const { formatMoney } = useCurrency();
+  const { formatMoney, currency } = useCurrency();
   const [added, setAdded] = useState(false);
   const utils = trpc.useUtils();
 
@@ -47,6 +47,7 @@ export function ChatProductCard({ product }: ChatProductCardProps) {
       productId: product.id,
       variantId: product.variantId,
       quantity: 1,
+      currency: currency.code,
     });
   };
 

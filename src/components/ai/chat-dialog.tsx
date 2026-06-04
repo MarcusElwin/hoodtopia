@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatProductGrid } from "./chat-product-card";
 import { trpc } from "@/lib/trpc";
 import { useProfile } from "@/lib/shopper-profiles";
+import { useCurrency } from "@/lib/currency";
 
 interface ChatProduct {
   id: string;
@@ -47,6 +48,7 @@ interface AIChatDialogProps {
 
 export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
   const { currentProfile } = useProfile();
+  const { currency } = useCurrency();
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -135,6 +137,7 @@ export function AIChatDialog({ open, onOpenChange }: AIChatDialogProps) {
     chatMutation.mutate({
       messages: newMessages.slice(1), // Remove initial greeting
       profileType: currentProfile,
+      currency: currency.code,
     });
   };
 
