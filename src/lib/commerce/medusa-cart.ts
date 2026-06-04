@@ -368,13 +368,17 @@ export async function completeCart(
 
   // Medusa rejects an address whose country isn't in the cart's region
   // ("Country with code se is not within region United States"). Move the cart
-  // into the region that covers the shipping country *before* setting the
-  // address — otherwise a cart still in the default (USD) region fails to
-  // complete and no order is created. No-op if no region covers the country.
+  // into the region that covers the shipping country in its OWN update first,
+  // so the region is committed before the address is validated against it —
+  // otherwise a cart still in the default (USD) region fails to complete and no
+  // order is created. Separate calls (rather than one combined update) make the
+  // ordering explicit instead of relying on Medusa's internal field-apply order.
   const targetRegion = await resolveRegionIdByCountry(shippingAddr.country_code)
+  if (targetRegion) {
+    await medusa.store.cart.update(cartId, { region_id: targetRegion })
+  }
   await medusa.store.cart.update(cartId, {
     email: input.email || "demo@hoodtopia.co",
-    ...(targetRegion ? { region_id: targetRegion } : {}),
     shipping_address: shippingAddr,
     billing_address: billingAddr,
     ...(input.metadata ? { metadata: input.metadata } : {}),

@@ -38,7 +38,14 @@ export async function getOrCreateCartId(
       // Keep the cart's region in sync with the shopper's selected currency —
       // otherwise a cart created in USD keeps pricing line items in USD even
       // after switching to SEK (the bug that showed "79.99 kr" in the cart).
-      await ensureCartCurrency(existing.medusaCartId, currencyCode)
+      // Best-effort: a transient Medusa error here must not turn a cart read
+      // into a 500 — worst case the cart shows a slightly stale currency until
+      // the next request.
+      try {
+        await ensureCartCurrency(existing.medusaCartId, currencyCode)
+      } catch (err) {
+        console.warn("[cart] currency/region sync skipped:", err)
+      }
       return existing.medusaCartId
     }
   }
