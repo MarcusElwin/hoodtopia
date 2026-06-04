@@ -42,6 +42,7 @@ let cachedRegionId: string | null = null
 interface RegionLite {
   id: string
   currency_code?: string | null
+  countries?: { iso_2?: string | null }[] | null
 }
 
 export async function resolveRegionId(currencyCode?: string): Promise<string> {
@@ -59,6 +60,27 @@ export async function resolveRegionId(currencyCode?: string): Promise<string> {
   const usd = regions.find((r) => r.currency_code?.toLowerCase() === "usd")
   cachedRegionId = usd?.id ?? regions[0]?.id ?? ""
   return cachedRegionId
+}
+
+/**
+ * Resolve the region that *contains* a country (by ISO-2 code). Completing a
+ * cart sets a shipping address, and Medusa rejects an address whose country
+ * isn't in the cart's region ("Country with code se is not within region
+ * United States"). The order sync uses this to put the cart in the right region
+ * before attaching the customer's address. Returns null if no region covers it.
+ */
+export async function resolveRegionIdByCountry(
+  countryCode?: string | null
+): Promise<string | null> {
+  if (!countryCode) return null
+  const cc = countryCode.toLowerCase()
+  const { regions } = (await medusa.store.region.list({
+    fields: "id,currency_code,countries.iso_2",
+  })) as { regions: RegionLite[] }
+  const match = regions.find((r) =>
+    (r.countries ?? []).some((c) => c.iso_2?.toLowerCase() === cc)
+  )
+  return match?.id ?? null
 }
 
 interface ListOpts {

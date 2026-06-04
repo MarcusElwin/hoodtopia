@@ -18,7 +18,10 @@
  * the app's existing fixed-DEMO_SESSION model.
  */
 import { medusa, medusaAdmin } from "@/lib/medusa"
-import { resolveRegionId } from "@/lib/commerce/medusa-products"
+import {
+  resolveRegionId,
+  resolveRegionIdByCountry,
+} from "@/lib/commerce/medusa-products"
 
 // ── Minimal Medusa cart shapes (only fields we read) ────────────────────────
 export interface MedusaLineItem {
@@ -176,6 +179,29 @@ export async function createCart(currencyCode?: string): Promise<string> {
   const region_id = await resolveRegionId(currencyCode)
   const { cart } = await medusa.store.cart.create({ region_id })
   return cart.id
+}
+
+/**
+ * Ensure an existing cart is in the region for `currencyCode`. The cart's region
+ * is what Medusa prices line items in — a cart created in USD keeps returning USD
+ * `unit_price`s even after the shopper switches to SEK, so without this the cart
+ * (and the order it completes into) would be priced in the wrong currency.
+ *
+ * Switching the region makes Medusa re-price every line item. No-op when the
+ * currency already matches or none was requested.
+ */
+export async function ensureCartCurrency(
+  cartId: string,
+  currencyCode?: string
+): Promise<void> {
+  if (!currencyCode) return
+  const { cart } = await medusa.store.cart.retrieve(cartId, {
+    fields: "id,currency_code,region_id",
+  })
+  const current = (cart as { currency_code?: string | null }).currency_code
+  if (current?.toLowerCase() === currencyCode.toLowerCase()) return
+  const region_id = await resolveRegionId(currencyCode)
+  await medusa.store.cart.update(cartId, { region_id })
 }
 
 /** Retrieve a cart (mapped). Returns null if it no longer exists. */
@@ -339,6 +365,18 @@ export async function completeCart(
   // 1. Email + phone + the REAL shipping/billing addresses from Kustom.
   const shippingAddr = toMedusaAddress(input.address)
   const billingAddr = toMedusaAddress(input.billingAddress ?? input.address)
+
+  // Medusa rejects an address whose country isn't in the cart's region
+  // ("Country with code se is not within region United States"). Move the cart
+  // into the region that covers the shipping country in its OWN update first,
+  // so the region is committed before the address is validated against it —
+  // otherwise a cart still in the default (USD) region fails to complete and no
+  // order is created. Separate calls (rather than one combined update) make the
+  // ordering explicit instead of relying on Medusa's internal field-apply order.
+  const targetRegion = await resolveRegionIdByCountry(shippingAddr.country_code)
+  if (targetRegion) {
+    await medusa.store.cart.update(cartId, { region_id: targetRegion })
+  }
   await medusa.store.cart.update(cartId, {
     email: input.email || "demo@hoodtopia.co",
     shipping_address: shippingAddr,
