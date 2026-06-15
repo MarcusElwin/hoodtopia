@@ -22,12 +22,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: UpsellRequest;
+  let raw: unknown;
   try {
-    body = await request.json();
+    raw = await request.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
+
+  // Reject non-object payloads (array/string/number/null) before treating them
+  // as an upsell request — otherwise downstream property access can 500.
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+  const body = raw as UpsellRequest;
 
   const result = await buildUpsell(body);
   if (result.warnings.length > 0) {

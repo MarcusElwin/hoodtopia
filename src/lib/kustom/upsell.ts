@@ -62,10 +62,18 @@ function inStockVariant(p: AdaptedProduct): ProductVariant | undefined {
 }
 
 // Turn one product + in-stock variant into a Kustom upsell_line.
-function shapeLine(full: AdaptedProduct, variant: ProductVariant): UpsellLine {
+// `taxRate` is in basis points (2000 = 20%) and `vatDivisor` is the matching
+// VAT-inclusive divisor (1.2 for 20%) — both derived from the order's market so
+// upsell lines stay consistent with what the customer actually bought.
+function shapeLine(
+  full: AdaptedProduct,
+  variant: ProductVariant,
+  taxRate: number,
+  vatDivisor: number
+): UpsellLine {
   // VAT-inclusive math, matching cart-mapper.
   const total_amount = full.basePrice;
-  const total_tax_amount = Math.round(total_amount - total_amount / 1.2);
+  const total_tax_amount = Math.round(total_amount - total_amount / vatDivisor);
 
   const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
   const productUrl = site ? `${site}/products/${full.slug}` : undefined;
@@ -93,7 +101,7 @@ function shapeLine(full: AdaptedProduct, variant: ProductVariant): UpsellLine {
     max_allowed_quantity: Math.min(variant.stock, 3),
     quantity_unit: "pcs",
     unit_price: full.basePrice,
-    tax_rate: 2000,
+    tax_rate: taxRate,
     total_amount,
     total_tax_amount,
     image_url: safeImage,
@@ -123,9 +131,32 @@ export async function buildUpsell(body: UpsellRequest): Promise<UpsellResult> {
     return { upsell_lines, last_upsell_time, purchased, currency, empty: false, source, warnings };
   };
 
-  const purchased = (body.order_lines ?? [])
+  // Guard against malformed payloads on the standalone REST endpoint: a client
+  // could send order_lines as a non-array, or with non-object entries. Coerce to
+  // a safe array of objects so the filter/map below never throws at runtime.
+  const orderLines = Array.isArray(body.order_lines)
+    ? body.order_lines.filter(
+        (l): l is OrderLine => typeof l === "object" && l !== null
+      )
+    : [];
+  if (body.order_lines != null && !Array.isArray(body.order_lines)) {
+    warnings.push("order_lines was not an array — ignoring it");
+  }
+
+  const purchased = orderLines
     .filter((l) => (l.type === "physical" || l.type === "digital") && l.reference)
     .map((l) => l.reference);
+
+  // Derive the market's VAT from the order lines so upsell lines match the
+  // customer's tax_rate (GB=2000, SE=2500, US=0, …) instead of a hard-coded 20%.
+  // Prefer a taxed physical/digital line; default to 20% when none is present.
+  const taxedLine = orderLines.find(
+    (l) =>
+      (l.type === "physical" || l.type === "digital") &&
+      typeof l.tax_rate === "number"
+  );
+  const taxRate = taxedLine?.tax_rate ?? 2000;
+  const vatDivisor = 1 + taxRate / 10000;
 
   // upsell_possible=false is Kustom telling us the upsell slot is unavailable —
   // honour it even with fallbacks on, or Kustom may reject the response.
@@ -141,7 +172,10 @@ export async function buildUpsell(body: UpsellRequest): Promise<UpsellResult> {
   // The catalog is the one hard dependency — without it we can't recommend.
   let catalog: AdaptedProduct[];
   try {
-    catalog = await listProducts();
+    // Pass the order's currency so Medusa prices in the matching region when one
+    // exists (falls back to the default region otherwise) — keeps basePrice,
+    // max_upsell_amount filtering, and the AI prompt prices consistent.
+    catalog = await listProducts({ currencyCode: currency });
   } catch (err) {
     warnings.push(`catalog lookup failed: ${errMessage(err)}`);
     return finish([], "none", purchased);
@@ -176,7 +210,7 @@ export async function buildUpsell(body: UpsellRequest): Promise<UpsellResult> {
         if (!full || !fitsBudget(full)) continue;
         const variant = inStockVariant(full);
         if (!variant) continue;
-        lines.push(shapeLine(full, variant));
+        lines.push(shapeLine(full, variant, taxRate, vatDivisor));
         if (lines.length >= MAX_LINES) break;
       }
       if (lines.length > 0) return finish(lines, "ai", purchased);
@@ -193,7 +227,7 @@ export async function buildUpsell(body: UpsellRequest): Promise<UpsellResult> {
     .filter((p) => notPurchased(p) && fitsBudget(p) && inStockVariant(p))
     .sort((a, b) => a.basePrice - b.basePrice)
     .slice(0, MAX_LINES)
-    .map((p) => shapeLine(p, inStockVariant(p)!));
+    .map((p) => shapeLine(p, inStockVariant(p)!, taxRate, vatDivisor));
 
   if (fallback.length === 0) {
     warnings.push("no in-stock, in-budget catalog products available to offer");

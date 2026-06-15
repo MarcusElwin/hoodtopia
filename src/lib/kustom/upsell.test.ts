@@ -41,14 +41,18 @@ function product(
   } as AdaptedProduct;
 }
 
-function line(reference: string, type: OrderLine["type"] = "physical"): OrderLine {
+function line(
+  reference: string,
+  type: OrderLine["type"] = "physical",
+  tax_rate = 2000
+): OrderLine {
   return {
     type,
     reference,
     name: reference,
     quantity: 1,
     unit_price: 1000,
-    tax_rate: 2000,
+    tax_rate,
     total_amount: 1000,
     total_tax_amount: 200,
   };
@@ -144,6 +148,63 @@ describe("buildUpsell", () => {
     expect(r.source).toBe("none");
     expect(mockListProducts).not.toHaveBeenCalled();
     expect(r.warnings.join()).toMatch(/upsell_possible=false/);
+  });
+
+  it("derives tax_rate / VAT from the order lines (SE = 25%)", async () => {
+    const beanie = product({ id: "beanie", sku: "BEANIE-1", basePrice: 1000 });
+    mockListProducts.mockResolvedValue([beanie]);
+
+    // No matching cart SKU → fallback path; tax_rate comes from the SE line.
+    const r = await buildUpsell({
+      order_lines: [line("UNKNOWN", "physical", 2500)],
+    });
+
+    expect(r.upsell_lines[0].tax_rate).toBe(2500);
+    // 1000 - 1000/1.25 = 200
+    expect(r.upsell_lines[0].total_tax_amount).toBe(200);
+  });
+
+  it("derives a 0% tax_rate for US markets", async () => {
+    const beanie = product({ id: "beanie", sku: "BEANIE-1", basePrice: 1000 });
+    mockListProducts.mockResolvedValue([beanie]);
+
+    const r = await buildUpsell({
+      order_lines: [line("UNKNOWN", "physical", 0)],
+    });
+
+    expect(r.upsell_lines[0].tax_rate).toBe(0);
+    expect(r.upsell_lines[0].total_tax_amount).toBe(0);
+  });
+
+  it("passes the purchase currency through to listProducts", async () => {
+    mockListProducts.mockResolvedValue([product({ sku: "A" })]);
+
+    await buildUpsell({ order_lines: [line("X")], purchase_currency: "SEK" });
+
+    expect(mockListProducts).toHaveBeenCalledWith({ currencyCode: "SEK" });
+  });
+
+  it("tolerates a malformed (non-array) order_lines payload", async () => {
+    mockListProducts.mockResolvedValue([product({ sku: "A" })]);
+
+    // Simulate a malformed body reaching the shared engine.
+    const r = await buildUpsell({
+      order_lines: "not-an-array" as never,
+    });
+
+    expect(r.empty).toBe(false);
+    expect(r.warnings.join()).toMatch(/order_lines was not an array/);
+  });
+
+  it("ignores non-object entries inside order_lines", async () => {
+    mockListProducts.mockResolvedValue([product({ sku: "A" })]);
+
+    const r = await buildUpsell({
+      order_lines: [null, "x", line("X")] as never,
+    });
+
+    // Should not throw; the one valid line is processed.
+    expect(r.empty).toBe(false);
   });
 
   it("returns empty when nothing is in stock", async () => {
