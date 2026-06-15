@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   }
 
   const result = await buildUpsell(body);
+  if (result.warnings.length > 0) {
+    console.warn(`[upsell:callback] ${result.warnings.join(" | ")}`);
+  }
   if (result.empty) {
     return NextResponse.json({ upsell_lines: [], empty: true });
   }
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
       offeredSkus: result.upsell_lines.map((l) => l.reference).join(","),
       currency: result.currency,
       count: result.upsell_lines.length,
+      source: result.source,
     });
   } catch { /* swallow */ }
 

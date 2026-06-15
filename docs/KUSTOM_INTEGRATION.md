@@ -309,6 +309,8 @@ The `upsell` route is the headliner. Flow:
 
 This is "AI recommendations as a revenue surface" — same engine that powers the cart page now lives inside the payment provider's UI.
 
+**Resilience (`src/lib/kustom/upsell.ts`).** `buildUpsell` always tries to return something. If the cart SKUs don't match the catalog, the AI engine errors, or no AI pick is in-stock/in-budget, it falls back to deterministic catalog picks (cheapest in-stock, in-budget products the customer didn't buy). The result carries a `source` (`"ai" | "fallback" | "none"`) and a `warnings[]` list; both routes log the warnings via `console.warn` (`[upsell:callback]` / `[upsell:api]`) and tag the analytics event with `source`. The only hard-empty cases — returned as `{ upsell_lines: [], empty: true }`, never a 500 — are an unreachable catalog, a catalog with nothing in stock/budget, or Kustom signalling `upsell_possible: false`.
+
 ### Authenticated REST variant (`POST /api/upsell`)
 
 The Kustom callback above is invoked by Kustom through a URL we register, so it's protected by an HMAC `?token=`. For fetching the **same** AI recommendations directly — e.g. while onboarding/testing the upsell experience outside the checkout iframe — Hoodtopia also exposes a standalone REST endpoint gated by a **Bearer JWT**. Both share `src/lib/kustom/upsell.ts`, so the recommendations are identical.
