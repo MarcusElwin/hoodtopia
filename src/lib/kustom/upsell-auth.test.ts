@@ -93,4 +93,25 @@ describe("upsell-auth", () => {
       expect(await verifyUpsellBearer(`Bearer ${token}`)).toBe(false);
     });
   });
+
+  describe("static API key bearer", () => {
+    it("accepts Bearer <UPSELL_API_KEY> directly", async () => {
+      expect(await verifyUpsellBearer(`Bearer ${KEY}`)).toBe(true);
+    });
+
+    it("rejects a wrong key", async () => {
+      expect(await verifyUpsellBearer("Bearer wrong-key")).toBe(false);
+    });
+
+    it("accepts the static key even without the JWT secret configured", async () => {
+      delete process.env.UPSELL_API_JWT_SECRET;
+      expect(await verifyUpsellBearer(`Bearer ${KEY}`)).toBe(true);
+    });
+
+    it("fails closed when the API key is not set", async () => {
+      delete process.env.UPSELL_API_KEY;
+      delete process.env.UPSELL_API_JWT_SECRET;
+      expect(await verifyUpsellBearer(`Bearer ${KEY}`)).toBe(false);
+    });
+  });
 });

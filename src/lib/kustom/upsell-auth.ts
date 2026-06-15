@@ -7,15 +7,24 @@ import { SignJWT, jwtVerify } from "jose";
 // Unlike the Kustom confirmation-page callback — which Kustom invokes through a
 // URL we register, so we bake an HMAC ?token= into that URL — the REST endpoint
 // is called directly by our own clients / partners during upsell onboarding and
-// testing. So it uses a proper bearer flow, mirroring the Shipping Assistant:
+// testing. It accepts a Bearer token in one of two shapes:
 //
-//   1. POST /api/upsell/auth  { identifier, secret: { nonce, digest } }
-//        digest = sha256(nonce + UPSELL_API_KEY)            → { token, expires_in }
-//   2. POST /api/upsell       Authorization: Bearer <token>
+//   A. Static key (simplest — for partners / portal onboarding):
+//        POST /api/upsell   Authorization: Bearer <UPSELL_API_KEY>
+//      One secret, one call. No handshake, no expiry. Rotate the key to revoke.
+//
+//   B. Handshake JWT (adds expiry + replay protection), mirroring the
+//      Shipping Assistant:
+//        1. POST /api/upsell/auth  { identifier, secret: { nonce, digest } }
+//             digest = sha256(nonce + UPSELL_API_KEY)        → { token, expires_in }
+//        2. POST /api/upsell       Authorization: Bearer <token>
 //
 // Two secrets, same split as shipping-auth:
-//   UPSELL_API_KEY        — shared credential the client hashes with a nonce
+//   UPSELL_API_KEY        — shared credential; usable directly (A) or hashed (B)
 //   UPSELL_API_JWT_SECRET — server-only HS256 signing key (never leaves us)
+//
+// Only UPSELL_API_KEY is required for mode A. UPSELL_API_JWT_SECRET is only
+// needed if you want the handshake/JWT flow (B) as well.
 
 const ISSUER = "hoodtopia";
 const AUDIENCE = "hoodtopia-upsell";
@@ -76,16 +85,41 @@ export async function issueUpsellBearer(identifier: string): Promise<{
   return { token, expires_in: TOKEN_TTL_SECONDS };
 }
 
+// Constant-time string compare that doesn't leak length via early return.
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) {
+    // Still compare against a, so timing doesn't reveal the length mismatch.
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
+// Accepts EITHER auth shape:
+//   1. Bearer <UPSELL_API_KEY>  — the static shared key, for partners/portal
+//      onboarding who just want one secret + one call (no handshake).
+//   2. Bearer <JWT>             — a short-lived token from POST /api/upsell/auth.
+// The static key is the simpler path; the JWT path adds expiry + replay
+// protection for callers that want it. Both gate the same read-only endpoint.
 export async function verifyUpsellBearer(
   authHeader: string | null
 ): Promise<boolean> {
   if (!authHeader) return false;
-  // Fail closed when the signing secret isn't configured.
-  if (!process.env.UPSELL_API_JWT_SECRET) return false;
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) return false;
+  const presented = match[1];
+
+  // 1. Static API key — constant-time compare against UPSELL_API_KEY.
+  if (process.env.UPSELL_API_KEY && safeEqual(presented, apiKey())) {
+    return true;
+  }
+
+  // 2. Handshake JWT — fail closed when the signing secret isn't configured.
+  if (!process.env.UPSELL_API_JWT_SECRET) return false;
   try {
-    await jwtVerify(match[1], jwtSecret(), {
+    await jwtVerify(presented, jwtSecret(), {
       issuer: ISSUER,
       audience: AUDIENCE,
     });

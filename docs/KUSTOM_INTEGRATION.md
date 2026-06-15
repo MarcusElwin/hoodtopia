@@ -313,36 +313,49 @@ This is "AI recommendations as a revenue surface" — same engine that powers th
 
 ### Authenticated REST variant (`POST /api/upsell`)
 
-The Kustom callback above is invoked by Kustom through a URL we register, so it's protected by an HMAC `?token=`. For fetching the **same** AI recommendations directly — e.g. while onboarding/testing the upsell experience outside the checkout iframe — Hoodtopia also exposes a standalone REST endpoint gated by a **Bearer JWT**. Both share `src/lib/kustom/upsell.ts`, so the recommendations are identical.
+The Kustom callback above is invoked by Kustom through a URL we register, so it's protected by an HMAC `?token=`. For fetching the **same** AI recommendations directly — e.g. while onboarding/testing the upsell experience outside the checkout iframe — Hoodtopia also exposes a standalone REST endpoint gated by a **Bearer token**. Both share `src/lib/kustom/upsell.ts`, so the recommendations are identical.
+
+`POST /api/upsell` accepts the bearer token in **either** of two shapes:
+
+- **Mode A — static key (simplest, for partner/portal onboarding):** send `Authorization: Bearer <UPSELL_API_KEY>` directly. One secret, one call, no handshake. Rotate the key to revoke. This is what to hand a partner team.
+- **Mode B — handshake JWT (adds expiry + replay protection):** exchange the key for a short-lived token first, then call with that token.
+
+Only `UPSELL_API_KEY` is required for Mode A. `UPSELL_API_JWT_SECRET` (server-only HS256 signing key, ≥32 chars) is only needed if you also want Mode B's handshake. When neither secret is set, `/api/upsell` returns `401`; `/api/upsell/auth` returns `503 not_configured` unless **both** are set.
 
 ```jsonc
+// Mode A — static key, one call:
+POST /api/upsell
+Authorization: Bearer <UPSELL_API_KEY>
+{ "order_lines": [ { "type": "physical", "reference": "<sku>", ... } ], "purchase_currency": "GBP" }
+// → 200 { "upsell_lines": [ ... ], "last_upsell_time": "..." }
+//   or  200 { "upsell_lines": [], "empty": true }
+
+// Mode B — handshake then call:
 // 1. Exchange a shared credential for a short-lived token.
 //    digest = sha256(nonce + UPSELL_API_KEY) as lowercase hex.
 POST /api/upsell/auth
 { "identifier": "onboarding-test", "secret": { "nonce": "<random>", "digest": "<sha256>" } }
 // → 200 { "token": "<JWT, HS256, 1h TTL>", "expires_in": 3600 }
-
-// 2. Call the endpoint with the bearer token. Body matches the Kustom
-//    upsell callback (order_lines + optional max_upsell_amount / purchase_currency).
-POST /api/upsell
-Authorization: Bearer <token>
-{ "order_lines": [ { "type": "physical", "reference": "<sku>", ... } ], "purchase_currency": "GBP" }
-// → 200 { "upsell_lines": [ ... ], "last_upsell_time": "..." }
-//   or  200 { "upsell_lines": [], "empty": true }
+// 2. POST /api/upsell  Authorization: Bearer <token>   (same body/response as Mode A)
 ```
 
-Enable it by setting both `UPSELL_API_KEY` (shared credential) and `UPSELL_API_JWT_SECRET` (server-only HS256 signing key, ≥32 chars). When either is missing, `/api/upsell/auth` returns `503 not_configured` and `/api/upsell` returns `401`. Mirrors the Shipping Assistant auth handshake (§4).
-
 ```bash
-# Derive the digest + drive the full flow locally:
+# Mode A — hand a partner just UPSELL_API_KEY + BASE:
+export UPSELL_API_KEY='<upk_...>'
+export BASE='https://hoodtopia.co'
+curl -s "$BASE/api/upsell" \
+  -H "authorization: Bearer $UPSELL_API_KEY" -H 'content-type: application/json' \
+  -d '{"purchase_currency":"GBP","order_lines":[{"type":"physical","reference":"<sku>","name":"x","quantity":1,"unit_price":4500,"tax_rate":2000,"total_amount":4500,"total_tax_amount":750}]}' | jq
+
+# Mode B — derive the digest + drive the handshake flow:
 NONCE=$(openssl rand -hex 16)
-DIGEST=$(node -e "console.log(require('crypto').createHash('sha256').update(process.argv[1]+process.env.UPSELL_API_KEY).digest('hex'))" "$NONCE")
-TOKEN=$(curl -s -X POST localhost:3000/api/upsell/auth \
+DIGEST=$(printf '%s' "${NONCE}${UPSELL_API_KEY}" | shasum -a 256 | cut -d' ' -f1)
+TOKEN=$(curl -s "$BASE/api/upsell/auth" \
   -H 'content-type: application/json' \
   -d "{\"identifier\":\"onboarding-test\",\"secret\":{\"nonce\":\"$NONCE\",\"digest\":\"$DIGEST\"}}" | jq -r .token)
-curl -s -X POST localhost:3000/api/upsell \
+curl -s "$BASE/api/upsell" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"purchase_currency":"GBP","order_lines":[{"type":"physical","reference":"<sku>","name":"x","quantity":1,"unit_price":0,"tax_rate":2000,"total_amount":0,"total_tax_amount":0}]}'
+  -d '{"purchase_currency":"GBP","order_lines":[{"type":"physical","reference":"<sku>","name":"x","quantity":1,"unit_price":4500,"tax_rate":2000,"total_amount":4500,"total_tax_amount":750}]}' | jq
 ```
 
 ### Flagship guardrail (`validation`)

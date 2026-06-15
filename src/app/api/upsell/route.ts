@@ -10,11 +10,16 @@ export const dynamic = "force-dynamic";
 // Authenticated REST sibling of the Kustom confirmation-page upsell callback.
 //
 // Same AI recommendation engine (`buildUpsell`) and same response shape, but
-// gated by a Bearer JWT instead of a Kustom HMAC URL token — so our own clients
-// / partners can fetch upsell recommendations directly (e.g. while onboarding
-// and testing the upsell experience outside the Kustom checkout iframe).
+// gated by a Bearer token instead of a Kustom HMAC URL token — so our own
+// clients / partners can fetch upsell recommendations directly (e.g. while
+// onboarding and testing the upsell experience outside the Kustom checkout
+// iframe).
 //
-//   Authorization: Bearer <token from POST /api/upsell/auth>
+// The bearer accepts either the static UPSELL_API_KEY (simplest — for partner
+// onboarding) or a short-lived JWT from POST /api/upsell/auth. See
+// `verifyUpsellBearer` in lib/kustom/upsell-auth.ts.
+//
+//   Authorization: Bearer <UPSELL_API_KEY | token from POST /api/upsell/auth>
 //   body: { order_lines, max_upsell_amount?, purchase_currency?, upsell_possible? }
 //   → { upsell_lines, last_upsell_time } | { upsell_lines: [], empty: true }
 export async function POST(request: Request) {
