@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 import { track } from "@vercel/analytics/server";
-import { verifyCallbackToken } from "@/lib/kustom/callback-auth";
+import { verifyUpsellBearer } from "@/lib/kustom/upsell-auth";
 import { buildUpsell, type UpsellRequest } from "@/lib/kustom/upsell";
 
-// Force runtime execution — these routes hit the DB / Kustom API; Next would
+// Force runtime execution — this route hits the DB / AI engine; Next would
 // otherwise try to collect page data at build time and crash without env vars.
 export const dynamic = "force-dynamic";
 
-// THE agentic-commerce moment. Kustom calls us on the confirmation page asking
-// "any post-purchase upsells?". We look up what the customer just bought,
-// hand it to the AI rec engine, and turn the top complementary products into
-// Kustom upsell_lines. The user sees them inside Kustom's confirmation iframe
-// and can one-click add before the upsell window closes.
+// Authenticated REST sibling of the Kustom confirmation-page upsell callback.
 //
-// The recommendation logic lives in `@/lib/kustom/upsell` so the authenticated
-// REST variant (`/api/upsell`) returns identical results. This route only adds
-// the Kustom-specific HMAC token check + analytics.
+// Same AI recommendation engine (`buildUpsell`) and same response shape, but
+// gated by a Bearer JWT instead of a Kustom HMAC URL token — so our own clients
+// / partners can fetch upsell recommendations directly (e.g. while onboarding
+// and testing the upsell experience outside the Kustom checkout iframe).
+//
+//   Authorization: Bearer <token from POST /api/upsell/auth>
+//   body: { order_lines, max_upsell_amount?, purchase_currency?, upsell_possible? }
+//   → { upsell_lines, last_upsell_time } | { upsell_lines: [], empty: true }
 export async function POST(request: Request) {
-  const url = new URL(request.url);
-  if (!verifyCallbackToken("upsell", url.searchParams.get("token"))) {
+  if (!(await verifyUpsellBearer(request.headers.get("authorization")))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await track("upsell_offered", {
+    await track("upsell_api_offered", {
       purchasedSkus: result.purchased.join(","),
       offeredSkus: result.upsell_lines.map((l) => l.reference).join(","),
       currency: result.currency,
