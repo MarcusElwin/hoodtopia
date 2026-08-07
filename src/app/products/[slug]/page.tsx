@@ -22,8 +22,11 @@ interface ProductDetailPageProps {
 
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = use(params);
-  const { data: product, isLoading, error } = trpc.products.bySlug.useQuery(slug);
-  const { formatPrice, currency, country } = useCurrency();
+  const { formatMoney, currency, country } = useCurrency();
+  const { data: product, isLoading, error } = trpc.products.bySlug.useQuery({
+    slug,
+    currency: currency.code,
+  });
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -130,6 +133,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         productId: product.id,
         variantId: selectedVariant.id,
         quantity,
+        currency: currency.code,
       },
       {
         onSuccess: () => {
@@ -284,7 +288,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 {product.name}
               </h1>
               <p className="text-2xl font-semibold mt-4">
-                {formatPrice(product.basePrice)}
+                {formatMoney(product.basePrice)}
               </p>
               {/* Payment + delivery logos sit inside hairline-bordered
                   trays with small-caps labels — frames the brand logos

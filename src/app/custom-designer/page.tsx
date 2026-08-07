@@ -11,9 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/lib/trpc";
 import { useCurrency } from "@/lib/currency";
 
-// Custom designs are a fixed price in USD cents; we run them through
-// formatPrice so the visible amount matches the active currency / locale.
-const CUSTOM_DESIGN_PRICE_CENTS = 10000;
+// Custom designs are a fixed $100; the region price (per the active currency)
+// comes from the customDesigns.getPrice query — the same FX the Medusa product
+// is created with — so the displayed price matches the cart.
 
 const AVAILABLE_COLORS = [
   { name: "Black", hex: "#000000" },
@@ -32,8 +32,11 @@ const HOODIE_TYPES = [
 ];
 
 export default function CustomDesignerPage() {
-  const { formatPrice } = useCurrency();
-  const priceLabel = formatPrice(CUSTOM_DESIGN_PRICE_CENTS);
+  const { formatMoney, currency } = useCurrency();
+  const { data: priceData } = trpc.customDesigns.getPrice.useQuery({
+    currency: currency.code,
+  });
+  const priceLabel = formatMoney(priceData?.amountCents ?? 0);
 
   const [inputType, setInputType] = useState<"text" | "image">("text");
   const [description, setDescription] = useState("");

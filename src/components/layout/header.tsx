@@ -9,11 +9,13 @@ import { HoodtopiaLogo } from "@/components/ui/logo";
 import { CurrencyPicker, CurrencyPickerCompact } from "@/components/ui/currency-picker";
 import { ProfileSelector } from "@/components/profiles/profile-selector";
 import { trpc } from "@/lib/trpc";
+import { useCurrency } from "@/lib/currency";
 import { useState } from "react";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { data: cart } = trpc.cart.get.useQuery();
+  const { currency } = useCurrency();
+  const { data: cart } = trpc.cart.get.useQuery({ currency: currency.code });
 
   const itemCount = cart?.itemCount || 0;
 

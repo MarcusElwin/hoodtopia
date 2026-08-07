@@ -17,7 +17,7 @@ interface AdaptiveProductCardProps {
 }
 
 export function AdaptiveProductCard({ product }: AdaptiveProductCardProps) {
-  const { formatPrice } = useCurrency();
+  const { formatMoney } = useCurrency();
   const { config } = useProfile();
   const [isHovered, setIsHovered] = useState(false);
 
@@ -112,7 +112,7 @@ export function AdaptiveProductCard({ product }: AdaptiveProductCardProps) {
           {/* Price - Position based on emphasis */}
           <div className={cn("flex items-baseline gap-2", priceEmphasis === "prominent" && "order-first")}>
             <span className={priceClass} style={{ color: primaryColor }}>
-              {formatPrice(product.basePrice)}
+              {formatMoney(product.basePrice)}
             </span>
             {priceEmphasis === "prominent" && (
               <span className="text-sm text-muted-foreground">

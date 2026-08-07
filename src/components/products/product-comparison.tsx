@@ -16,7 +16,7 @@ interface ProductComparisonProps {
 }
 
 export function ProductComparison({ products, onClose, aiInsight }: ProductComparisonProps) {
-  const { formatPrice } = useCurrency();
+  const { formatMoney } = useCurrency();
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   if (products.length === 0) return null;
@@ -43,7 +43,7 @@ export function ProductComparison({ products, onClose, aiInsight }: ProductCompa
     const prices = product.variants.map(() => product.basePrice);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`;
+    return min === max ? formatMoney(min) : `${formatMoney(min)} - ${formatMoney(max)}`;
   };
 
   // Get available colors for a product

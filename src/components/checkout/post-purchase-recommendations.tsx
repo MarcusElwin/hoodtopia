@@ -14,9 +14,12 @@ interface Props {
 }
 
 export function PostPurchaseRecommendations({ orderId }: Props) {
-  const { formatPrice } = useCurrency();
+  const { formatMoney, currency } = useCurrency();
   const { data, isLoading } =
-    trpc.checkout.getPostPurchaseRecommendations.useQuery({ orderId });
+    trpc.checkout.getPostPurchaseRecommendations.useQuery({
+      orderId,
+      currency: currency.code,
+    });
 
   const trackedKey = useRef<string | null>(null);
   useEffect(() => {
@@ -93,7 +96,7 @@ export function PostPurchaseRecommendations({ orderId }: Props) {
                   <div className="p-3 space-y-1">
                     <h3 className="font-medium text-sm line-clamp-1">{p.name}</h3>
                     <p className="text-sm font-semibold">
-                      {formatPrice(p.basePrice)}
+                      {formatMoney(p.basePrice)}
                     </p>
                     {r.reason ? (
                       <p className="text-xs text-muted-foreground line-clamp-2">

@@ -51,7 +51,12 @@ export interface CurrencyInfo {
   code: CurrencyCode;
   symbol: string;
   name: string;
-  // Exchange rate relative to USD (1 USD = X currency)
+  /**
+   * @deprecated Display no longer does client-side FX — prices come
+   * region-priced from Medusa and are formatted (not converted) by formatMoney.
+   * Kept only so the currency-switcher metadata stays complete; do NOT
+   * reintroduce `amount * rate` for display (that was the double-FX bug).
+   */
   rate: number;
   // Decimal places to show
   decimals: number;
@@ -106,8 +111,14 @@ interface CurrencyContextType {
   country: Country;
   currency: CurrencyInfo;
   setCountry: (countryCode: string) => void;
-  formatPrice: (priceInCents: number) => string;
-  convertPrice: (priceInCents: number) => number;
+  /**
+   * Format an amount that is ALREADY in the active display currency's minor
+   * units (e.g. 10800 → "108 kr" in SEK, 7359 → "€73.59" in EUR). No FX
+   * conversion — prices come region-priced from Medusa, so the storefront only
+   * formats them. This is the single source of truth: PDP, cards, cart, Kustom,
+   * and the Medusa order all show the same number.
+   */
+  formatMoney: (minorUnits: number) => string;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null);
@@ -142,19 +153,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const convertPrice = useCallback(
-    (priceInCents: number): number => {
-      // Price is stored in USD cents
-      const priceInUSD = priceInCents / 100;
-      return priceInUSD * currency.rate;
-    },
-    [currency.rate]
-  );
-
-  const formatPrice = useCallback(
-    (priceInCents: number): string => {
-      const converted = convertPrice(priceInCents);
-      const formatted = converted.toFixed(currency.decimals);
+  const formatMoney = useCallback(
+    (amountCents: number): string => {
+      // The amount is already in the active currency, expressed in cents under
+      // the adapters' uniform "major × 100" convention (Math.round(amount*100)),
+      // even for zero-decimal currencies like JPY/SEK — so we always divide by
+      // 100, then render with the currency's natural decimal count. No FX.
+      const major = amountCents / 100;
+      const formatted = major.toFixed(currency.decimals);
 
       // Format with thousands separator
       const parts = formatted.split(".");
@@ -167,7 +173,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         return `${number} ${currency.symbol}`;
       }
     },
-    [convertPrice, currency]
+    [currency]
   );
 
   return (
@@ -176,8 +182,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         country,
         currency,
         setCountry,
-        formatPrice,
-        convertPrice,
+        formatMoney,
       }}
     >
       {children}

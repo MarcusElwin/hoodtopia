@@ -14,6 +14,7 @@ import {
 import {
   createCustomDesignProduct,
   findCustomDesignVariant,
+  customDesignPriceMajor,
 } from "@/lib/commerce/custom-design";
 import { addLineItem } from "@/lib/commerce/medusa-cart";
 import { getOrCreateCartId, DEMO_SESSION_ID } from "@/lib/commerce/cart-session";
@@ -29,6 +30,19 @@ const imageGenProcedure = publicProcedure.use(
 );
 
 export const customDesignsRouter = router({
+  // Region-aware price for a custom design, in cents of the requested currency
+  // (the "major × 100" convention formatMoney expects). Same FX the Medusa
+  // product is created with, so the displayed price matches the cart.
+  getPrice: publicProcedure
+    .input(z.object({ currency: z.string().optional() }).optional())
+    .query(({ input }) => {
+      const major = customDesignPriceMajor(
+        CUSTOM_DESIGN_PRICE_MAJOR,
+        input?.currency ?? "usd"
+      );
+      return { amountCents: Math.round(major * 100) };
+    }),
+
   // Generate a new custom design
   generate: imageGenProcedure
     .input(CustomDesignInputSchema)

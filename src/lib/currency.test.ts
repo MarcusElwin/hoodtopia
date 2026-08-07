@@ -63,41 +63,45 @@ describe('Currency Configuration', () => {
     });
   });
 
-  describe('Currency conversion logic', () => {
-    // Test the conversion math that would be used in convertPrice
-    it('should convert USD cents to USD correctly', () => {
-      const priceInCents = 5999; // $59.99
-      const priceInUSD = priceInCents / 100;
-      const converted = priceInUSD * currencies.USD.rate;
-      expect(converted).toBe(59.99);
+  // formatMoney: prices arrive ALREADY in the active currency (Medusa region
+  // price), stored as "major × 100" by the adapters. formatMoney divides by 100
+  // and formats — NO FX. This mirrors the hook's implementation.
+  describe('formatMoney (no-FX display)', () => {
+    const formatMoney = (amountCents: number, code: CurrencyCode): string => {
+      const c = currencies[code];
+      const major = amountCents / 100;
+      const formatted = major.toFixed(c.decimals);
+      const parts = formatted.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      const number = parts.join('.');
+      return c.symbolBefore ? `${c.symbol}${number}` : `${number} ${c.symbol}`;
+    };
+
+    it('formats a region-priced USD amount', () => {
+      expect(formatMoney(999, 'USD')).toBe('$9.99'); // $9.99 sticker
     });
 
-    it('should convert USD cents to SEK correctly', () => {
-      const priceInCents = 5999; // $59.99
-      const priceInUSD = priceInCents / 100;
-      const converted = priceInUSD * currencies.SEK.rate;
-      expect(converted).toBeCloseTo(650.89, 1); // 59.99 * 10.85
+    it('formats SEK with no decimals, symbol after (no re-conversion)', () => {
+      // $9.99 sticker priced in SEK region = 108 -> stored 10800
+      expect(formatMoney(10800, 'SEK')).toBe('108 kr');
     });
 
-    it('should convert USD cents to JPY correctly', () => {
-      const priceInCents = 5999; // $59.99
-      const priceInUSD = priceInCents / 100;
-      const converted = priceInUSD * currencies.JPY.rate;
-      expect(converted).toBeCloseTo(8968.51, 1); // 59.99 * 149.50
+    it('formats JPY with no decimals (stored major × 100)', () => {
+      // ¥11,999 stored as 11999 * 100
+      expect(formatMoney(1199900, 'JPY')).toBe('¥11,999');
     });
 
-    it('should convert USD cents to GBP correctly', () => {
-      const priceInCents = 5999; // $59.99
-      const priceInUSD = priceInCents / 100;
-      const converted = priceInUSD * currencies.GBP.rate;
-      expect(converted).toBeCloseTo(47.39, 2); // 59.99 * 0.79
+    it('formats EUR with two decimals', () => {
+      expect(formatMoney(7359, 'EUR')).toBe('€73.59'); // €73.59
     });
 
-    it('should convert USD cents to EUR correctly', () => {
-      const priceInCents = 5999; // $59.99
-      const priceInUSD = priceInCents / 100;
-      const converted = priceInUSD * currencies.EUR.rate;
-      expect(converted).toBeCloseTo(55.19, 2); // 59.99 * 0.92
+    it('formats GBP with two decimals', () => {
+      expect(formatMoney(6319, 'GBP')).toBe('£63.19'); // £63.19
+    });
+
+    it('applies a thousands separator', () => {
+      expect(formatMoney(86400, 'SEK')).toBe('864 kr'); // hoodie in SEK
+      expect(formatMoney(123456, 'USD')).toBe('$1,234.56');
     });
   });
 

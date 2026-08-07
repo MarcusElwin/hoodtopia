@@ -49,11 +49,11 @@ function absolute(siteUrl: string, maybePath: string): string {
 }
 
 function formatPrice(amountCents: number, currency: string): string {
-  // JPY has no minor unit; everything else assumes 2 decimals (matches our
-  // basePrice convention of "minor units of the display currency").
-  const decimals = currency === "JPY" ? 0 : 2;
-  const divisor = currency === "JPY" ? 1 : 100;
-  return `${(amountCents / divisor).toFixed(decimals)} ${currency}`;
+  // The adapter stores every currency as "major × 100" (Math.round(amount*100)),
+  // even zero-decimal ones like JPY/SEK — so always divide by 100, and only vary
+  // the printed decimals. (Matches the storefront's formatMoney.)
+  const decimals = currency === "JPY" || currency === "SEK" ? 0 : 2;
+  return `${(amountCents / 100).toFixed(decimals)} ${currency}`;
 }
 
 export async function GET(
@@ -74,8 +74,12 @@ export async function GET(
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? url.origin).replace(/\/$/, "");
 
-  // Pull every catalog product + variants + per-variant extra images (Medusa).
-  const rows = await listProducts();
+  // Pull every catalog product + variants + per-variant extra images (Medusa),
+  // priced in the requested market's currency so <g:price> is the real region
+  // price (not the USD amount with a foreign label).
+  const rows = await listProducts({
+    currencyCode: market.purchase_currency.toLowerCase(),
+  });
 
   // Only hoodies in the feed for now — accessories priced/sized differently.
   const hoodies = rows.filter((p) => HOODIE_CATEGORIES.has(p.category));

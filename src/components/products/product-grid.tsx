@@ -5,6 +5,7 @@ import { AdaptiveProductCard } from "./adaptive-product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { useProfile } from "@/lib/shopper-profiles";
+import { useCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 interface ProductGridProps {
@@ -12,8 +13,10 @@ interface ProductGridProps {
 }
 
 export function ProductGrid({ category }: ProductGridProps) {
+  const { currency } = useCurrency();
   const { data: products, isLoading } = trpc.products.list.useQuery({
     category,
+    currency: currency.code,
   });
   const { config, isProfileActive } = useProfile();
 
