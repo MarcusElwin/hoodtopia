@@ -84,3 +84,32 @@ export function statusUpdate(params: {
     metadata: params.metadata,
   };
 }
+
+/**
+ * Task id to context id, for `cancelTask`.
+ *
+ * The SDK hands `cancelTask` only a task id, but a `TaskStatusUpdateEvent`
+ * carries a context id too — emitting an empty one produces an event no
+ * consumer can correlate. Executors record the pairing when they open a task.
+ */
+export class ContextIndex {
+  private readonly byTask = new Map<string, string>();
+
+  remember(taskId: string, contextId: string): void {
+    this.byTask.set(taskId, contextId);
+    // Bound the map: a long-lived process would otherwise keep every task id
+    // it has ever seen.
+    if (this.byTask.size > 1_000) {
+      const oldest = this.byTask.keys().next().value;
+      if (oldest !== undefined) this.byTask.delete(oldest);
+    }
+  }
+
+  contextFor(taskId: string): string {
+    return this.byTask.get(taskId) ?? "";
+  }
+
+  forget(taskId: string): void {
+    this.byTask.delete(taskId);
+  }
+}

@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         source: "/a2a/:agent/.well-known/agent-card.json",
         destination: "/a2a/:agent/card",
       },
+      // Public keys for verifying those cards.
+      {
+        source: "/.well-known/jwks.json",
+        destination: "/a2a/jwks",
+      },
     ];
   },
 

@@ -12,7 +12,7 @@ import { requestData, requestText, resolveSkill, type SkillRoute } from "../disp
 import { agentMessage, artifact, dataPart, firstData, textPart } from "../parts";
 import { formatMinor, priceCart, type RequestedLine } from "../pricing";
 import type { AgentDefinition } from "../runtime";
-import { newTask, statusUpdate } from "../status";
+import { ContextIndex, newTask, statusUpdate } from "../status";
 import {
   demoState,
   nextOrderId,
@@ -166,6 +166,7 @@ class CheckoutExecutor implements AgentExecutor {
         contextId: ctx.contextId,
         history: [ctx.userMessage],
       });
+    this.contexts.remember(task.id, task.contextId);
     bus.publish(AgentEvent.task(task));
 
     // A follow-up on a task that is waiting for confirmation is always an
@@ -213,11 +214,13 @@ class CheckoutExecutor implements AgentExecutor {
     }
   }
 
+  private readonly contexts = new ContextIndex();
+
   async cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
     bus.publish(
       AgentEvent.statusUpdate({
         taskId,
-        contextId: "",
+        contextId: this.contexts.contextFor(taskId),
         status: {
           state: TaskState.TASK_STATE_CANCELED,
           message: undefined,

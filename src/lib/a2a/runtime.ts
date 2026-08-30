@@ -3,11 +3,12 @@ import {
   DefaultPushNotificationSender,
   DefaultRequestHandler,
   InMemoryPushNotificationStore,
-  InMemoryTaskStore,
   JsonRpcTransportHandler,
   type AgentExecutor,
 } from "@a2a-js/sdk/server";
 import type { AgentId } from "./registry";
+import { cardSigner } from "./signing";
+import { BoundedTaskStore } from "./task-store";
 
 /**
  * Per-agent A2A server runtime.
@@ -30,13 +31,14 @@ export interface AgentDefinition {
 
 export interface AgentRuntime {
   id: AgentId;
+  /** The unsigned card. Use `requestHandler.getAgentCard()` for the signed one. */
   card: AgentCard;
   requestHandler: DefaultRequestHandler;
   jsonRpc: JsonRpcTransportHandler;
 }
 
 interface AgentStores {
-  tasks: InMemoryTaskStore;
+  tasks: BoundedTaskStore;
   push?: InMemoryPushNotificationStore;
 }
 
@@ -62,7 +64,7 @@ function storesFor(def: AgentDefinition): AgentStores {
   const existing = stores.get(def.id);
   if (existing) return existing;
   const created: AgentStores = {
-    tasks: new InMemoryTaskStore(),
+    tasks: new BoundedTaskStore(),
     push: def.pushNotifications ? new InMemoryPushNotificationStore() : undefined,
   };
   stores.set(def.id, created);
@@ -70,14 +72,16 @@ function storesFor(def: AgentDefinition): AgentStores {
 }
 
 /** Module-scoped, so it is rebuilt whenever this module is re-evaluated. */
-const runtimes = new Map<AgentId, AgentRuntime>();
+const runtimes = new Map<AgentId, Promise<AgentRuntime>>();
 
-export function getOrCreateRuntime(def: AgentDefinition): AgentRuntime {
-  const existing = runtimes.get(def.id);
-  if (existing) return existing;
-
+async function buildRuntime(def: AgentDefinition): Promise<AgentRuntime> {
   const { tasks, push } = storesFor(def);
   const pushSender = push ? new DefaultPushNotificationSender(push) : undefined;
+
+  // Building the signer needs a key, which is async, so the runtime is async
+  // too. `getAgentCard()` then returns a signed card without every caller
+  // having to know that signing happened.
+  const signer = await cardSigner();
 
   const requestHandler = new DefaultRequestHandler(
     def.card,
@@ -85,15 +89,24 @@ export function getOrCreateRuntime(def: AgentDefinition): AgentRuntime {
     def.executor,
     undefined,
     push,
-    pushSender
+    pushSender,
+    undefined,
+    signer
   );
 
-  const runtime: AgentRuntime = {
+  return {
     id: def.id,
     card: def.card,
     requestHandler,
     jsonRpc: new JsonRpcTransportHandler(requestHandler),
   };
-  runtimes.set(def.id, runtime);
-  return runtime;
+}
+
+export function getOrCreateRuntime(def: AgentDefinition): Promise<AgentRuntime> {
+  let existing = runtimes.get(def.id);
+  if (!existing) {
+    existing = buildRuntime(def);
+    runtimes.set(def.id, existing);
+  }
+  return existing;
 }

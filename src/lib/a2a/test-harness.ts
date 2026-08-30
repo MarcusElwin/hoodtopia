@@ -3,6 +3,7 @@ import { runtimeFor } from "./agents";
 import { isAgentId } from "./registry";
 import { resetClients } from "./client";
 import { resetDemoState } from "./fixtures/store";
+import { JWKS_PATH, publicJwks } from "./signing";
 
 /**
  * Routes the mesh's own HTTP calls into the in-process agent runtimes.
@@ -31,15 +32,21 @@ async function dispatch(input: RequestInfo | URL, init?: RequestInit) {
         ? input.toString()
         : input.url;
 
+  // Public keys, so card verification resolves the same way it does over HTTP.
+  if (new URL(url).pathname === JWKS_PATH) {
+    return Response.json(await publicJwks());
+  }
+
   const agent = agentFromUrl(url);
   if (!agent || !isAgentId(agent)) {
     return new Response("Not found", { status: 404 });
   }
 
-  const runtime = runtimeFor(agent);
+  const runtime = await runtimeFor(agent);
 
   if (new URL(url).pathname.endsWith("/agent-card.json")) {
-    return Response.json(runtime.card);
+    // Signed, exactly as the route handler serves it.
+    return Response.json(await runtime.requestHandler.getAgentCard());
   }
 
   const body = JSON.parse(String(init?.body ?? "{}"));

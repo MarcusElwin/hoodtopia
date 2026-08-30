@@ -7,11 +7,12 @@ import {
   TaskArtifactUpdateEvent,
   TaskStatusUpdateEvent,
 } from "@a2a-js/sdk";
-import { Client, ClientFactory } from "@a2a-js/sdk/client";
+import { AgentCardResolver, Client, ClientFactory } from "@a2a-js/sdk/client";
 import { agentCardUrl, CALLER_KEY, SKILL_KEY, type AgentId } from "./registry";
 import { dataPart, partsToText, textPart, userMessage } from "./parts";
 import { stateSlug } from "./status";
 import { traceBus } from "./trace";
+import { verifyCard, type VerificationResult } from "./signing";
 
 /**
  * The client side of the mesh.
@@ -24,17 +25,77 @@ import { traceBus } from "./trace";
  */
 
 const clients = new Map<AgentId, Promise<Client>>();
+const verifications = new Map<AgentId, VerificationResult>();
 
-function clientFor(id: AgentId): Promise<Client> {
+/**
+ * Discovers an agent and verifies its card before using it.
+ *
+ * The card is fetched and checked first, and only then handed to the client
+ * factory. That ordering is the whole point: a card is a claim about who an
+ * agent is, and checking it after you have already transacted is theatre.
+ *
+ * A card that fails verification is refused outright. An *unsigned* card is
+ * allowed through with the outcome recorded, because refusing those would make
+ * the mesh unable to talk to any agent that has not adopted v1.0 signing yet —
+ * a real deployment would decide that per counterparty rather than globally.
+ */
+async function discover(
+  id: AgentId,
+  contextId: string,
+  by: string
+): Promise<Client> {
+  const cardUrl = agentCardUrl(id);
+  // The card URL is passed whole with an empty relative path: the agents are
+  // namespaced under /a2a/<id>/, so the default per-origin well-known lookup
+  // would resolve to the wrong place.
+  const card = await AgentCardResolver.default.resolve(cardUrl, "");
+
+  const verification = await verifyCard(card, cardUrl);
+  verifications.set(id, verification);
+
+  traceBus.record({
+    contextId,
+    kind: verification.status === "invalid" ? "error" : "status",
+    // Whoever needed the card first is the one who verified it — often the
+    // checkout agent rather than the buyer.
+    from: by,
+    to: id,
+    method: "GetAgentCard",
+    state: verification.status,
+    summary:
+      verification.status === "verified"
+        ? `Card signature verified (kid ${verification.kid ?? "unknown"}).`
+        : verification.status === "unsigned"
+          ? "Card is unsigned — proceeding, but nothing vouches for it."
+          : `Card signature INVALID: ${verification.detail}`,
+    detail: { cardUrl, ...verification },
+  });
+
+  if (verification.status === "invalid") {
+    throw new Error(
+      `Refusing to talk to ${id}: its agent card failed signature verification (${verification.detail}).`
+    );
+  }
+
+  return new ClientFactory().createFromAgentCard(card);
+}
+
+function clientFor(
+  id: AgentId,
+  contextId: string,
+  by: string
+): Promise<Client> {
   let existing = clients.get(id);
   if (!existing) {
-    // The card URL is passed whole with an empty relative path: the agents are
-    // namespaced under /a2a/<id>/, so the default per-origin well-known lookup
-    // would resolve to the wrong place.
-    existing = new ClientFactory().createFromUrl(agentCardUrl(id), "");
+    existing = discover(id, contextId, by);
     clients.set(id, existing);
   }
   return existing;
+}
+
+/** Verification outcome per agent, for the demo page. */
+export function verificationResults(): Record<string, VerificationResult> {
+  return Object.fromEntries(verifications);
 }
 
 export interface CallInit {
@@ -118,7 +179,7 @@ export async function callAgent(init: CallInit): Promise<Message | Task> {
   });
 
   try {
-    const client = await clientFor(init.to);
+    const client = await clientFor(init.to, contextId, init.from);
     const result = await client.sendMessage(request);
 
     traceBus.record({
@@ -179,7 +240,7 @@ export async function* streamAgent(
     detail: wire(SendMessageRequest, request),
   });
 
-  const client = await clientFor(init.to);
+  const client = await clientFor(init.to, contextId, init.from);
 
   for await (const frame of client.sendMessageStream(request)) {
     const payload = frame.payload;
@@ -216,12 +277,13 @@ export async function* streamAgent(
 }
 
 /** Fetches an agent's card — what a stranger sees before deciding to transact. */
-export async function fetchAgentCard(id: AgentId) {
-  const client = await clientFor(id);
+export async function fetchAgentCard(id: AgentId, contextId = "discovery") {
+  const client = await clientFor(id, contextId, "shopper");
   return client.getAgentCard();
 }
 
 /** Clears cached clients. Used by tests, and after an origin change in dev. */
 export function resetClients(): void {
   clients.clear();
+  verifications.clear();
 }

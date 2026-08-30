@@ -1,4 +1,5 @@
 import type { AgentCard } from "@a2a-js/sdk";
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AGENT_ACCENT, type AgentKey } from "./accents";
 
@@ -6,6 +7,21 @@ interface GalleryAgent {
   id: AgentKey;
   cardUrl: string;
   card: AgentCard;
+}
+
+/** Key id from a JWS protected header, for display. */
+function signingKid(card: AgentCard): string | undefined {
+  const header = card.signatures[0]?.protected;
+  if (!header) return undefined;
+  try {
+    return (
+      JSON.parse(atob(header.replace(/-/g, "+").replace(/_/g, "/"))) as {
+        kid?: string;
+      }
+    ).kid;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -18,6 +34,7 @@ export function AgentGallery({ agents }: { agents: GalleryAgent[] }) {
     <div className="grid gap-4 md:grid-cols-3">
       {agents.map(({ id, card, cardUrl }) => {
         const accent = AGENT_ACCENT[id];
+        const kid = signingKid(card);
         return (
           <div
             key={id}
@@ -47,6 +64,23 @@ export function AgentGallery({ agents }: { agents: GalleryAgent[] }) {
               {card.capabilities?.pushNotifications && (
                 <Badge variant="secondary" className="text-[10px]">
                   push notifications
+                </Badge>
+              )}
+              {kid ? (
+                <Badge
+                  variant="outline"
+                  className="border-emerald-500/40 text-[10px] text-emerald-300"
+                  title={`Signed with key ${kid}`}
+                >
+                  <ShieldCheck className="h-3 w-3" /> signed
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/40 text-[10px] text-amber-300"
+                  title="This card carries no signature"
+                >
+                  <ShieldAlert className="h-3 w-3" /> unsigned
                 </Badge>
               )}
             </div>

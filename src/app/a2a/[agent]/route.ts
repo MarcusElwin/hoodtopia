@@ -18,5 +18,5 @@ export async function POST(
   if (!isAgentId(agent)) {
     return Response.json({ error: `Unknown agent: ${agent}` }, { status: 404 });
   }
-  return handleJsonRpc(runtimeFor(agent), request);
+  return handleJsonRpc(await runtimeFor(agent), request);
 }

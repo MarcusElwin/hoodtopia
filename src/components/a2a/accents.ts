@@ -48,4 +48,8 @@ export const STATE_STYLE: Record<string, string> = {
   failed: "border-red-500/50 text-red-300",
   rejected: "border-red-500/50 text-red-300",
   canceled: "border-slate-500/40 text-slate-400",
+  // Agent card verification outcomes.
+  verified: "border-emerald-500/40 text-emerald-300",
+  unsigned: "border-amber-500/50 text-amber-300",
+  invalid: "border-red-500/50 text-red-300",
 };

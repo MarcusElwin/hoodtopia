@@ -18,5 +18,5 @@ export async function GET(
   if (!isAgentId(agent)) {
     return Response.json({ error: `Unknown agent: ${agent}` }, { status: 404 });
   }
-  return agentCardResponse(runtimeFor(agent));
+  return agentCardResponse(await runtimeFor(agent));
 }

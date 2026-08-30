@@ -39,7 +39,8 @@ Shopper agent (buyer side)
 
 | URL | What |
 | --- | --- |
-| `GET /a2a/<agent>/.well-known/agent-card.json` | Agent card |
+| `GET /a2a/<agent>/.well-known/agent-card.json` | Agent card (JWS-signed) |
+| `GET /.well-known/jwks.json` | Public keys for verifying those cards |
 | `POST /a2a/<agent>` | JSON-RPC (`SendMessage`, `SendStreamingMessage`, `GetTask`, …) |
 | `GET /api/a2a/cards` | All three cards, for the demo page |
 | `POST /api/a2a/scenario` | Starts a scripted lifecycle, returns its `contextId` |
@@ -62,6 +63,7 @@ Router will not route a path segment beginning with a dot, so it maps onto
 | A2A feature | Where |
 | --- | --- |
 | Agent cards, skills, capabilities | three cards, rendered live on `/agents` |
+| Signed cards (JWS, v1.0) | every card is signed; the client verifies before it transacts |
 | `input-required` | checkout will not place an order without confirmation; claims asks for a photo |
 | Long-running tasks | `track_shipment` stays `working` across every carrier scan |
 | Streaming (`SendStreamingMessage`) | the tracking stream, and the demo timeline |
@@ -89,10 +91,60 @@ No database, no Medusa backend and no API keys are needed: the mesh defaults to
 | `A2A_DEMO_MODE` | `fixtures` | `live` prices against Medusa and classifies claims with a model |
 | `A2A_PUBLIC_ORIGIN` | `NEXT_PUBLIC_SITE_URL`, else `http://localhost:$PORT` | Absolute origin the cards advertise |
 | `A2A_PARCEL_TICK_MS` | `1500` | How fast the scripted parcel moves |
+| `A2A_SIGNING` | on | Set to `off` to serve unsigned cards |
+| `A2A_SIGNING_JWK` | unset | Private JWK (JSON) to sign with. Unset generates an ephemeral ES256 key per process |
 
 The advertised origin matters: A2A cards must carry absolute URLs, and the
 agents reach each other through them. If it is wrong, agent-to-agent calls go
 to the wrong host.
+
+## Card signing and verification
+
+Every card is signed with JWS over a JCS-canonicalised body, per A2A v1.0 §8.4,
+and the public half is published at `/.well-known/jwks.json`.
+
+The client verifies **before** it transacts (`discover()` in
+`src/lib/a2a/client.ts`). That ordering is the point: a card is a claim about
+who an agent is, and checking it after you have already sent an order is
+theatre. A card that fails verification is refused outright; an *unsigned* card
+is allowed through with the outcome recorded, because refusing those globally
+would leave the mesh unable to talk to any agent that has not adopted v1.0
+signing yet. A real deployment decides that per counterparty.
+
+Keys are resolved from **the origin the card was fetched from**, never from the
+signature's own `jku` header. A card that names its own key location proves
+nothing — anyone who can serve you a card can serve you a matching key. The
+only thing worth trusting is the origin you already chose to talk to.
+
+By default the key is an ephemeral ES256 keypair generated at boot, so the demo
+signs with zero configuration. Set `A2A_SIGNING_JWK` to a private JWK to pin a
+long-lived key; only its public parameters are ever published.
+
+`src/lib/a2a/signing.test.ts` covers the round trip plus the cases that matter:
+a tampered endpoint URL, a replaced signature, an unsigned card, and a client
+refusing to transact when the origin publishes no matching key.
+
+## Hardening
+
+The A2A surface is public and unauthenticated by design, so:
+
+- **Rate limits.** `/a2a/*` and the scenario runner are limited per IP via the
+  same `src/lib/rate-limit.ts` the tRPC layer uses. The client address is taken
+  from `x-real-ip`, else the *rightmost* `x-forwarded-for` entry — the leftmost
+  is client-supplied and trivially spoofed.
+- **Bounded task storage.** `BoundedTaskStore` (`src/lib/a2a/task-store.ts`)
+  replaces the SDK's `InMemoryTaskStore`, which never evicts. Eviction is
+  least-recently-written, so a task still being worked on is never dropped out
+  from under its own executor.
+- **Bounded demo records.** Orders, shipments and claims are capped. Nothing
+  resets shared state between visitors any more — a global reset let one
+  visitor delete another's order mid-run.
+- **Guarded model input.** A claim narrative is attacker-controlled text from
+  outside the trust boundary, so it goes through `runInputGuardrails` (length
+  cap, injection detection, moderation, safety logging) before it can reach a
+  prompt. Flagged text falls back to keyword classification rather than failing
+  the claim. The policy table already stops a claim from *talking* its way to a
+  refund; the guardrails stop it reaching the model at all.
 
 ## Design notes, and where the demo is not production
 
@@ -136,6 +188,7 @@ src/lib/a2a/
   agents/            checkout.ts, shipping.ts, disputes.ts — the executors
   fixtures/          catalogue and demo state (orders, shipments, claims)
   cards.ts           agent card construction
+  signing.ts         JWS card signing, JWKS, and verification
   claims-policy.ts   the decision table, pure and unit-tested
   client.ts          A2A client used by the shopper AND by agent-to-agent calls
   dispatch.ts        skill selection
@@ -145,6 +198,7 @@ src/lib/a2a/
   runtime.ts         per-agent DefaultRequestHandler + JsonRpcTransportHandler
   scenario.ts        the scripted shopper agent
   status.ts          task lifecycle helpers
+  task-store.ts      bounded TaskStore
   trace.ts           demo-only trace bus
 ```
 

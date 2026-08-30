@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { runScenario, SCENARIOS, type ScenarioId } from "@/lib/a2a/scenario";
-import { resetDemoState } from "@/lib/a2a/fixtures/store";
+import { rateLimit } from "@/lib/a2a/http";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,12 @@ const IDS = new Set(SCENARIOS.map((s) => s.id));
  * longer than a request should, and the UI watches the trace stream instead.
  */
 export async function POST(request: Request): Promise<Response> {
-  let body: { scenario?: string; reset?: boolean };
+  // Each run drives ~30 agent calls, so the scenario runner gets a much
+  // tighter limit than the A2A endpoints themselves.
+  const limited = rateLimit(request, "scenario");
+  if (limited) return limited;
+
+  let body: { scenario?: string };
   try {
     body = await request.json();
   } catch {
@@ -27,8 +32,6 @@ export async function POST(request: Request): Promise<Response> {
       { status: 400 }
     );
   }
-
-  if (body.reset) resetDemoState();
 
   const contextId = randomUUID();
   void runScenario(scenario as ScenarioId, contextId).catch(() => {

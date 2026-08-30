@@ -20,7 +20,7 @@ import {
 } from "../parts";
 import { formatMinor } from "../pricing";
 import type { AgentDefinition } from "../runtime";
-import { newTask, statusUpdate } from "../status";
+import { ContextIndex, newTask, statusUpdate } from "../status";
 import {
   adjudicate,
   classifyClaim,
@@ -123,9 +123,26 @@ function claimFrom(task: Task | undefined): DemoClaim | undefined {
  * Classifies the buyer's narrative. In `live` mode a model reads it; otherwise
  * keywords do. Either way the *decision* stays with the policy table — the
  * model never gets a vote on whether money moves.
+ *
+ * A claim narrative is attacker-controlled text arriving from outside the
+ * merchant's trust boundary, so it goes through the same input guardrails as
+ * every other model call in this app (length cap, injection detection,
+ * moderation, safety logging) before it reaches a prompt. The policy table
+ * already stops a claim from *talking* its way to a refund; the guardrails
+ * stop it reaching the model at all. Anything flagged falls back to keyword
+ * classification rather than failing the claim — a buyer whose wording trips a
+ * filter still deserves an answer.
  */
-async function classify(text: string): Promise<ClaimType> {
+async function classify(text: string, claimId: string): Promise<ClaimType> {
   if (!isLive() || !process.env.OPENAI_API_KEY) return classifyClaim(text);
+
+  const { runInputGuardrails } = await import("@/lib/ai/guardrails");
+  const guard = await runInputGuardrails({
+    sessionId: `a2a-claim:${claimId}`,
+    userMessage: text,
+  });
+  if (!guard.allowed) return classifyClaim(text);
+
   try {
     const { ChatOpenAI } = await import("@langchain/openai");
     const { z } = await import("zod");
@@ -144,7 +161,7 @@ async function classify(text: string): Promise<ClaimType> {
           content:
             "Classify a retail claim into exactly one category. Answer only with the category.",
         },
-        { role: "user", content: text },
+        { role: "user", content: guard.userMessage },
       ]);
     return result.type;
   } catch {
@@ -161,6 +178,7 @@ class DisputesExecutor implements AgentExecutor {
         contextId: ctx.contextId,
         history: [ctx.userMessage],
       });
+    this.contexts.remember(task.id, task.contextId);
     bus.publish(AgentEvent.task(task));
 
     try {
@@ -199,11 +217,13 @@ class DisputesExecutor implements AgentExecutor {
     }
   }
 
+  private readonly contexts = new ContextIndex();
+
   async cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
     bus.publish(
       AgentEvent.statusUpdate({
         taskId,
-        contextId: "",
+        contextId: this.contexts.contextFor(taskId),
         status: {
           state: TaskState.TASK_STATE_CANCELED,
           message: undefined,
@@ -288,7 +308,7 @@ class DisputesExecutor implements AgentExecutor {
     };
     demoState.claims.set(claim.id, claim);
 
-    const type = await classify(reason);
+    const type = await classify(reason, claim.id);
 
     // A photo is only worth asking for when it can change the outcome.
     if (type === "damaged" && claim.evidence.length === 0) {
@@ -346,7 +366,7 @@ class DisputesExecutor implements AgentExecutor {
       }))
     );
 
-    await this.decide(bus, task, claim, await classify(claim.reason));
+    await this.decide(bus, task, claim, await classify(claim.reason, claim.id));
   }
 
   /**

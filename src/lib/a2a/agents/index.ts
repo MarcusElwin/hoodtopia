@@ -10,7 +10,7 @@ const DEFINITIONS = {
   disputes: disputesAgent,
 } as const;
 
-export function runtimeFor(id: AgentId): AgentRuntime {
+export function runtimeFor(id: AgentId): Promise<AgentRuntime> {
   return getOrCreateRuntime(DEFINITIONS[id]);
 }
 

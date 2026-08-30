@@ -15,7 +15,7 @@ import { parcelTickMs } from "../config";
 import { requestData, resolveSkill, type SkillRoute } from "../dispatch";
 import { agentMessage, artifact, dataPart, textPart } from "../parts";
 import type { AgentDefinition } from "../runtime";
-import { newTask, statusUpdate } from "../status";
+import { ContextIndex, newTask, statusUpdate } from "../status";
 import {
   demoState,
   DELIVERY_NOTE,
@@ -39,6 +39,9 @@ import {
  * The interesting part is `track_shipment`: a task that stays `working` for the
  * life of a delivery. A tool call cannot model that. An A2A task can.
  */
+
+/** How long a cancel flag stays readable by a running tracking loop. */
+const CANCEL_FLAG_TTL_MS = 60_000;
 
 const ROUTES: SkillRoute[] = [
   { id: "quote_shipping", keywords: ["quote", "rate", "options", "how much", "delivery cost"] },
@@ -179,6 +182,7 @@ class ShippingExecutor implements AgentExecutor {
         contextId: ctx.contextId,
         history: [ctx.userMessage],
       });
+    this.contexts.remember(task.id, task.contextId);
     bus.publish(AgentEvent.task(task));
 
     const chosen = resolveSkill(ctx, ROUTES, "quote_shipping");
@@ -216,14 +220,21 @@ class ShippingExecutor implements AgentExecutor {
     }
   }
 
+  private readonly contexts = new ContextIndex();
+
   async cancelTask(taskId: string, bus: ExecutionEventBus): Promise<void> {
     // Tracking loops check this between scans so a cancel takes effect at the
     // next tick rather than being ignored for the life of the delivery.
     this.canceled.add(taskId);
+    // Only the tracking loop consumes this flag, and only if it is still
+    // running. Drop it on a timer so a cancel for any other skill — or for a
+    // tracking task that already finished — cannot accumulate.
+    setTimeout(() => this.canceled.delete(taskId), CANCEL_FLAG_TTL_MS).unref?.();
+    this.contexts.forget(taskId);
     bus.publish(
       AgentEvent.statusUpdate({
         taskId,
-        contextId: "",
+        contextId: this.contexts.contextFor(taskId),
         status: {
           state: TaskState.TASK_STATE_CANCELED,
           message: undefined,

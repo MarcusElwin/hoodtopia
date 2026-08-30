@@ -136,11 +136,31 @@ if (!globalForState.__hoodtopiaA2AState) {
   globalForState.__hoodtopiaA2AState = demoState;
 }
 
+/**
+ * Caps on the demo's own records.
+ *
+ * Nothing resets this state between visitors any more — a shared reset let one
+ * visitor delete another's order mid-run. Records are keyed by unique ids so
+ * they coexist safely; they just need a ceiling, oldest evicted first.
+ */
+const MAX_RECORDS = 200;
+
+function evict(map: Map<string, unknown>): void {
+  while (map.size > MAX_RECORDS) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
+
 export function nextOrderId(): string {
+  evict(demoState.orders);
+  evict(demoState.shipments);
   return `HT-${10_000 + ++demoState.counters.order}`;
 }
 
 export function nextClaimId(): string {
+  evict(demoState.claims);
   return `CLM-${2_000 + ++demoState.counters.claim}`;
 }
 

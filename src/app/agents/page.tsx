@@ -17,12 +17,18 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function AgentsPage() {
-  const agents = AGENT_IDS.map((id) => ({
-    id: id as AgentKey,
-    cardUrl: agentCardUrl(id),
-    card: runtimeFor(id).card,
-  }));
+export default async function AgentsPage() {
+  const agents = await Promise.all(
+    AGENT_IDS.map(async (id) => {
+      const runtime = await runtimeFor(id);
+      return {
+        id: id as AgentKey,
+        cardUrl: agentCardUrl(id),
+        // The signed card, so the page shows what a client would verify.
+        card: await runtime.requestHandler.getAgentCard(),
+      };
+    })
+  );
 
   return (
     <div className="min-h-screen">
