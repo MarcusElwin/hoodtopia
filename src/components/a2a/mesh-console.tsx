@@ -5,24 +5,9 @@ import { ChevronRight, Loader2, Play, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SCENARIO_COMPLETE } from "@/lib/a2a/markers";
+import type { TraceEvent } from "@/lib/a2a/trace";
 import { accentFor, STATE_STYLE } from "./accents";
 import { ChatPanel } from "./chat-panel";
-
-interface TraceEvent {
-  seq: number;
-  ts: string;
-  contextId: string;
-  taskId?: string;
-  kind: "request" | "response" | "status" | "artifact" | "error";
-  from: string;
-  to: string;
-  method?: string;
-  skill?: string;
-  state?: string;
-  summary: string;
-  detail?: unknown;
-  latencyMs?: number;
-}
 
 interface Scenario {
   id: string;
@@ -117,12 +102,24 @@ function TraceRow({ event }: { event: TraceEvent }) {
   );
 }
 
+/** Newest last, and stable when two hops share a millisecond. */
+function ordered(events: TraceEvent[]): TraceEvent[] {
+  return [...events].sort((a, b) =>
+    a.ts === b.ts ? a.id.localeCompare(b.id) : a.ts < b.ts ? -1 : 1
+  );
+}
+
 /**
  * Drives a scenario and renders every hop the mesh makes.
  *
- * The timeline is fed by an SSE stream of the server's trace bus, so what you
- * see is the actual sequence of A2A calls — including the ones the agents make
- * to each other, which no single participant could show you.
+ * What you see is the actual sequence of A2A calls — including the ones the
+ * agents make to each other, which no single participant could show you.
+ *
+ * The two sources feeding it look different for a reason. A scenario streams,
+ * because it runs for a minute and you want to watch it; a chat turn returns
+ * its hops with the reply, because the turn is over by then and asking a
+ * serverless platform to hold a second connection open on the same instance is
+ * asking for something it does not promise.
  */
 export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
   const [events, setEvents] = useState<TraceEvent[]>([]);
@@ -139,60 +136,61 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [events.length]);
 
-  /** Points the timeline at a context, whoever created it. */
-  const watch = useCallback((contextId: string) => {
-    sourceRef.current?.close();
-    const source = new EventSource(
-      `/api/a2a/trace?contextId=${encodeURIComponent(contextId)}`
-    );
-    sourceRef.current = source;
-
-    source.onmessage = (message) => {
-      const event = JSON.parse(message.data) as TraceEvent;
-      if (event.summary === SCENARIO_COMPLETE) {
-        setRunning(undefined);
-        source.close();
-        return;
-      }
-      setEvents((prev) =>
-        prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]
-      );
-    };
-    source.onerror = () => {
-      source.close();
-      setRunning(undefined);
-    };
+  const add = useCallback((incoming: TraceEvent[]) => {
+    if (incoming.length === 0) return;
+    setEvents((prev) => {
+      const known = new Set(prev.map((e) => e.id));
+      const fresh = incoming.filter((e) => !known.has(e.id));
+      return fresh.length === 0 ? prev : ordered([...prev, ...fresh]);
+    });
   }, []);
 
-  const startChat = useCallback(
-    (contextId: string) => {
-      setEvents([]);
+  /** Hops a chat turn caused, handed back with the agent's reply. */
+  const onChatEvents = useCallback(
+    (incoming: TraceEvent[]) => {
       setError(undefined);
-      watch(contextId);
+      add(incoming);
     },
-    [watch]
+    [add]
   );
 
-  const start = useCallback(async (scenario: string) => {
-    sourceRef.current?.close();
-    setEvents([]);
-    setError(undefined);
-    setRunning(scenario);
+  const start = useCallback(
+    (scenario: string) => {
+      sourceRef.current?.close();
+      setEvents([]);
+      setError(undefined);
+      setRunning(scenario);
 
-    try {
-      const response = await fetch("/api/a2a/scenario", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenario, reset: true }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const { contextId } = (await response.json()) as { contextId: string };
-      watch(contextId);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to start");
-      setRunning(undefined);
-    }
-  }, [watch]);
+      // The GET both runs the lifecycle and streams it; there is no separate
+      // "start it" call to fail independently of the stream.
+      const source = new EventSource(
+        `/api/a2a/scenario?scenario=${encodeURIComponent(scenario)}`
+      );
+      sourceRef.current = source;
+
+      source.onmessage = (message) => {
+        const event = JSON.parse(message.data) as TraceEvent;
+        if (event.summary === SCENARIO_COMPLETE) {
+          setRunning(undefined);
+          source.close();
+          return;
+        }
+        add([event]);
+      };
+      source.onerror = () => {
+        source.close();
+        setRunning((current) => {
+          if (current) {
+            setError(
+              "The scenario stream ended early. Run it again, or check the server logs."
+            );
+          }
+          return undefined;
+        });
+      };
+    },
+    [add]
+  );
 
   const reset = useCallback(() => {
     sourceRef.current?.close();
@@ -204,7 +202,7 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
 
   return (
     <div className="space-y-4">
-      <ChatPanel onContext={startChat} />
+      <ChatPanel onEvents={onChatEvents} />
 
       <div>
         <h3 className="mb-1 text-sm font-semibold">Or run a scripted lifecycle</h3>

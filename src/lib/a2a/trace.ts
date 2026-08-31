@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 /**
  * In-memory trace bus for the demo UI.
  *
@@ -19,6 +21,14 @@ export type TraceKind =
   | "error";
 
 export interface TraceEvent {
+  /**
+   * Globally unique across instances: an instance-scoped prefix plus a local
+   * sequence. Serverless runs the mesh on more than one process, so events
+   * forwarded from a peer arrive with their own numbering — deduplicating on a
+   * bare counter would silently drop a real hop whose number happened to
+   * collide with one already on the timeline.
+   */
+  id: string;
   seq: number;
   ts: string;
   contextId: string;
@@ -54,14 +64,41 @@ class TraceBus {
   private readonly logs = new Map<string, ContextLog>();
   private readonly listeners = new Map<string, Set<Listener>>();
   private seq = 0;
+  /** Distinguishes this process's events from a peer instance's. */
+  private readonly instance = randomUUID().slice(0, 8);
 
-  record(event: Omit<TraceEvent, "seq" | "ts">): TraceEvent {
-    const full: TraceEvent = {
+  record(event: Omit<TraceEvent, "id" | "seq" | "ts">): TraceEvent {
+    const seq = ++this.seq;
+    return this.append({
       ...event,
-      seq: ++this.seq,
+      seq,
+      id: `${this.instance}-${seq}`,
       ts: new Date().toISOString(),
-    };
+    });
+  }
 
+  /**
+   * Adopts events another instance recorded, keeping their identity and
+   * timestamps. When the checkout agent calls the shipping agent, that hop is
+   * traced by whichever process ran the checkout agent — which on a serverless
+   * platform is not the process the browser is streaming from. The callee
+   * hands its slice back with the response and it is merged here, so the
+   * timeline shows the whole mesh however the platform spread it out.
+   *
+   * Returns the events that were new; already-seen ones are dropped, which is
+   * what makes this safe when everything happens to run in one process.
+   */
+  merge(events: TraceEvent[]): TraceEvent[] {
+    const added: TraceEvent[] = [];
+    for (const event of events) {
+      const known = this.logs.get(event.contextId)?.events;
+      if (known?.some((e) => e.id === event.id)) continue;
+      added.push(this.append(event));
+    }
+    return added;
+  }
+
+  private append(event: TraceEvent): TraceEvent {
     let log = this.logs.get(event.contextId);
     if (!log) {
       log = { events: [], touchedAt: Date.now() };
@@ -69,17 +106,20 @@ class TraceBus {
       this.evictOldContexts();
     }
     log.touchedAt = Date.now();
-    log.events.push(full);
+    log.events.push(event);
+    // Merged peer events carry the timestamp of when they really happened, so
+    // the log is sorted rather than assumed to be append-ordered.
+    log.events.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
     if (log.events.length > MAX_EVENTS_PER_CONTEXT) log.events.shift();
 
     for (const listener of this.listeners.get(event.contextId) ?? []) {
       try {
-        listener(full);
+        listener(event);
       } catch {
         // A failing UI subscriber must not break the agent doing the work.
       }
     }
-    return full;
+    return event;
   }
 
   history(contextId: string): TraceEvent[] {

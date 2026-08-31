@@ -44,9 +44,8 @@ Shopper agent (buyer side)
 | `GET /.well-known/jwks.json` | The same keys at the conventional path |
 | `POST /a2a/<agent>` | JSON-RPC (`SendMessage`, `SendStreamingMessage`, `GetTask`, …) |
 | `GET /api/a2a/cards` | All three cards, for the demo page |
-| `POST /api/a2a/scenario` | Starts a scripted lifecycle, returns its `contextId` |
-| `POST /api/a2a/chat` | One conversational turn against one named agent |
-| `GET /api/a2a/trace?contextId=…` | SSE stream of every hop in that run |
+| `GET /api/a2a/scenario?scenario=…` | Runs a scripted lifecycle and streams every hop as SSE |
+| `POST /api/a2a/chat` | One conversational turn, answering with the hops it caused |
 
 `<agent>` is `checkout`, `shipping` or `disputes`.
 
@@ -103,7 +102,8 @@ No database, no Medusa backend and no API keys are needed: the mesh defaults to
 | `A2A_PUBLIC_ORIGIN` | the host each request arrives on | Pins the origin the cards advertise |
 | `A2A_PARCEL_TICK_MS` | `1500` | How fast the scripted parcel moves |
 | `A2A_SIGNING` | on | Set to `off` to serve unsigned cards |
-| `A2A_SIGNING_JWK` | unset | Private JWK (JSON) to sign with. Unset generates an ephemeral ES256 key per process |
+| `A2A_SIGNING_JWK` | unset | Private JWK (JSON) to sign with |
+| `A2A_SIGNING_SEED` | unset | Secret string to derive a stable ES256 key from. **Required on a multi-instance deploy** |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | unset | Sent as `x-vercel-protection-bypass` on outbound mesh calls; see below |
 
 The advertised origin matters: A2A cards must carry absolute URLs, and the
@@ -138,9 +138,23 @@ signature's own `jku` header. A card that names its own key location proves
 nothing — anyone who can serve you a card can serve you a matching key. The
 only thing worth trusting is the origin you already chose to talk to.
 
-By default the key is an ephemeral ES256 keypair generated at boot, so the demo
-signs with zero configuration. Set `A2A_SIGNING_JWK` to a private JWK to pin a
-long-lived key; only its public parameters are ever published.
+On a single process the key is an ephemeral ES256 keypair generated at boot, so
+the demo signs with zero configuration. That stops working the moment the
+deployment can run more than one process: the client fetches the card from one
+instance and the JWKS from another, finds no key matching the card's `kid`, and
+correctly refuses to transact.
+
+So on a platform that scales out (detected via `VERCEL`), signing is **off by
+default** and the cards go out honestly unsigned, with `GET /a2a/jwks` saying
+why. Turn it back on by pinning a key every instance derives identically:
+
+- `A2A_SIGNING_SEED` — any secret string. HKDF reduces it to a P-256 scalar and
+  ECDH derives the public point. Easiest thing to put in an env var.
+- `A2A_SIGNING_JWK` — a full private JWK, if you already manage one.
+
+Either way only the public parameters are ever published. The seed must be
+**secret**: deriving from something public, like a deployment id or a commit
+sha, would make the cards consistent and the signatures worthless.
 
 `src/lib/a2a/signing.test.ts` covers the round trip plus the cases that matter:
 a tampered endpoint URL, a replaced signature, an unsigned card, and a client
@@ -240,6 +254,35 @@ whole graph — each agent sees only its own tasks. The timeline on `/agents` is
 served by an in-process trace bus (`src/lib/a2a/trace.ts`) purely so the demo
 can show what would otherwise be invisible. Production would use distributed
 tracing correlated on `contextId`.
+
+Because that bus is in-process and the platform is not, each agent hands its
+own slice back to whoever called it, under the `hoodtopia.dev/trace` metadata
+key on the result. `metadata` is free-form on both `Task` and `Message`, so a
+client that does not know the key ignores it. The caller merges the slice into
+its own bus, deduplicating on a globally unique event id — which is why the
+timeline is complete whether the platform ran the three agents in one process
+or three.
+
+## Running on more than one instance
+
+Serverless answers each request from whichever process is free, and three
+things in this demo assumed one process. Two are fixed in code:
+
+- **The scenario** used to start in a `POST` and stream from a separate `GET`.
+  The platform kills a function once its response is sent, so the run died
+  immediately and the stream watched a bus nothing was writing to. `GET
+  /api/a2a/scenario` now runs the lifecycle *inside* the streaming request.
+- **A chat turn** returns the hops it caused alongside the reply, rather than
+  expecting the browser to open a second connection to the same instance.
+
+One cannot be: **task state lives in the agent's process**, which is what A2A
+assumes and what an in-memory `TaskStore` gives you. A follow-up answer to an
+`input-required` question may land on an instance that never saw the task. The
+chat route flags that case (`taskLost`) instead of showing a shopper a task id,
+and the panel replays the question and the answer as one self-contained
+message. A deployment that needs this to be airtight wants a shared `TaskStore`
+— the repo already has libSQL/Turso wired up — or a single long-lived process
+(there is a `Dockerfile`).
 
 ## Layout
 

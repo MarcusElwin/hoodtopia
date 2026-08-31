@@ -2,6 +2,7 @@ import { ServerCallContext, UnauthenticatedUser } from "@a2a-js/sdk/server";
 import { runtimeFor } from "./agents";
 import { isAgentId } from "./registry";
 import { resetClients } from "./client";
+import { dispatchJsonRpc } from "./http";
 import { resetDemoState } from "./fixtures/store";
 import { JWKS_PATH, JWKS_ROUTE, publicJwks } from "./signing";
 
@@ -57,7 +58,7 @@ async function dispatch(input: RequestInfo | URL, init?: RequestInit) {
     requestedVersion: "1.0",
   });
 
-  const result = await runtime.jsonRpc.handle(body, context);
+  const result = await dispatchJsonRpc(runtime, body, context);
 
   if (typeof result === "object" && result !== null && Symbol.asyncIterator in result) {
     // Streaming responses come back as SSE, same as the route handler emits.

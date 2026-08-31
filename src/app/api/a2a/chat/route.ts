@@ -5,6 +5,7 @@ import { rememberOrigin } from "@/lib/a2a/config";
 import { partsToText } from "@/lib/a2a/parts";
 import { isAgentId } from "@/lib/a2a/registry";
 import { stateSlug } from "@/lib/a2a/status";
+import { traceBus } from "@/lib/a2a/trace";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,12 @@ export async function POST(request: Request): Promise<Response> {
 
   const contextId = body.contextId ?? randomUUID();
 
+  // Trace events are returned with the reply rather than pushed over a
+  // separate stream. The bus lives in this process, and on a serverless
+  // platform the next request is a different process — a subscriber elsewhere
+  // would sit watching a bus that nothing ever writes to.
+  const seen = traceBus.history(contextId).length;
+
   try {
     const result = await callAgent({
       from: "shopper",
@@ -82,15 +89,38 @@ export async function POST(request: Request): Promise<Response> {
       referenceTaskId: isTask ? result.id : undefined,
       state,
       reply: reply || "(no reply)",
+      events: traceBus.history(contextId).slice(seen),
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "The agent could not be reached.";
+
     return Response.json(
       {
         contextId,
         state: "failed",
-        reply: error instanceof Error ? error.message : "The agent could not be reached.",
+        reply: message,
+        // A task the agent no longer knows about is not a failure the buyer
+        // caused, and the client can recover from it by asking again in one
+        // message. Flagged rather than left to the UI to pattern-match on an
+        // error string.
+        taskLost: forgotten(body.taskId, message),
+        events: traceBus.history(contextId).slice(seen),
       },
       { status: 502 }
     );
   }
+}
+
+/**
+ * Whether the agent lost the task this turn was continuing.
+ *
+ * Task state lives in the agent's process, and a serverless platform is free to
+ * answer the next request from a different one. Nothing about that is A2A's
+ * fault — the protocol assumes an agent remembers its own tasks — but the demo
+ * runs on a platform that does not guarantee it, so the case is named instead
+ * of shown to a shopper as a raw id.
+ */
+function forgotten(taskId: string | undefined, message: string): boolean {
+  return Boolean(taskId) && /task not found/i.test(message);
 }

@@ -46,3 +46,13 @@ export const SKILL_KEY = "hoodtopia.dev/skill";
 
 /** Metadata key identifying the calling party, used to draw the trace graph. */
 export const CALLER_KEY = "hoodtopia.dev/caller";
+
+/**
+ * Metadata key an agent uses to hand its own trace slice back to whoever
+ * called it. Purely demo scaffolding, and deliberately namespaced so it reads
+ * as an extension rather than protocol: A2A gives no participant a view of the
+ * mesh, and on a serverless platform each hop may run in a different process,
+ * so the only way to assemble one timeline is for each callee to say what it
+ * did. A real deployment would use distributed tracing instead.
+ */
+export const TRACE_KEY = "hoodtopia.dev/trace";

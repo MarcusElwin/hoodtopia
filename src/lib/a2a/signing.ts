@@ -1,3 +1,4 @@
+import { createECDH, hkdfSync } from "node:crypto";
 import * as jose from "jose";
 import type { AgentCard } from "@a2a-js/sdk";
 import {
@@ -15,9 +16,11 @@ import { a2aOrigin } from "./config";
  * claims. Without it, "discovery" means trusting whatever JSON a URL happened
  * to return — which is fine until an agent is transacting on your behalf.
  *
- * The demo signs with an ephemeral ES256 key generated at boot, so it works
- * with no configuration. A real deployment pins a long-lived key
- * (`A2A_SIGNING_JWK`) whose public half is published at a stable JWKS URL.
+ * Locally the demo signs with an ephemeral ES256 key generated at boot, so it
+ * works with no configuration. A deployment that runs on more than one process
+ * has to pin the key — either the key itself (`A2A_SIGNING_JWK`) or a secret to
+ * derive it from (`A2A_SIGNING_SEED`) — because the card and the JWKS that
+ * verifies it are served by whichever instance the request happened to land on.
  */
 
 const ALG = "ES256";
@@ -38,16 +41,104 @@ export interface SigningKey {
   kid: string;
 }
 
-/** Signing is on unless explicitly disabled — an unsigned card is the fallback. */
+/**
+ * Whether the deployment can serve more than one process.
+ *
+ * Not a detail the protocol cares about, but it decides whether an ephemeral
+ * key is harmless or actively wrong: a key that only one instance knows is
+ * unverifiable the moment a second instance answers the JWKS request.
+ */
+function multiInstance(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+/** A key every instance of this deployment will derive identically. */
+function stableSeed(): string | undefined {
+  return process.env.A2A_SIGNING_SEED || undefined;
+}
+
+/**
+ * Signing is on unless explicitly disabled, or unless it could only produce
+ * signatures nobody can check.
+ *
+ * The tempting fallback — sign with a per-process key anyway — is the worst of
+ * the three options. A client fetches the card from one instance and the JWKS
+ * from another, finds no key matching the card's `kid`, and correctly refuses
+ * to transact. An honestly unsigned card at least says what it is, and the demo
+ * page reports it as such.
+ */
 export function signingEnabled(): boolean {
-  return process.env.A2A_SIGNING !== "off";
+  if (process.env.A2A_SIGNING === "off") return false;
+  if (process.env.A2A_SIGNING_JWK || stableSeed()) return true;
+  return !multiInstance();
+}
+
+/** Why cards are going out unsigned, for the demo page and the logs. */
+export function signingDisabledReason(): string | undefined {
+  if (signingEnabled()) return undefined;
+  if (process.env.A2A_SIGNING === "off") return "A2A_SIGNING=off";
+  return (
+    "This deployment can run on several instances, and an ephemeral key would " +
+    "only be verifiable on the one that minted it. Set A2A_SIGNING_SEED to any " +
+    "secret string (or A2A_SIGNING_JWK to a full private JWK) to sign cards."
+  );
+}
+
+/** Order of the P-256 curve, for reducing seed material to a valid scalar. */
+const P256_ORDER = BigInt(
+  "0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551"
+);
+const ONE = BigInt(1);
+
+/**
+ * Derives a stable ES256 key from a secret.
+ *
+ * A seed is far easier to put in an environment variable than a JWK, and every
+ * instance that holds the same seed derives the same key — which is the whole
+ * requirement. HKDF gives 48 bytes so that reducing into [1, n-1] leaves no
+ * measurable bias, and ECDH does the scalar multiplication that turns the
+ * private scalar into the public point.
+ *
+ * The seed must be secret. Deriving from something public — a deployment id, a
+ * commit sha — would make the cards consistent and the signatures worthless.
+ */
+function deriveJwk(seed: string): jose.JWK {
+  const material = Buffer.from(
+    hkdfSync(
+      "sha256",
+      Buffer.from(seed, "utf8"),
+      Buffer.alloc(0),
+      Buffer.from("a2a-agent-card-signing-v1", "utf8"),
+      48
+    )
+  );
+
+  const scalar =
+    (BigInt(`0x${material.toString("hex")}`) % (P256_ORDER - ONE)) + ONE;
+  const d = Buffer.from(scalar.toString(16).padStart(64, "0"), "hex");
+
+  const ecdh = createECDH("prime256v1");
+  ecdh.setPrivateKey(d);
+  // Uncompressed point: 0x04 || X (32 bytes) || Y (32 bytes).
+  const point = ecdh.getPublicKey();
+
+  return {
+    kty: "EC",
+    crv: "P-256",
+    d: d.toString("base64url"),
+    x: point.subarray(1, 33).toString("base64url"),
+    y: point.subarray(33, 65).toString("base64url"),
+  };
 }
 
 async function createKey(): Promise<SigningKey> {
+  const seed = stableSeed();
   const configured = process.env.A2A_SIGNING_JWK;
 
-  if (configured) {
-    const jwk = JSON.parse(configured) as jose.JWK;
+  if (configured || seed) {
+    const jwk = configured
+      ? (JSON.parse(configured) as jose.JWK)
+      : deriveJwk(seed!);
     const privateKey = (await jose.importJWK(jwk, ALG)) as jose.CryptoKey;
     // Build the public half from an explicit allowlist of EC public
     // parameters. Omitting the private ones by name would silently leak any

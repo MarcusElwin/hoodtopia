@@ -15,10 +15,16 @@ import {
   ClientFactoryOptions,
   JsonRpcTransportFactory,
 } from "@a2a-js/sdk/client";
-import { agentCardUrl, CALLER_KEY, SKILL_KEY, type AgentId } from "./registry";
+import {
+  agentCardUrl,
+  CALLER_KEY,
+  SKILL_KEY,
+  TRACE_KEY,
+  type AgentId,
+} from "./registry";
 import { dataPart, partsToText, textPart, userMessage } from "./parts";
 import { stateSlug } from "./status";
-import { traceBus } from "./trace";
+import { traceBus, type TraceEvent } from "./trace";
 import { verifyCard, type VerificationResult } from "./signing";
 import { fetchJson, meshFetch } from "./mesh-fetch";
 
@@ -171,6 +177,27 @@ function wire<T>(codec: { toJSON(value: T): unknown }, value: T): unknown {
   }
 }
 
+/**
+ * Takes the callee's own trace slice off the result and folds it into this
+ * process's timeline.
+ *
+ * On a single process this is a no-op — the bus already holds those events and
+ * `merge` drops the duplicates. On a platform that spread the two agents across
+ * two instances it is the only way the caller ever learns what the callee did.
+ * The key is removed afterwards so the inspector shows the A2A payload rather
+ * than the demo's own bookkeeping wrapped around it.
+ */
+function absorbTrace(result: Message | Task): void {
+  const metadata = result.metadata;
+  const carried = metadata?.[TRACE_KEY];
+  if (!metadata || !Array.isArray(carried)) return;
+
+  delete metadata[TRACE_KEY];
+  if (Object.keys(metadata).length === 0) result.metadata = undefined;
+
+  traceBus.merge(carried as TraceEvent[]);
+}
+
 function summarise(result: Message | Task): string {
   if ("status" in result) {
     const text = partsToText(result.status?.message?.parts);
@@ -203,6 +230,9 @@ export async function callAgent(init: CallInit): Promise<Message | Task> {
   try {
     const client = await clientFor(init.to, contextId, init.from);
     const result = await client.sendMessage(request);
+    // Before the response is traced, so the hops the callee made show up
+    // between this call's request and its reply rather than after it.
+    absorbTrace(result);
 
     traceBus.record({
       contextId,

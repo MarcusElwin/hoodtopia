@@ -5,6 +5,8 @@ import {
   type RequestHeaders,
 } from "@a2a-js/sdk/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { TRACE_KEY } from "./registry";
+import { traceBus, type TraceEvent } from "./trace";
 import type { AgentRuntime } from "./runtime";
 
 /**
@@ -97,6 +99,57 @@ function requestId(body: unknown): string | number | null {
   return typeof id === "string" || typeof id === "number" ? id : null;
 }
 
+/**
+ * The context this request belongs to, read off the wire.
+ *
+ * Only used to scope the trace slice sent back with the response, so a shape
+ * the parser does not recognise costs a timeline entry and nothing else.
+ */
+function contextIdOf(body: unknown): string | undefined {
+  const params = (body as { params?: { message?: { contextId?: unknown } } })
+    ?.params;
+  const contextId = params?.message?.contextId;
+  return typeof contextId === "string" && contextId ? contextId : undefined;
+}
+
+/** Roughly how much forwarded trace is worth carrying on one response. */
+const MAX_TRACE_BYTES = 256_000;
+
+/**
+ * Attaches the hops this agent made while answering, so the caller can show
+ * them on one timeline.
+ *
+ * `metadata` is a free-form field on both `Task` and `Message`, which is where
+ * an extension like this belongs — it travels with the result and any client
+ * that does not know the key ignores it. Written onto the already-serialised
+ * response rather than through the executor: every agent gets it for free, and
+ * no agent has to know the demo is watching.
+ */
+function attachTrace(response: unknown, events: TraceEvent[]): void {
+  if (events.length === 0) return;
+
+  // The result is a protobuf `oneof`, which proto-JSON flattens to whichever
+  // case was set — so the object carrying `metadata` is one level further down
+  // than the JSON-RPC envelope suggests.
+  const payload = (response as { result?: Record<string, unknown> })?.result;
+  const result = (payload?.task ?? payload?.message) as
+    | Record<string, unknown>
+    | undefined;
+  if (!result || typeof result !== "object") return;
+
+  // A full payload per hop is the point of the inspector, but it is not worth
+  // an unbounded response body; past the cap the shape survives and the
+  // envelopes are dropped.
+  let carried: TraceEvent[] = events;
+  if (JSON.stringify(events).length > MAX_TRACE_BYTES) {
+    carried = events.map((event) => ({ ...event, detail: undefined }));
+  }
+
+  const metadata = (result.metadata ?? {}) as Record<string, unknown>;
+  metadata[TRACE_KEY] = carried;
+  result.metadata = metadata;
+}
+
 function isAsyncGenerator(
   value: unknown
 ): value is AsyncGenerator<unknown, void, undefined> {
@@ -124,6 +177,41 @@ export async function agentCardResponse(
       "Cache-Control": "public, max-age=60",
     },
   });
+}
+
+/**
+ * Runs one JSON-RPC call against an agent and attaches its trace slice.
+ *
+ * Separate from the route handler so the tests can drive the same path the
+ * deployment does without standing up a server — a harness that reached past
+ * this into the SDK handler would be testing a different code path than the one
+ * that ships.
+ */
+export async function dispatchJsonRpc(
+  runtime: AgentRuntime,
+  body: unknown,
+  context: ServerCallContext
+): Promise<unknown> {
+  const contextId = contextIdOf(body);
+  // What this agent had already traced for the context before it started
+  // working, so the slice returned below is only what this call caused.
+  const before = new Set(
+    contextId ? traceBus.history(contextId).map((e) => e.id) : []
+  );
+
+  const result = await runtime.jsonRpc.handle(
+    body as Record<string, unknown>,
+    context
+  );
+
+  if (contextId && !isAsyncGenerator(result)) {
+    attachTrace(
+      result,
+      traceBus.history(contextId).filter((e) => !before.has(e.id))
+    );
+  }
+
+  return result;
 }
 
 /** Handles one JSON-RPC request against an agent. */
@@ -154,10 +242,7 @@ export async function handleJsonRpc(
 
   let result: unknown;
   try {
-    result = await runtime.jsonRpc.handle(
-      body as Record<string, unknown>,
-      context
-    );
+    result = await dispatchJsonRpc(runtime, body, context);
   } catch (error) {
     return Response.json(
       {

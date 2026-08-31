@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { TraceEvent } from "@/lib/a2a/trace";
 import { accentFor, STATE_STYLE, type AgentKey } from "./accents";
 
 interface Turn {
@@ -11,6 +12,17 @@ interface Turn {
   text: string;
   agent: AgentKey;
   state?: string;
+}
+
+/** What `POST /api/a2a/chat` answers with. */
+interface Reply {
+  contextId: string;
+  taskId?: string;
+  referenceTaskId?: string;
+  state: string;
+  reply: string;
+  taskLost?: boolean;
+  events?: TraceEvent[];
 }
 
 const AGENTS: Array<{ id: AgentKey; label: string; hint: string }> = [
@@ -28,9 +40,9 @@ const AGENTS: Array<{ id: AgentKey; label: string; hint: string }> = [
  * timeline, so you can watch a sentence turn into agent-to-agent calls.
  */
 export function ChatPanel({
-  onContext,
+  onEvents,
 }: {
-  onContext: (contextId: string) => void;
+  onEvents: (events: TraceEvent[]) => void;
 }) {
   const [agent, setAgent] = useState<AgentKey>("checkout");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -40,11 +52,31 @@ export function ChatPanel({
   const contextRef = useRef<string | undefined>(undefined);
   const taskRef = useRef<string | undefined>(undefined);
   const referenceRef = useRef<string | undefined>(undefined);
+  /** The message that left the agent waiting, kept for the replay above. */
+  const askedRef = useRef<string | undefined>(undefined);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns.length]);
+
+  const post = useCallback(
+    async (text: string, taskId: string | undefined): Promise<Reply> => {
+      const response = await fetch("/api/a2a/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent,
+          text,
+          contextId: contextRef.current,
+          taskId,
+          referenceTaskId: referenceRef.current,
+        }),
+      });
+      return (await response.json()) as Reply;
+    },
+    [agent]
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -54,32 +86,31 @@ export function ChatPanel({
       setBusy(true);
 
       try {
-        const response = await fetch("/api/a2a/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agent,
-            text,
-            contextId: contextRef.current,
-            taskId: taskRef.current,
-            referenceTaskId: referenceRef.current,
-          }),
-        });
-        const data = (await response.json()) as {
-          contextId: string;
-          taskId?: string;
-          referenceTaskId?: string;
-          state: string;
-          reply: string;
-        };
+        let data = await post(text, taskRef.current);
 
-        if (!contextRef.current) {
-          contextRef.current = data.contextId;
-          onContext(data.contextId);
+        // The agent that asked the question is gone — a different instance
+        // answered, and task state does not travel between them. Everything
+        // needed to start over is still here in the browser, so the question
+        // and the answer go back as one self-contained message rather than
+        // showing a shopper a task id they never asked about.
+        if (data.taskLost) {
+          onEvents(data.events ?? []);
+          const combined = askedRef.current
+            ? `${askedRef.current}. ${text}`
+            : text;
+          taskRef.current = undefined;
+          data = await post(combined, undefined);
         }
+
+        contextRef.current = data.contextId;
+        onEvents(data.events ?? []);
+
         taskRef.current = data.taskId;
         referenceRef.current = data.referenceTaskId ?? referenceRef.current;
         setContinuing(Boolean(data.taskId));
+        // Remembered only while the agent is waiting on an answer, which is
+        // the only case the replay above has to reconstruct.
+        askedRef.current = data.taskId ? text : undefined;
 
         setTurns((prev) => [
           ...prev,
@@ -94,7 +125,7 @@ export function ChatPanel({
         setBusy(false);
       }
     },
-    [agent, busy, onContext]
+    [agent, busy, onEvents, post]
   );
 
   const active = AGENTS.find((a) => a.id === agent)!;
@@ -115,6 +146,7 @@ export function ChatPanel({
                 // A task belongs to the agent that opened it.
                 taskRef.current = undefined;
                 referenceRef.current = undefined;
+                askedRef.current = undefined;
                 setContinuing(false);
               }}
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
