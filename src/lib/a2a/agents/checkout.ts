@@ -9,7 +9,14 @@ import { AgentEvent } from "@a2a-js/sdk/server";
 import { buildAgentCard, skill } from "../cards";
 import { callAgent } from "../client";
 import { requestData, requestText, resolveSkill, type SkillRoute } from "../dispatch";
-import { agentMessage, artifact, dataPart, firstData, textPart } from "../parts";
+import {
+  agentMessage,
+  artifact,
+  dataPart,
+  firstData,
+  partsToText,
+  textPart,
+} from "../parts";
 import { askFor, extractOrder } from "../intent";
 import { formatMinor, priceCart, type RequestedLine } from "../pricing";
 import type { AgentDefinition } from "../runtime";
@@ -44,7 +51,27 @@ import {
 const ROUTES: SkillRoute[] = [
   { id: "quote_cart", keywords: ["quote", "how much", "price", "cost", "total"] },
   { id: "place_order", keywords: ["buy", "order", "purchase", "checkout", "place"] },
-  { id: "order_status", keywords: ["status", "look up", "find order", "details"] },
+  // "Where is my package" is a question about an order, not a request for a
+  // new one. It reaches the checkout agent because that is who the buyer
+  // bought from; answering it means asking the shipping agent, which is the
+  // whole point of the mesh.
+  {
+    id: "order_status",
+    keywords: [
+      "status",
+      "look up",
+      "find order",
+      "details",
+      "where is",
+      "where's",
+      "my package",
+      "my parcel",
+      "my order",
+      "track",
+      "tracking",
+      "arrived yet",
+    ],
+  },
   { id: "issue_replacement", keywords: ["replacement", "resend", "send another"] },
 ];
 
@@ -153,6 +180,14 @@ class NeedsMoreInfo extends Error {
   }
 }
 
+/**
+ * Phrases that point back at something already discussed. Deliberately narrow:
+ * the cost of missing one is an extra question, and the cost of matching too
+ * eagerly is answering a new question with an old answer.
+ */
+const BACK_REFERENCE =
+  /\b(them|these|those|it|that one|the same|same one|as quoted|the quote|previous)\b/i;
+
 /** The most recent priced basket among earlier tasks in this conversation. */
 function lastQuoteAmong(tasks: Task[]): PendingOrder | undefined {
   for (const task of [...tasks].reverse()) {
@@ -240,7 +275,9 @@ class CheckoutExecutor implements AgentExecutor {
           country: unfinished.country,
           address: unfinished.address,
         };
-        if (unfinished.skill === "place_order") {
+        if (unfinished.skill === "order_status") {
+          await this.orderStatus(ctx, bus, task);
+        } else if (unfinished.skill === "place_order") {
           await this.placeOrder(ctx, bus, task, merged);
         } else {
           await this.quoteCart(ctx, bus, task, merged);
@@ -374,7 +411,18 @@ class CheckoutExecutor implements AgentExecutor {
       // Still short? Inherit from an earlier task in this conversation before
       // asking again — a buyer who just priced two hoodies and says "I want to
       // buy them" has already told us what "them" is.
-      if (items.length === 0 || !country) {
+      //
+      // Only for a message that is actually continuing that request, though.
+      // A question this agent did not understand names no product either, and
+      // answering it with the last cart's total is worse than admitting the
+      // question did not land: it is confidently, specifically wrong.
+      const continues =
+        items.length > 0 ||
+        Boolean(country) ||
+        address !== undefined ||
+        BACK_REFERENCE.test(text);
+
+      if ((items.length === 0 || !country) && continues) {
         const previous = lastQuoteAmong(earlier);
         if (previous) {
           if (items.length === 0) items = previous.lines.map((l) => ({ sku: l.sku, quantity: l.quantity }));
@@ -655,17 +703,15 @@ class CheckoutExecutor implements AgentExecutor {
       args?.orderId ?? requestText(ctx).match(/HT-\d+/i)?.[0]?.toUpperCase();
 
     if (!orderId) {
-      bus.publish(
-        AgentEvent.statusUpdate(
-          statusUpdate({
-            taskId: task.id,
-            contextId: task.contextId,
-            state: TaskState.TASK_STATE_INPUT_REQUIRED,
-            message: this.say(task, "Which order id should I look up?"),
-          })
-        )
+      // Marked as an unfinished order_status request, so the order id that
+      // comes back next turn resumes this lookup instead of being re-routed
+      // as a brand new request that happens to mention nothing.
+      throw new NeedsMoreInfo(
+        this.knownOrders()
+          ? `Which order id should I look up? I have ${this.knownOrders()}.`
+          : "Which order id should I look up?",
+        { kind: "pending-info", skill: "order_status", items: [] }
       );
-      return;
     }
 
     const order = demoState.orders.get(orderId);
@@ -677,18 +723,26 @@ class CheckoutExecutor implements AgentExecutor {
       return;
     }
 
+    // Where the parcel is is not something this agent knows. It owns the
+    // order; the carrier relationship belongs to the shipping agent, and the
+    // only way across that line is to ask.
+    const carrier = await this.carrierView(task, orderId);
+
     this.complete(
       task,
       bus,
       `${orderId}: ${formatMinor(order.totalMinor, order.currency)}, ${
         order.status
-      }, placed ${new Date(order.createdAt).toISOString()}.`,
+      }, placed ${new Date(order.createdAt).toISOString()}.${
+        carrier ? ` ${carrier.summary}` : ""
+      }`,
       {
         orderId,
         found: true,
         status: order.status,
         placedAt: new Date(order.createdAt).toISOString(),
         currency: order.currency,
+        shipment: carrier?.data,
         subtotalMinor: order.subtotalMinor,
         shippingMinor: order.shippingMinor,
         totalMinor: order.totalMinor,
@@ -697,6 +751,55 @@ class CheckoutExecutor implements AgentExecutor {
         address: order.address,
       }
     );
+  }
+
+  /**
+   * Order ids this agent has, named in the question so a buyer is not asked to
+   * guess. Cheap to do here, and impossible for anyone outside the merchant.
+   */
+  private knownOrders(): string | undefined {
+    const ids = [...demoState.orders.keys()].slice(-3);
+    return ids.length > 0 ? ids.join(", ") : undefined;
+  }
+
+  /**
+   * Asks the shipping agent where a parcel is.
+   *
+   * `shipment_evidence` rather than `track_shipment`: tracking is the
+   * long-running skill that streams until delivery, which is right for a
+   * scripted lifecycle and wrong for someone waiting on a chat reply.
+   *
+   * A carrier that cannot be reached is not a reason to fail the lookup — the
+   * order details are still true — so this returns nothing and the answer is
+   * shorter.
+   */
+  private async carrierView(
+    task: Task,
+    orderId: string
+  ): Promise<{ summary: string; data: unknown } | undefined> {
+    try {
+      const result = await callAgent({
+        from: "checkout",
+        to: "shipping",
+        skill: "shipment_evidence",
+        contextId: task.contextId,
+        text: `Where is the parcel for ${orderId}?`,
+        data: { orderId },
+      });
+
+      const data = firstData<{ found?: boolean }>(
+        "status" in result ? result.status?.message?.parts : result.parts
+      );
+      if (!data?.found) return undefined;
+
+      const summary =
+        "status" in result
+          ? partsToText(result.status?.message?.parts)
+          : partsToText(result.parts);
+      return summary ? { summary, data } : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   private async issueReplacement(

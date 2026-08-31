@@ -294,6 +294,103 @@ describe("plain-language requests", () => {
     expect(text).toMatch(/Confirm to place the order/i);
   });
 
+  it("does not answer a tracking question with the last cart's total", async () => {
+    const contextId = "ctx-where-is-it";
+    const quoted = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "how much for two Umai Kanji hoodies to London",
+      })
+    );
+
+    // The exact sequence a shopper produced: price something, then ask an
+    // unrelated question. Inheriting the cart here answers a question about a
+    // parcel with a price, and marks it `completed` — confidently wrong is
+    // worse than admitting the question was not understood.
+    const asked = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        referenceTaskIds: [quoted.id],
+        text: "where is my package",
+      })
+    );
+
+    const text = partsToText(asked.status?.message?.parts);
+    expect(asked.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(text).toMatch(/which order id/i);
+    expect(text).not.toMatch(/delivered/i);
+  });
+
+  it("answers where a parcel is by asking the shipping agent", async () => {
+    const contextId = "ctx-tracking";
+    const quoted = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "Buy one Nebula Fade hoodie in L, shipped to Stockholm.",
+      })
+    );
+    const placed = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        taskId: quoted.id,
+        text: "Confirmed, place the order.",
+      })
+    );
+    const orderId = data<{ orderId: string }>(placed)?.orderId;
+    expect(orderId).toMatch(/^HT-/);
+
+    const status = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: `where is my package for ${orderId}`,
+      })
+    );
+
+    expect(status.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+    // The carrier and tracking id are the shipping agent's to know. Checkout
+    // can only have them by having asked.
+    const summary = partsToText(status.status?.message?.parts);
+    expect(summary).toMatch(/transit|delivered/i);
+    expect(data<{ shipment?: { trackingId?: string } }>(status)?.shipment?.trackingId)
+      .toBeTruthy();
+  });
+
+  it("resumes an order lookup when the id arrives on the next turn", async () => {
+    const contextId = "ctx-which-order";
+    const asked = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "where is my package",
+      })
+    );
+    expect(asked.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+
+    // An order id on its own carries no keywords at all. Without the pending
+    // marker it would be routed as a fresh request and land on quoting a cart.
+    const answered = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        taskId: asked.id,
+        text: "HT-10001",
+      })
+    );
+    expect(partsToText(answered.status?.message?.parts)).toMatch(/HT-10001/);
+  });
+
   it("still asks when there is no earlier task to inherit from", async () => {
     const task = asTask(
       await callAgent({
