@@ -61,6 +61,8 @@
 - ⏱️ **Long-running tasks** — parcel tracking stays open from label to doorstep
 - 🖼️ **Multi-part messages** — a damage photo arrives as a file part
 - 🔒 **JWS-signed agent cards** (A2A v1.0) — verified before the client transacts
+- 💬 **Talk to them in plain language** — the agents read product, quantity and
+  destination from a sentence, and ask rather than assume when it is not there
 - 📺 **Live timeline** at [`/agents`](http://localhost:3005/agents), with the raw wire payload per hop
 
 Runs with no database and no API keys. See [`docs/A2A_INTEGRATION.md`](./docs/A2A_INTEGRATION.md).

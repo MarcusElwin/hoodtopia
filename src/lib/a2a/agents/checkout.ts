@@ -10,6 +10,7 @@ import { buildAgentCard, skill } from "../cards";
 import { callAgent } from "../client";
 import { requestData, requestText, resolveSkill, type SkillRoute } from "../dispatch";
 import { agentMessage, artifact, dataPart, firstData, textPart } from "../parts";
+import { askFor, extractOrder } from "../intent";
 import { formatMinor, priceCart, type RequestedLine } from "../pricing";
 import type { AgentDefinition } from "../runtime";
 import { ContextIndex, newTask, statusUpdate } from "../status";
@@ -126,13 +127,41 @@ interface ShippingQuoteResult {
   }>;
 }
 
-const DEFAULT_ADDRESS: DemoAddress = {
-  name: "Demo Shopper",
-  street: "Drottninggatan 71",
-  postalCode: "11136",
-  city: "Stockholm",
-  country: "SE",
-};
+interface PendingInfo {
+  kind: "pending-info";
+  /** The skill that was interrupted, so the answer resumes it. */
+  skill: string;
+  items?: RequestedLine[];
+  country?: string;
+  address?: DemoAddress;
+}
+
+/**
+ * Raised when the request does not say enough to price anything.
+ *
+ * Carries what was understood so far, so the follow-up turn resumes the
+ * original intent instead of re-reading a one-word reply from scratch.
+ */
+class NeedsMoreInfo extends Error {
+  constructor(
+    readonly question: string,
+    readonly pending: PendingInfo
+  ) {
+    super(question);
+  }
+}
+
+/** The unfinished request this task was waiting on, if any. */
+function pendingInfoFrom(task: Task | undefined): PendingInfo | undefined {
+  if (!task) return undefined;
+  const fromStatus = firstData<PendingInfo>(task.status?.message?.parts);
+  if (fromStatus?.kind === "pending-info") return fromStatus;
+  for (const message of [...(task.history ?? [])].reverse()) {
+    const data = firstData<PendingInfo>(message.parts);
+    if (data?.kind === "pending-info") return data;
+  }
+  return undefined;
+}
 
 /** Reads a data part out of a message, whichever message carries it. */
 function pendingFrom(task: Task | undefined): PendingOrder | undefined {
@@ -182,6 +211,28 @@ class CheckoutExecutor implements AgentExecutor {
         return;
       }
 
+      // An answer to "which hoodie, and where?" resumes the request that asked
+      // it, rather than being re-routed as a fresh one — "London" on its own
+      // carries no keywords and would otherwise land on the default skill.
+      const unfinished =
+        ctx.task?.status?.state === TaskState.TASK_STATE_INPUT_REQUIRED
+          ? pendingInfoFrom(ctx.task)
+          : undefined;
+
+      if (unfinished) {
+        const merged: PlaceOrderArgs = {
+          items: unfinished.items?.length ? unfinished.items : undefined,
+          country: unfinished.country,
+          address: unfinished.address,
+        };
+        if (unfinished.skill === "place_order") {
+          await this.placeOrder(ctx, bus, task, merged);
+        } else {
+          await this.quoteCart(ctx, bus, task, merged);
+        }
+        return;
+      }
+
       switch (resolveSkill(ctx, ROUTES, "quote_cart")) {
         case "place_order":
           await this.placeOrder(ctx, bus, task);
@@ -196,15 +247,21 @@ class CheckoutExecutor implements AgentExecutor {
           await this.quoteCart(ctx, bus, task);
       }
     } catch (error) {
+      // A request that did not say enough is a conversation to continue, not a
+      // failure to report.
+      const needsInfo = error instanceof NeedsMoreInfo;
       bus.publish(
         AgentEvent.statusUpdate(
           statusUpdate({
             taskId: task.id,
             contextId: task.contextId,
-            state: TaskState.TASK_STATE_FAILED,
+            state: needsInfo
+              ? TaskState.TASK_STATE_INPUT_REQUIRED
+              : TaskState.TASK_STATE_FAILED,
             message: this.say(
               task,
-              error instanceof Error ? error.message : "Checkout failed"
+              error instanceof Error ? error.message : "Checkout failed",
+              needsInfo ? error.pending : undefined
             ),
           })
         )
@@ -280,13 +337,47 @@ class CheckoutExecutor implements AgentExecutor {
   private async buildQuote(
     task: Task,
     bus: ExecutionEventBus,
-    args: PlaceOrderArgs
+    args: PlaceOrderArgs,
+    text = "",
+    skill = "quote_cart"
   ): Promise<PendingOrder> {
-    const address = args.address ?? DEFAULT_ADDRESS;
-    const country = (args.country ?? address.country ?? "SE").toUpperCase();
-    const items = args.items?.length
-      ? args.items
-      : [{ sku: "HT-NEBULA-PUR-L", quantity: 1 }];
+    // Structured arguments win. Where they are absent — a buyer's agent
+    // writing plain prose — read what the sentence actually says, and ask
+    // about whatever it did not. Defaulting here would mean handing back a
+    // confirmable total for a product nobody named.
+    let items: RequestedLine[] = args.items?.length ? args.items : [];
+    let address = args.address;
+    let country = args.country ?? args.address?.country;
+
+    if (items.length === 0 || !country) {
+      const extracted = extractOrder(text);
+      if (items.length === 0) items = extracted.items;
+      address ??= extracted.address;
+      country ??= extracted.country;
+
+      const missing = [
+        ...(items.length === 0 ? (["product"] as const) : []),
+        ...(!country ? (["destination"] as const) : []),
+      ];
+      if (missing.length > 0) {
+        throw new NeedsMoreInfo(askFor([...missing]), {
+          kind: "pending-info",
+          skill,
+          items,
+          country,
+          address,
+        });
+      }
+    }
+
+    country = country!.toUpperCase();
+    address ??= {
+      name: "Demo Shopper",
+      street: "",
+      postalCode: "",
+      city: "",
+      country,
+    };
 
     this.working(task, bus, "Pricing your basket…");
     const cart = await priceCart(items, country);
@@ -349,10 +440,17 @@ class CheckoutExecutor implements AgentExecutor {
   private async quoteCart(
     ctx: RequestContext,
     bus: ExecutionEventBus,
-    task: Task
+    task: Task,
+    carried?: PlaceOrderArgs
   ): Promise<void> {
-    const args = requestData<PlaceOrderArgs>(ctx) ?? {};
-    const quote = await this.buildQuote(task, bus, args);
+    const args = { ...carried, ...(requestData<PlaceOrderArgs>(ctx) ?? {}) };
+    const quote = await this.buildQuote(
+      task,
+      bus,
+      args,
+      requestText(ctx),
+      "quote_cart"
+    );
     this.complete(
       task,
       bus,
@@ -371,10 +469,17 @@ class CheckoutExecutor implements AgentExecutor {
   private async placeOrder(
     ctx: RequestContext,
     bus: ExecutionEventBus,
-    task: Task
+    task: Task,
+    carried?: PlaceOrderArgs
   ): Promise<void> {
-    const args = requestData<PlaceOrderArgs>(ctx) ?? {};
-    const quote = await this.buildQuote(task, bus, args);
+    const args = { ...carried, ...(requestData<PlaceOrderArgs>(ctx) ?? {}) };
+    const quote = await this.buildQuote(
+      task,
+      bus,
+      args,
+      requestText(ctx),
+      "place_order"
+    );
 
     const summary = quote.lines
       .map((l) => `${l.quantity}× ${l.name}`)

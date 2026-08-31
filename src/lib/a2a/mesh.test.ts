@@ -5,7 +5,7 @@ import { installMeshFetch, TEST_ORIGIN } from "./test-harness";
 import { ContextIndex } from "./status";
 import { callAgent } from "./client";
 import { runtimeFor } from "./agents";
-import { firstData, fileBytesPart } from "./parts";
+import { fileBytesPart, firstData, partsToText } from "./parts";
 import { traceBus } from "./trace";
 import { AGENT_IDS } from "./registry";
 
@@ -171,6 +171,130 @@ describe("checkout", () => {
     );
 
     expect(declined.status?.state).toBe(TaskState.TASK_STATE_REJECTED);
+  });
+});
+
+describe("plain-language requests", () => {
+  it("resolves product, quantity and destination from a sentence", async () => {
+    const task = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId: "ctx-nl",
+        text: "I would like to buy two Umai Kanji hoodies, ship them to London please.",
+      })
+    );
+
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    const quote = data<{
+      lines: Array<{ sku: string; quantity: number }>;
+      currency: string;
+      market: string;
+    }>(task);
+
+    // The bug this replaced quietly substituted a different product, a
+    // quantity of one, and Sweden — then offered it for confirmation.
+    expect(quote?.lines).toEqual([
+      expect.objectContaining({ sku: "HT-KANJI-NAV-S", quantity: 2 }),
+    ]);
+    expect(quote?.currency).toBe("GBP");
+    expect(quote?.market).toBe("GB");
+  });
+
+  it("asks which product rather than quoting one nobody named", async () => {
+    const task = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId: "ctx-vague",
+        text: "Hey there, what do you sell?",
+      })
+    );
+
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(partsToText(task.status?.message?.parts)).toMatch(/which hoodie/i);
+    // Nothing priced, so nothing confirmable.
+    expect(data<{ totalMinor?: number }>(task)?.totalMinor).toBeUndefined();
+  });
+
+  it("asks for a destination rather than defaulting to one", async () => {
+    const task = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId: "ctx-nodest",
+        text: "How much for a Nebula Fade hoodie?",
+      })
+    );
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(partsToText(task.status?.message?.parts)).toMatch(/where to ship/i);
+  });
+
+  it("resumes the original intent when the answer arrives", async () => {
+    const contextId = "ctx-resume";
+    const asked = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "I want to buy a Classic hoodie",
+      })
+    );
+    expect(partsToText(asked.status?.message?.parts)).toMatch(/where to ship/i);
+
+    // A bare city carries no keywords; without the carried intent this would
+    // fall through to the default skill and quote instead of offering to buy.
+    const resumed = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        taskId: asked.id,
+        text: "Tokyo",
+      })
+    );
+
+    expect(resumed.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    const text = partsToText(resumed.status?.message?.parts);
+    expect(text).toMatch(/Classic Hoodie/i);
+    expect(text).toMatch(/Confirm to place the order/i);
+    expect(data<{ currency: string }>(resumed)?.currency).toBe("JPY");
+  });
+
+  it("completes a purchase across three conversational turns", async () => {
+    const contextId = "ctx-convo";
+    const asked = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "I want to buy two Umai Kanji hoodies",
+      })
+    );
+    const quoted = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        taskId: asked.id,
+        text: "ship them to London",
+      })
+    );
+    const placed = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        taskId: quoted.id,
+        text: "yes please, confirm",
+      })
+    );
+
+    expect(placed.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+    expect(placed.artifacts.map((a) => a.name)).toContain("order-confirmation");
+    expect(data<{ orderId: string; currency: string }>(placed)).toMatchObject({
+      currency: "GBP",
+    });
   });
 });
 

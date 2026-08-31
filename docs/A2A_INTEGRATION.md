@@ -5,7 +5,7 @@ coordinate a purchase lifecycle over the [Agent2Agent
 protocol](https://a2a-protocol.org/latest/specification/) (v1.0). Built on the
 official [`@a2a-js/sdk`](https://github.com/a2aproject/a2a-js).
 
-Try it at **`/agents`**.
+Try it at **`/agents`** — run a scripted lifecycle, or just talk to an agent.
 
 ## Why three agents and not one
 
@@ -44,6 +44,7 @@ Shopper agent (buyer side)
 | `POST /a2a/<agent>` | JSON-RPC (`SendMessage`, `SendStreamingMessage`, `GetTask`, …) |
 | `GET /api/a2a/cards` | All three cards, for the demo page |
 | `POST /api/a2a/scenario` | Starts a scripted lifecycle, returns its `contextId` |
+| `POST /api/a2a/chat` | One conversational turn against one named agent |
 | `GET /api/a2a/trace?contextId=…` | SSE stream of every hop in that run |
 
 `<agent>` is `checkout`, `shipping` or `disputes`.
@@ -161,6 +162,16 @@ metadata key so an internal hop never depends on an LLM guessing right;
 free-text falls back to keyword classification (`src/lib/a2a/dispatch.ts`).
 This is a gap every A2A mesh currently fills for itself.
 
+**Plain language is a first-class path, and it asks.** Routing a sentence to a
+skill is only half the job — an agent that resolves the skill and then
+substitutes its own defaults for the *parameters* will hand back a confirmable
+total for something nobody asked to buy. `src/lib/a2a/intent.ts` reads product,
+quantity and destination out of the sentence and reports what it could not
+find; the checkout agent turns anything missing into an `input-required`
+question and resumes the original intent when the answer arrives, so a bare
+"Tokyo" still lands on the request that asked for it. Nothing is ever assumed
+into a price.
+
 **The model does not decide refunds.** In `live` mode a model classifies the
 buyer's narrative into a claim type. The outcome is then a deterministic policy
 table (`src/lib/a2a/claims-policy.ts`) over facts gathered from the other two
@@ -193,6 +204,7 @@ src/lib/a2a/
   client.ts          A2A client used by the shopper AND by agent-to-agent calls
   dispatch.ts        skill selection
   http.ts            Next.js App Router adapter for the SDK's transport handler
+  intent.ts          reads product, quantity and destination out of plain text
   parts.ts           constructors for the proto-shaped wire types
   pricing.ts         Medusa or fixture pricing
   runtime.ts         per-agent DefaultRequestHandler + JsonRpcTransportHandler

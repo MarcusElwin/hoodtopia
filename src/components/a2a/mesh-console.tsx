@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SCENARIO_COMPLETE } from "@/lib/a2a/markers";
 import { accentFor, STATE_STYLE } from "./accents";
+import { ChatPanel } from "./chat-panel";
 
 interface TraceEvent {
   seq: number;
@@ -138,6 +139,40 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [events.length]);
 
+  /** Points the timeline at a context, whoever created it. */
+  const watch = useCallback((contextId: string) => {
+    sourceRef.current?.close();
+    const source = new EventSource(
+      `/api/a2a/trace?contextId=${encodeURIComponent(contextId)}`
+    );
+    sourceRef.current = source;
+
+    source.onmessage = (message) => {
+      const event = JSON.parse(message.data) as TraceEvent;
+      if (event.summary === SCENARIO_COMPLETE) {
+        setRunning(undefined);
+        source.close();
+        return;
+      }
+      setEvents((prev) =>
+        prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]
+      );
+    };
+    source.onerror = () => {
+      source.close();
+      setRunning(undefined);
+    };
+  }, []);
+
+  const startChat = useCallback(
+    (contextId: string) => {
+      setEvents([]);
+      setError(undefined);
+      watch(contextId);
+    },
+    [watch]
+  );
+
   const start = useCallback(async (scenario: string) => {
     sourceRef.current?.close();
     setEvents([]);
@@ -152,32 +187,12 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
       });
       if (!response.ok) throw new Error(await response.text());
       const { contextId } = (await response.json()) as { contextId: string };
-
-      const source = new EventSource(
-        `/api/a2a/trace?contextId=${encodeURIComponent(contextId)}`
-      );
-      sourceRef.current = source;
-
-      source.onmessage = (message) => {
-        const event = JSON.parse(message.data) as TraceEvent;
-        if (event.summary === SCENARIO_COMPLETE) {
-          setRunning(undefined);
-          source.close();
-          return;
-        }
-        setEvents((prev) =>
-          prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]
-        );
-      };
-      source.onerror = () => {
-        source.close();
-        setRunning(undefined);
-      };
+      watch(contextId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to start");
       setRunning(undefined);
     }
-  }, []);
+  }, [watch]);
 
   const reset = useCallback(() => {
     sourceRef.current?.close();
@@ -214,6 +229,8 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
           </div>
         ))}
       </div>
+
+      <ChatPanel onContext={startChat} />
 
       {error && (
         <p className="rounded border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-300">
