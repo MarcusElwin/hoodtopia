@@ -275,14 +275,23 @@ things in this demo assumed one process. Two are fixed in code:
 - **A chat turn** returns the hops it caused alongside the reply, rather than
   expecting the browser to open a second connection to the same instance.
 
-One cannot be: **task state lives in the agent's process**, which is what A2A
+The third was **task state living in the agent's process**, which is what A2A
 assumes and what an in-memory `TaskStore` gives you. A follow-up answer to an
-`input-required` question may land on an instance that never saw the task. The
-chat route flags that case (`taskLost`) instead of showing a shopper a task id,
-and the panel replays the question and the answer as one self-contained
-message. A deployment that needs this to be airtight wants a shared `TaskStore`
-— the repo already has libSQL/Turso wired up — or a single long-lived process
-(there is a `Dockerfile`).
+`input-required` question would land on an instance that had never seen the
+task and come back as `Task not found`.
+
+`DbTaskStore` (`src/lib/a2a/db-task-store.ts`) puts it in libSQL instead, and is
+selected automatically when `TURSO_DATABASE_URL` is set; without it the bounded
+in-memory store is used, which is correct on one long-lived process and lossy on
+several. Rows hold the task as proto-JSON rather than a structured clone,
+because the in-memory shape carries tagged `oneof`s and raw bytes — the photo on
+a damage claim — and `JSON.stringify` turns a `Uint8Array` into an object of
+numbered keys that never comes back.
+
+Run `npm run db:push` once to create the table. Where no database is configured
+the chat route still flags a lost task (`taskLost`) and the panel replays the
+question and the answer as one self-contained message, so the fallback degrades
+rather than dead-ends.
 
 ## Layout
 
@@ -303,7 +312,8 @@ src/lib/a2a/
   runtime.ts         per-agent DefaultRequestHandler + JsonRpcTransportHandler
   scenario.ts        the scripted shopper agent
   status.ts          task lifecycle helpers
-  task-store.ts      bounded TaskStore
+  task-store.ts      bounded in-memory TaskStore
+  db-task-store.ts   libSQL TaskStore, used when a database is configured
   trace.ts           demo-only trace bus
 ```
 

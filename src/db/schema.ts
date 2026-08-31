@@ -144,6 +144,32 @@ export const chatMessages = sqliteTable("chat_messages", {
     .$defaultFn(() => new Date()),
 });
 
+// A2A task state.
+//
+// The protocol assumes an agent remembers its own tasks between requests, and
+// on a platform that answers each request from whichever process is free, an
+// in-memory store does not. This is that memory: one row per task, scoped the
+// way the SDK scopes it (tenant, then owner), with the task itself stored as
+// the JSON the SDK already serialises.
+export const a2aTasks = sqliteTable("a2a_tasks", {
+  id: text("id").primaryKey(),
+  /** Which of the three agents owns it — tasks are never shared across them. */
+  agent: text("agent").notNull(),
+  /** `${tenant}::${owner}`, matching the SDK's own scoping. */
+  scope: text("scope").notNull(),
+  /** Groups the tasks of one conversation, for `ListTasks`. */
+  contextId: text("context_id").notNull(),
+  /** Task state as the proto enum name, e.g. TASK_STATE_INPUT_REQUIRED. */
+  state: text("state").notNull(),
+  /** The serialised Task. Read back whole; never queried into. */
+  payload: text("payload").notNull(),
+  /** Status timestamp, for the SDK's statusTimestampAfter filter. */
+  statusAt: text("status_at"),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Type exports
 // Commerce types (Product/ProductVariant/ProductImage/Cart/CartItem/Order) are
 // defined as interfaces at the top of this file — they moved off Drizzle to

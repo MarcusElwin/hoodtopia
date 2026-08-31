@@ -10,6 +10,8 @@ import type { AgentId } from "./registry";
 import { a2aOrigin } from "./config";
 import { cardSigner } from "./signing";
 import { BoundedTaskStore } from "./task-store";
+import { DbTaskStore, taskPersistenceAvailable } from "./db-task-store";
+import type { TaskStore } from "@a2a-js/sdk/server";
 
 /**
  * Per-agent A2A server runtime.
@@ -39,16 +41,16 @@ export interface AgentRuntime {
 }
 
 interface AgentStores {
-  tasks: BoundedTaskStore;
+  tasks: TaskStore;
   push?: InMemoryPushNotificationStore;
 }
 
 /**
- * Task state is in memory, so it has to survive Next re-evaluating modules on
- * hot reload — otherwise a task parked in `input-required` vanishes the moment
- * you edit a file mid-demo. Only the *stores* are pinned, though. Caching the
- * whole runtime here would also pin the executor, and an edited agent would go
- * on serving its previous implementation until a full restart.
+ * The in-memory store has to survive Next re-evaluating modules on hot reload —
+ * otherwise a task parked in `input-required` vanishes the moment you edit a
+ * file mid-demo. Only the *stores* are pinned, though. Caching the whole
+ * runtime here would also pin the executor, and an edited agent would go on
+ * serving its previous implementation until a full restart.
  */
 const globalForStores = globalThis as typeof globalThis & {
   __hoodtopiaA2AStores?: Map<AgentId, AgentStores>;
@@ -65,7 +67,13 @@ function storesFor(def: AgentDefinition): AgentStores {
   const existing = stores.get(def.id);
   if (existing) return existing;
   const created: AgentStores = {
-    tasks: new BoundedTaskStore(),
+    // Durable where the deployment has somewhere durable to write, in memory
+    // where it does not. Neither choice changes what the agent does; it
+    // changes whether the agent still knows about a task on the next request,
+    // which on a single process is the same thing and on several is not.
+    tasks: taskPersistenceAvailable()
+      ? new DbTaskStore(def.id)
+      : new BoundedTaskStore(),
     push: def.pushNotifications ? new InMemoryPushNotificationStore() : undefined,
   };
   stores.set(def.id, created);
