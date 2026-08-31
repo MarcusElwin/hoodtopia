@@ -53,6 +53,20 @@
 - 🧩 **Kustom On-site Elements** — `<kustom-payment-method-display>` on PDP and cart
 - 📬 Push webhook → Order Management acknowledge with idempotent local sync
 
+**Agent-to-agent commerce (A2A):**
+- 🧩 **Three merchant agents** — checkout, shipping and claims — each with its own
+  [A2A](https://a2a-protocol.org/latest/specification/) agent card and JSON-RPC endpoint
+- 🔗 **They call each other**: checkout delegates rates to shipping; claims gathers
+  evidence from both before deciding a refund or replacement
+- ⏱️ **Long-running tasks** — parcel tracking stays open from label to doorstep
+- 🖼️ **Multi-part messages** — a damage photo arrives as a file part
+- 🔒 **JWS-signed agent cards** (A2A v1.0) — verified before the client transacts
+- 💬 **Talk to them in plain language** — the agents read product, quantity and
+  destination from a sentence, and ask rather than assume when it is not there
+- 📺 **Live timeline** at [`/agents`](http://localhost:3005/agents), with the raw wire payload per hop
+
+Runs with no database and no API keys. See [`docs/A2A_INTEGRATION.md`](./docs/A2A_INTEGRATION.md).
+
 See [`docs/KUSTOM_INTEGRATION.md`](./docs/KUSTOM_INTEGRATION.md) for setup, and [`docs/DEPLOY.md`](./docs/DEPLOY.md) for shipping it to Vercel + a custom domain.
 
 **Core E-commerce:**

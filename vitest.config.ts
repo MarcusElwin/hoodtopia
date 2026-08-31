@@ -5,6 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Agent cards are built when their module is imported, so the origin they
+    // advertise has to be set before any import runs — assigning it inside a
+    // test is already too late.
+    env: {
+      A2A_PUBLIC_ORIGIN: 'http://a2a.test',
+    },
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
   },
