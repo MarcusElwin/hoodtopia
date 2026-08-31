@@ -22,7 +22,15 @@ import { a2aOrigin } from "./config";
 
 const ALG = "ES256";
 
+/** Conventional public path, served via a rewrite. */
 export const JWKS_PATH = "/.well-known/jwks.json";
+
+/**
+ * The route that actually implements it. Verification reads this rather than
+ * the well-known path so a host's rewrite handling is never on the critical
+ * path of a signature check.
+ */
+export const JWKS_ROUTE = "/a2a/jwks";
 
 export interface SigningKey {
   privateKey: jose.CryptoKey | jose.KeyObject;
@@ -102,6 +110,39 @@ export async function cardSigner(): Promise<
   });
 }
 
+/**
+ * Parses a response that must be JSON, and says something useful when it is
+ * not.
+ *
+ * A platform that serves an HTML error or an interstitial for a path it did not
+ * route surfaces as `Unexpected token '<'`, which tells you nothing about which
+ * URL failed or why. Anything that fetches part of the mesh goes through here
+ * so the message names the URL, the status and what actually came back.
+ */
+export async function readJson(
+  response: Response,
+  what: string
+): Promise<unknown> {
+  const type = response.headers.get("content-type") ?? "unknown";
+  const body = await response.text();
+
+  if (!type.includes("json")) {
+    const looksLikeHtml = body.trimStart().startsWith("<");
+    throw new Error(
+      `${what} at ${response.url} returned ${response.status} as ${type}` +
+        (looksLikeHtml
+          ? " — an HTML page, not JSON. The URL is being handled by something other than the agent (a platform 404, or access protection in front of the deployment)."
+          : `: ${body.slice(0, 120)}`)
+    );
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`${what} at ${response.url} returned malformed JSON.`);
+  }
+}
+
 export type VerificationStatus = "verified" | "unsigned" | "invalid";
 
 export interface VerificationResult {
@@ -130,11 +171,11 @@ export async function verifyCard(
 
   try {
     const verifier = verifyAgentCardSignature(async (kid) => {
-      const response = await fetch(new URL(JWKS_PATH, origin));
-      if (!response.ok) {
-        throw new Error(`JWKS fetch failed: ${response.status}`);
-      }
-      const { keys } = (await response.json()) as { keys: jose.JWK[] };
+      const { fetchJson } = await import("./mesh-fetch");
+      const { keys } = (await fetchJson(
+        new URL(JWKS_ROUTE, origin).toString(),
+        "JWKS"
+      )) as { keys: jose.JWK[] };
       const match = keys.find((k) => k.kid === kid);
       if (!match) throw new Error(`No key ${kid} published by ${origin}`);
       return match;

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installMeshFetch } from "./test-harness";
 import { runtimeFor } from "./agents";
 import { agentCardUrl } from "./registry";
-import { publicJwks, verifyCard } from "./signing";
+import { JWKS_ROUTE, publicJwks, verifyCard } from "./signing";
 import { callAgent, resetClients, verificationResults } from "./client";
 
 let teardown: () => void;
@@ -96,7 +96,7 @@ describe("verify-before-transact", () => {
     // for it any more, which is exactly the case a verifier exists to catch.
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
-      if (url.includes("jwks.json")) return Response.json({ keys: [] });
+      if (url.includes(JWKS_ROUTE)) return Response.json({ keys: [] });
       return realFetch(input, init);
     }) as typeof fetch;
 

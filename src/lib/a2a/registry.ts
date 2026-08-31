@@ -20,6 +20,9 @@ export function agentEndpoint(id: AgentId): string {
   return `${a2aOrigin()}/a2a/${id}`;
 }
 
+/** Path tail the A2A spec defines for an agent card. */
+export const AGENT_CARD_TAIL = ".well-known/agent-card.json";
+
 /**
  * Discovery URL for an agent. The A2A well-known path is per-origin, so a
  * single origin hosting three agents has to namespace it. Clients that already
@@ -28,7 +31,7 @@ export function agentEndpoint(id: AgentId): string {
  * several agents behind one host.
  */
 export function agentCardUrl(id: AgentId): string {
-  return `${agentEndpoint(id)}/.well-known/agent-card.json`;
+  return `${agentEndpoint(id)}/${AGENT_CARD_TAIL}`;
 }
 
 /**

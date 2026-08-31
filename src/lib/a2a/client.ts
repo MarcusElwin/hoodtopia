@@ -7,12 +7,20 @@ import {
   TaskArtifactUpdateEvent,
   TaskStatusUpdateEvent,
 } from "@a2a-js/sdk";
-import { AgentCardResolver, Client, ClientFactory } from "@a2a-js/sdk/client";
+import type { AgentCard } from "@a2a-js/sdk";
+import {
+  AgentCardResolver,
+  Client,
+  ClientFactory,
+  ClientFactoryOptions,
+  JsonRpcTransportFactory,
+} from "@a2a-js/sdk/client";
 import { agentCardUrl, CALLER_KEY, SKILL_KEY, type AgentId } from "./registry";
 import { dataPart, partsToText, textPart, userMessage } from "./parts";
 import { stateSlug } from "./status";
 import { traceBus } from "./trace";
 import { verifyCard, type VerificationResult } from "./signing";
+import { fetchJson, meshFetch } from "./mesh-fetch";
 
 /**
  * The client side of the mesh.
@@ -48,7 +56,10 @@ async function discover(
   // The card URL is passed whole with an empty relative path: the agents are
   // namespaced under /a2a/<id>/, so the default per-origin well-known lookup
   // would resolve to the wrong place.
-  const card = await AgentCardResolver.default.resolve(cardUrl, "");
+  // Fetched here rather than through the resolver so a non-JSON response
+  // names the URL and what came back, instead of surfacing as a parse error.
+  const raw = await fetchJson(cardUrl, `Agent card for ${id}`);
+  const card = AgentCardResolver.default.normalizeAgentCard(raw) as AgentCard;
 
   const verification = await verifyCard(card, cardUrl);
   verifications.set(id, verification);
@@ -77,7 +88,11 @@ async function discover(
     );
   }
 
-  return new ClientFactory().createFromAgentCard(card);
+  return new ClientFactory(
+    ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
+      transports: [new JsonRpcTransportFactory({ fetchImpl: meshFetch })],
+    })
+  ).createFromAgentCard(card);
 }
 
 function clientFor(

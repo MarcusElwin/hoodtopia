@@ -3,7 +3,7 @@ import { runtimeFor } from "./agents";
 import { isAgentId } from "./registry";
 import { resetClients } from "./client";
 import { resetDemoState } from "./fixtures/store";
-import { JWKS_PATH, publicJwks } from "./signing";
+import { JWKS_PATH, JWKS_ROUTE, publicJwks } from "./signing";
 
 /**
  * Routes the mesh's own HTTP calls into the in-process agent runtimes.
@@ -32,8 +32,10 @@ async function dispatch(input: RequestInfo | URL, init?: RequestInit) {
         ? input.toString()
         : input.url;
 
-  // Public keys, so card verification resolves the same way it does over HTTP.
-  if (new URL(url).pathname === JWKS_PATH) {
+  // Public keys, at both the route verification uses and the conventional
+  // well-known path, exactly as the deployment serves them.
+  const path = new URL(url).pathname;
+  if (path === JWKS_ROUTE || path === JWKS_PATH) {
     return Response.json(await publicJwks());
   }
 

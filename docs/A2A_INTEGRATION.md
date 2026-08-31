@@ -40,7 +40,8 @@ Shopper agent (buyer side)
 | URL | What |
 | --- | --- |
 | `GET /a2a/<agent>/.well-known/agent-card.json` | Agent card (JWS-signed) |
-| `GET /.well-known/jwks.json` | Public keys for verifying those cards |
+| `GET /a2a/jwks` | Public keys for verifying those cards |
+| `GET /.well-known/jwks.json` | The same keys at the conventional path |
 | `POST /a2a/<agent>` | JSON-RPC (`SendMessage`, `SendStreamingMessage`, `GetTask`, …) |
 | `GET /api/a2a/cards` | All three cards, for the demo page |
 | `POST /api/a2a/scenario` | Starts a scripted lifecycle, returns its `contextId` |
@@ -49,9 +50,18 @@ Shopper agent (buyer side)
 
 `<agent>` is `checkout`, `shipping` or `disputes`.
 
-The well-known path is served through a rewrite in `next.config.ts`: Next's App
-Router will not route a path segment beginning with a dot, so it maps onto
-`/a2a/<agent>/card`.
+The well-known path is served by a **catch-all route**
+(`src/app/a2a/[agent]/[...wellKnown]/route.ts`), not a rewrite. Next's App
+Router will not accept a literal `.well-known` directory, but it will match the
+same URL through a captured segment — the restriction is on literal path
+segments, not on dynamic ones.
+
+That distinction matters more than it looks. Rewriting the well-known URL onto a
+normal route works locally and puts a platform's routing layer on the critical
+path of *every* discovery: agent-to-agent calls all begin by fetching a card, so
+a host that handles the rewrite differently takes the whole mesh down. Signature
+verification reads `/a2a/jwks` for the same reason; the `/.well-known/jwks.json`
+rewrite exists only so the keys are also reachable at the conventional path.
 
 ## Skills
 
@@ -94,6 +104,7 @@ No database, no Medusa backend and no API keys are needed: the mesh defaults to
 | `A2A_PARCEL_TICK_MS` | `1500` | How fast the scripted parcel moves |
 | `A2A_SIGNING` | on | Set to `off` to serve unsigned cards |
 | `A2A_SIGNING_JWK` | unset | Private JWK (JSON) to sign with. Unset generates an ephemeral ES256 key per process |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | unset | Sent as `x-vercel-protection-bypass` on outbound mesh calls; see below |
 
 The advertised origin matters: A2A cards must carry absolute URLs, and the
 agents reach each other through them. If it is wrong, agent-to-agent calls go
@@ -134,6 +145,28 @@ long-lived key; only its public parameters are ever published.
 `src/lib/a2a/signing.test.ts` covers the round trip plus the cases that matter:
 a tampered endpoint URL, a replaced signature, an unsigned card, and a client
 refusing to transact when the origin publishes no matching key.
+
+## Deploying behind access protection
+
+An agent calling a peer on the same deployment goes out through the public edge
+and back, so anything guarding that edge sees an anonymous request. On a
+protected Vercel preview that means the agent receives an HTML challenge page
+instead of its peer's JSON, and discovery fails for every call.
+
+Enable **Protection Bypass for Automation** and expose the secret as
+`VERCEL_AUTOMATION_BYPASS_SECRET`; `src/lib/a2a/mesh-fetch.ts` attaches it to
+every outbound mesh call. Without it, the mesh reports what happened rather than
+failing obscurely:
+
+```
+Agent card for checkout at https://…/.well-known/agent-card.json returned 200
+as text/html — an HTML page, not JSON. The URL is being handled by something
+other than the agent (a platform 404, or access protection in front of the
+deployment).
+```
+
+That message exists because the first version of this failure surfaced as
+`Unexpected token '<'`, which named neither the URL nor the cause.
 
 ## Hardening
 
@@ -220,6 +253,7 @@ src/lib/a2a/
   client.ts          A2A client used by the shopper AND by agent-to-agent calls
   dispatch.ts        skill selection
   http.ts            Next.js App Router adapter for the SDK's transport handler
+  mesh-fetch.ts      one fetch for every outbound call: bypass header, clear errors
   intent.ts          reads product, quantity and destination out of plain text
   parts.ts           constructors for the proto-shaped wire types
   pricing.ts         Medusa or fixture pricing
