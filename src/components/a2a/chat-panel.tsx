@@ -39,6 +39,7 @@ export function ChatPanel({
   const [continuing, setContinuing] = useState(false);
   const contextRef = useRef<string | undefined>(undefined);
   const taskRef = useRef<string | undefined>(undefined);
+  const referenceRef = useRef<string | undefined>(undefined);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -61,11 +62,13 @@ export function ChatPanel({
             text,
             contextId: contextRef.current,
             taskId: taskRef.current,
+            referenceTaskId: referenceRef.current,
           }),
         });
         const data = (await response.json()) as {
           contextId: string;
           taskId?: string;
+          referenceTaskId?: string;
           state: string;
           reply: string;
         };
@@ -75,6 +78,7 @@ export function ChatPanel({
           onContext(data.contextId);
         }
         taskRef.current = data.taskId;
+        referenceRef.current = data.referenceTaskId ?? referenceRef.current;
         setContinuing(Boolean(data.taskId));
 
         setTurns((prev) => [
@@ -110,6 +114,7 @@ export function ChatPanel({
                 setAgent(option.id);
                 // A task belongs to the agent that opened it.
                 taskRef.current = undefined;
+                referenceRef.current = undefined;
                 setContinuing(false);
               }}
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
@@ -130,7 +135,7 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="max-h-80 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="h-[26rem] space-y-3 overflow-y-auto px-4 py-4">
         {turns.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
             <p>No router, no front door — you pick who to talk to.</p>

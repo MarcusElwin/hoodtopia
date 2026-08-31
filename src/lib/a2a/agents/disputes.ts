@@ -54,7 +54,9 @@ const ROUTES: SkillRoute[] = [
   { id: "claim_status", keywords: ["claim status", "my claim", "clm-"] },
 ];
 
-export const disputesCard = buildAgentCard({
+/** Built per request: the card carries an absolute, origin-specific URL. */
+export const disputesCard = () =>
+  buildAgentCard({
   id: "disputes",
   name: "Hoodtopia Claims Agent",
   description:
@@ -547,8 +549,8 @@ class DisputesExecutor implements AgentExecutor {
   }
 }
 
-export const disputesAgent: AgentDefinition = {
+export const disputesAgent = (): AgentDefinition => ({
   id: "disputes",
-  card: disputesCard,
+  card: disputesCard(),
   executor: new DisputesExecutor(),
-};
+});

@@ -50,7 +50,9 @@ const ROUTES: SkillRoute[] = [
   { id: "shipment_evidence", keywords: ["evidence", "proof of delivery", "scan history"] },
 ];
 
-export const shippingCard = buildAgentCard({
+/** Built per request: the card carries an absolute, origin-specific URL. */
+export const shippingCard = () =>
+  buildAgentCard({
   id: "shipping",
   name: "Hoodtopia Shipping Agent",
   description:
@@ -572,9 +574,9 @@ class ShippingExecutor implements AgentExecutor {
   }
 }
 
-export const shippingAgent: AgentDefinition = {
+export const shippingAgent = (): AgentDefinition => ({
   id: "shipping",
-  card: shippingCard,
+  card: shippingCard(),
   executor: new ShippingExecutor(),
   pushNotifications: true,
-};
+});

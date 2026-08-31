@@ -112,6 +112,12 @@ export interface CallInit {
   contextId?: string;
   /** Set to continue an existing task, e.g. answering an `input-required`. */
   taskId?: string;
+  /**
+   * Earlier tasks this message builds on. The server loads them and hands them
+   * to the executor, which is how a new task inherits what an earlier one
+   * established — "buy them" knowing what "them" refers to.
+   */
+  referenceTaskIds?: string[];
 }
 
 function buildRequest(init: CallInit): SendMessageRequest {
@@ -130,6 +136,7 @@ function buildRequest(init: CallInit): SendMessageRequest {
       contextId: init.contextId,
       taskId: init.taskId,
       metadata,
+      referenceTaskIds: init.referenceTaskIds,
     }),
     configuration: undefined,
     metadata: undefined,

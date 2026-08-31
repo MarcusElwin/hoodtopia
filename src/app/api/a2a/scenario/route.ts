@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { runScenario, SCENARIOS, type ScenarioId } from "@/lib/a2a/scenario";
 import { rateLimit } from "@/lib/a2a/http";
+import { rememberOrigin } from "@/lib/a2a/config";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ const IDS = new Set(SCENARIOS.map((s) => s.id));
 export async function POST(request: Request): Promise<Response> {
   // Each run drives ~30 agent calls, so the scenario runner gets a much
   // tighter limit than the A2A endpoints themselves.
+  rememberOrigin(request.headers);
+
   const limited = rateLimit(request, "scenario");
   if (limited) return limited;
 

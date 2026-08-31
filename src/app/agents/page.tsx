@@ -3,7 +3,8 @@ import Link from "next/link";
 import { runtimeFor } from "@/lib/a2a/agents";
 import { AGENT_IDS, agentCardUrl } from "@/lib/a2a/registry";
 import { SCENARIOS } from "@/lib/a2a/scenario";
-import { demoMode } from "@/lib/a2a/config";
+import { headers } from "next/headers";
+import { demoMode, rememberOrigin } from "@/lib/a2a/config";
 import { AgentGallery } from "@/components/a2a/agent-gallery";
 import { MeshConsole } from "@/components/a2a/mesh-console";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AgentsPage() {
+  // The cards rendered below embed an absolute endpoint URL, so the page has to
+  // know which host it is being served on before it builds them.
+  rememberOrigin(await headers());
+
   const agents = await Promise.all(
     AGENT_IDS.map(async (id) => {
       const runtime = await runtimeFor(id);
@@ -72,8 +77,9 @@ export default async function AgentsPage() {
         <section>
           <h2 className="mb-1 text-2xl font-semibold">The purchase lifecycle</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            The same claims policy, run against different evidence, reaches
-            different outcomes. Expand any row to see the exact A2A payload on the wire.
+            Talk to an agent in plain language, or run a scripted lifecycle.
+            Either way every hop lands on the timeline below — expand any row to
+            see the exact A2A payload on the wire.
           </p>
           <MeshConsole scenarios={SCENARIOS} />
         </section>

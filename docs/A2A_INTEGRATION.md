@@ -90,14 +90,24 @@ No database, no Medusa backend and no API keys are needed: the mesh defaults to
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `A2A_DEMO_MODE` | `fixtures` | `live` prices against Medusa and classifies claims with a model |
-| `A2A_PUBLIC_ORIGIN` | `NEXT_PUBLIC_SITE_URL`, else `http://localhost:$PORT` | Absolute origin the cards advertise |
+| `A2A_PUBLIC_ORIGIN` | the host each request arrives on | Pins the origin the cards advertise |
 | `A2A_PARCEL_TICK_MS` | `1500` | How fast the scripted parcel moves |
 | `A2A_SIGNING` | on | Set to `off` to serve unsigned cards |
 | `A2A_SIGNING_JWK` | unset | Private JWK (JSON) to sign with. Unset generates an ephemeral ES256 key per process |
 
 The advertised origin matters: A2A cards must carry absolute URLs, and the
 agents reach each other through them. If it is wrong, agent-to-agent calls go
-to the wrong host.
+to the wrong host — the whole mesh 404s on its own discovery.
+
+By default the cards advertise **the host the request arrived on**, which is the
+only answer that is always right. `NEXT_PUBLIC_SITE_URL` is deliberately *not*
+consulted: it means "where third parties reach the storefront" (the dev tunnel
+script rewrites it to an ngrok URL for Kustom callbacks), which is a different
+question. Set `A2A_PUBLIC_ORIGIN` only to pin it explicitly.
+
+Runtimes are keyed by agent *and* origin, because the card embeds an absolute
+endpoint URL and a signature over it — a card cached for one host cannot be
+served on another.
 
 ## Card signing and verification
 
@@ -161,6 +171,12 @@ natural-language message. Machine callers here set a `hoodtopia.dev/skill`
 metadata key so an internal hop never depends on an LLM guessing right;
 free-text falls back to keyword classification (`src/lib/a2a/dispatch.ts`).
 This is a gap every A2A mesh currently fills for itself.
+
+**A conversation spans several tasks.** `contextId` groups them, and
+`referenceTaskIds` is how a new task inherits what an earlier one established —
+a buyer who priced a basket and then says "I want to buy them" is starting a new
+task that references the finished quote, so "them" still resolves. The chat
+route carries that reference forward automatically.
 
 **Plain language is a first-class path, and it asks.** Routing a sentence to a
 skill is only half the job — an agent that resolves the skill and then

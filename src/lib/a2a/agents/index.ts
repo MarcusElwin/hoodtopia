@@ -11,7 +11,9 @@ const DEFINITIONS = {
 } as const;
 
 export function runtimeFor(id: AgentId): Promise<AgentRuntime> {
-  return getOrCreateRuntime(DEFINITIONS[id]);
+  // Passed as a thunk so the card — which embeds an absolute endpoint URL — is
+  // built for the origin currently being served, and only when not cached.
+  return getOrCreateRuntime(id, () => DEFINITIONS[id]());
 }
 
 export { checkoutCard } from "./checkout";

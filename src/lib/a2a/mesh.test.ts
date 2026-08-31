@@ -261,6 +261,52 @@ describe("plain-language requests", () => {
     expect(data<{ currency: string }>(resumed)?.currency).toBe("JPY");
   });
 
+  it("inherits an earlier quote when the buyer says \"buy them\"", async () => {
+    const contextId = "ctx-reference";
+    const quoted = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        text: "how much for two Umai Kanji hoodies to London",
+      })
+    );
+    expect(quoted.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+
+    // A *new* task — the quote finished — that references the old one. Without
+    // the reference, "them" carries no product or destination and the agent
+    // would have to ask all over again.
+    const buying = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId,
+        referenceTaskIds: [quoted.id],
+        text: "I want to buy them",
+      })
+    );
+
+    expect(buying.id).not.toBe(quoted.id);
+    expect(buying.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    const text = partsToText(buying.status?.message?.parts);
+    expect(text).toMatch(/Umai Kanji/i);
+    expect(text).toMatch(/London/i);
+    expect(text).toMatch(/Confirm to place the order/i);
+  });
+
+  it("still asks when there is no earlier task to inherit from", async () => {
+    const task = asTask(
+      await callAgent({
+        from: "shopper",
+        to: "checkout",
+        contextId: "ctx-no-reference",
+        text: "I want to buy them",
+      })
+    );
+    expect(task.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(partsToText(task.status?.message?.parts)).toMatch(/which hoodie/i);
+  });
+
   it("completes a purchase across three conversational turns", async () => {
     const contextId = "ctx-convo";
     const asked = asTask(

@@ -7,6 +7,7 @@ import {
   type AgentExecutor,
 } from "@a2a-js/sdk/server";
 import type { AgentId } from "./registry";
+import { a2aOrigin } from "./config";
 import { cardSigner } from "./signing";
 import { BoundedTaskStore } from "./task-store";
 
@@ -71,8 +72,15 @@ function storesFor(def: AgentDefinition): AgentStores {
   return created;
 }
 
-/** Module-scoped, so it is rebuilt whenever this module is re-evaluated. */
-const runtimes = new Map<AgentId, Promise<AgentRuntime>>();
+/**
+ * Keyed by agent *and* origin. The card carries an absolute endpoint URL and a
+ * signature over it, so a runtime built for one host cannot serve another — a
+ * cached card would keep advertising a hostname the client never used, which is
+ * exactly how agent-to-agent discovery ends up 404ing on a preview deployment.
+ *
+ * Module-scoped, so it is also rebuilt whenever this module is re-evaluated.
+ */
+const runtimes = new Map<string, Promise<AgentRuntime>>();
 
 async function buildRuntime(def: AgentDefinition): Promise<AgentRuntime> {
   const { tasks, push } = storesFor(def);
@@ -102,11 +110,16 @@ async function buildRuntime(def: AgentDefinition): Promise<AgentRuntime> {
   };
 }
 
-export function getOrCreateRuntime(def: AgentDefinition): Promise<AgentRuntime> {
-  let existing = runtimes.get(def.id);
+export function getOrCreateRuntime(
+  id: AgentId,
+  build: () => AgentDefinition
+): Promise<AgentRuntime> {
+  const key = `${id}@${a2aOrigin()}`;
+
+  let existing = runtimes.get(key);
   if (!existing) {
-    existing = buildRuntime(def);
-    runtimes.set(def.id, existing);
+    existing = buildRuntime(build());
+    runtimes.set(key, existing);
   }
   return existing;
 }

@@ -204,33 +204,40 @@ export function MeshConsole({ scenarios }: { scenarios: Scenario[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        {scenarios.map((scenario) => (
-          <div key={scenario.id} className="rounded-lg border bg-card p-4">
-            <h3 className="mb-1 font-semibold">{scenario.title}</h3>
-            <p className="mb-3 text-sm text-muted-foreground">
-              {scenario.description}
-            </p>
-            <Button
-              size="sm"
-              onClick={() => start(scenario.id)}
-              disabled={Boolean(running)}
-            >
-              {running === scenario.id ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Running
-                </>
-              ) : (
-                <>
-                  <Play className="h-3.5 w-3.5" /> Run
-                </>
-              )}
-            </Button>
-          </div>
-        ))}
-      </div>
-
       <ChatPanel onContext={startChat} />
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">Or run a scripted lifecycle</h3>
+        <p className="mb-3 text-sm text-muted-foreground">
+          The same agents, driven end to end — including the parts a
+          conversation can&apos;t reach, like following a parcel to the door.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {scenarios.map((scenario) => (
+            <div key={scenario.id} className="rounded-lg border bg-card p-4">
+              <h4 className="mb-1 font-semibold">{scenario.title}</h4>
+              <p className="mb-3 text-sm text-muted-foreground">
+                {scenario.description}
+              </p>
+              <Button
+                size="sm"
+                onClick={() => start(scenario.id)}
+                disabled={Boolean(running)}
+              >
+                {running === scenario.id ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Running
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" /> Run
+                  </>
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {error && (
         <p className="rounded border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-300">

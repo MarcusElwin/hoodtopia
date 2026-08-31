@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { callAgent } from "@/lib/a2a/client";
 import { rateLimit } from "@/lib/a2a/http";
+import { rememberOrigin } from "@/lib/a2a/config";
 import { partsToText } from "@/lib/a2a/parts";
 import { isAgentId } from "@/lib/a2a/registry";
 import { stateSlug } from "@/lib/a2a/status";
@@ -19,10 +20,18 @@ export const dynamic = "force-dynamic";
  * the agent that asked the question rather than starting a fresh request.
  */
 export async function POST(request: Request): Promise<Response> {
+  rememberOrigin(request.headers);
+
   const limited = rateLimit(request, "chat");
   if (limited) return limited;
 
-  let body: { agent?: string; text?: string; contextId?: string; taskId?: string };
+  let body: {
+    agent?: string;
+    text?: string;
+    contextId?: string;
+    taskId?: string;
+    referenceTaskId?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -48,6 +57,10 @@ export async function POST(request: Request): Promise<Response> {
       to: agent,
       contextId,
       taskId: body.taskId,
+      // When the previous task finished, the new one still references it, so
+      // the agent can resolve "buy them" against what was just priced.
+      referenceTaskIds:
+        !body.taskId && body.referenceTaskId ? [body.referenceTaskId] : undefined,
       text: text.trim(),
     });
 
@@ -65,6 +78,8 @@ export async function POST(request: Request): Promise<Response> {
         isTask && (state === "input-required" || state === "auth-required")
           ? result.id
           : undefined,
+      // Referenced by the next turn regardless of how this one ended.
+      referenceTaskId: isTask ? result.id : undefined,
       state,
       reply: reply || "(no reply)",
     });

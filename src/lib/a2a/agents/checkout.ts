@@ -48,7 +48,9 @@ const ROUTES: SkillRoute[] = [
   { id: "issue_replacement", keywords: ["replacement", "resend", "send another"] },
 ];
 
-export const checkoutCard = buildAgentCard({
+/** Built per request: the card carries an absolute, origin-specific URL. */
+export const checkoutCard = () =>
+  buildAgentCard({
   id: "checkout",
   name: "Hoodtopia Checkout Agent",
   description:
@@ -149,6 +151,19 @@ class NeedsMoreInfo extends Error {
   ) {
     super(question);
   }
+}
+
+/** The most recent priced basket among earlier tasks in this conversation. */
+function lastQuoteAmong(tasks: Task[]): PendingOrder | undefined {
+  for (const task of [...tasks].reverse()) {
+    const fromStatus = firstData<PendingOrder>(task.status?.message?.parts);
+    if (fromStatus?.kind === "pending-order") return fromStatus;
+    for (const message of [...(task.history ?? [])].reverse()) {
+      const data = firstData<PendingOrder>(message.parts);
+      if (data?.kind === "pending-order") return data;
+    }
+  }
+  return undefined;
 }
 
 /** The unfinished request this task was waiting on, if any. */
@@ -339,7 +354,8 @@ class CheckoutExecutor implements AgentExecutor {
     bus: ExecutionEventBus,
     args: PlaceOrderArgs,
     text = "",
-    skill = "quote_cart"
+    skill = "quote_cart",
+    earlier: Task[] = []
   ): Promise<PendingOrder> {
     // Structured arguments win. Where they are absent — a buyer's agent
     // writing plain prose — read what the sentence actually says, and ask
@@ -354,6 +370,18 @@ class CheckoutExecutor implements AgentExecutor {
       if (items.length === 0) items = extracted.items;
       address ??= extracted.address;
       country ??= extracted.country;
+
+      // Still short? Inherit from an earlier task in this conversation before
+      // asking again — a buyer who just priced two hoodies and says "I want to
+      // buy them" has already told us what "them" is.
+      if (items.length === 0 || !country) {
+        const previous = lastQuoteAmong(earlier);
+        if (previous) {
+          if (items.length === 0) items = previous.lines.map((l) => ({ sku: l.sku, quantity: l.quantity }));
+          address ??= previous.address;
+          country ??= previous.address?.country;
+        }
+      }
 
       const missing = [
         ...(items.length === 0 ? (["product"] as const) : []),
@@ -449,7 +477,8 @@ class CheckoutExecutor implements AgentExecutor {
       bus,
       args,
       requestText(ctx),
-      "quote_cart"
+      "quote_cart",
+      ctx.referenceTasks ?? []
     );
     this.complete(
       task,
@@ -478,7 +507,8 @@ class CheckoutExecutor implements AgentExecutor {
       bus,
       args,
       requestText(ctx),
-      "place_order"
+      "place_order",
+      ctx.referenceTasks ?? []
     );
 
     const summary = quote.lines
@@ -761,8 +791,8 @@ class CheckoutExecutor implements AgentExecutor {
   }
 }
 
-export const checkoutAgent: AgentDefinition = {
+export const checkoutAgent = (): AgentDefinition => ({
   id: "checkout",
-  card: checkoutCard,
+  card: checkoutCard(),
   executor: new CheckoutExecutor(),
-};
+});
