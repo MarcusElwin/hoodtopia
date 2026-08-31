@@ -281,17 +281,34 @@ assumes and what an in-memory `TaskStore` gives you. A follow-up answer to an
 task and come back as `Task not found`.
 
 `DbTaskStore` (`src/lib/a2a/db-task-store.ts`) puts it in libSQL instead, and is
-selected automatically when `TURSO_DATABASE_URL` is set; without it the bounded
-in-memory store is used, which is correct on one long-lived process and lossy on
-several. Rows hold the task as proto-JSON rather than a structured clone,
-because the in-memory shape carries tagged `oneof`s and raw bytes — the photo on
-a damage claim — and `JSON.stringify` turns a `Uint8Array` into an object of
-numbered keys that never comes back.
+selected when `TURSO_DATABASE_URL` is set **and** the `a2a_tasks` table exists —
+both are probed once at startup. Without either, the bounded in-memory store is
+used, which is correct on one long-lived process and lossy on several.
 
-Run `npm run db:push` once to create the table. Where no database is configured
-the chat route still flags a lost task (`taskLost`) and the panel replays the
-question and the answer as one self-contained message, so the fallback degrades
-rather than dead-ends.
+The table check is not paranoia. A configured database with no table fails every
+`save` with `no such table`, which is every agent request rather than a quiet
+loss of memory between them, and shipping the code before syncing the schema is
+the ordinary way to get there. A deployment in that state logs a warning naming
+the fix and keeps answering.
+
+Rows hold the task as proto-JSON rather than a structured clone, because the
+in-memory shape carries tagged `oneof`s and raw bytes — the photo on a damage
+claim — and `JSON.stringify` turns a `Uint8Array` into an object of numbered
+keys that never comes back.
+
+Where no database is configured the chat route still flags a lost task
+(`taskLost`) and the panel replays the question and the answer as one
+self-contained message, so the fallback degrades rather than dead-ends.
+
+### Schema changes on deploy
+
+`npm run vercel-build` runs `db:sync` before `next build`, so a deploy applies
+pending schema changes to the database it is about to depend on. It is a no-op
+where no database is configured, so previews and fresh clones build as before.
+
+`db:sync` deliberately does not pass `--force`. Additive changes apply on their
+own; anything drizzle-kit judges destructive fails the build instead of
+truncating a column, and is applied by hand by someone who has read the diff.
 
 ## Layout
 

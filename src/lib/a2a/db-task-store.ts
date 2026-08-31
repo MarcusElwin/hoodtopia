@@ -167,10 +167,42 @@ export class DbTaskStore implements TaskStore {
 /**
  * Whether task state has somewhere durable to live.
  *
- * Without a database the fallback is the in-memory store, which is correct on
- * one long-lived process and lossy on several. That is a deployment property,
- * so it is read from the environment rather than guessed at.
+ * A configured database is necessary but not sufficient: the table also has to
+ * exist. Those come apart in exactly one common case — a deploy that ships this
+ * code before anyone has synced the schema — and the failure mode is severe.
+ * Every `save` throws `no such table`, which is every agent request, not a
+ * quiet loss of memory between them.
+ *
+ * So the table is probed once, and a deployment missing it falls back to the
+ * in-memory store and says so. That is the behaviour the demo had before this
+ * store existed, which is a much better thing to degrade to than a mesh that
+ * answers nothing at all.
  */
-export function taskPersistenceAvailable(): boolean {
-  return Boolean(process.env.TURSO_DATABASE_URL);
+export async function taskPersistenceAvailable(): Promise<boolean> {
+  if (!process.env.TURSO_DATABASE_URL) return false;
+
+  probed ??= probe();
+  return probed;
+}
+
+let probed: Promise<boolean> | undefined;
+
+async function probe(): Promise<boolean> {
+  try {
+    await db.select({ id: a2aTasks.id }).from(a2aTasks).limit(1);
+    return true;
+  } catch (error) {
+    console.warn(
+      "[a2a] A database is configured but the a2a_tasks table is missing, so " +
+        "task state stays in memory and will not survive a change of " +
+        "instance. Run `npm run db:sync` (or `npm run db:push`) against it. " +
+        `Cause: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return false;
+  }
+}
+
+/** Forgets the probe result. Used by tests. */
+export function resetTaskPersistenceProbe(): void {
+  probed = undefined;
 }

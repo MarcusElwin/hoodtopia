@@ -15,6 +15,7 @@ import { fileBytesPart, userMessage } from "./parts";
 type Store = import("./db-task-store").DbTaskStore;
 
 let DbTaskStore: typeof import("./db-task-store").DbTaskStore;
+let store_module: typeof import("./db-task-store");
 let saved: string | undefined;
 
 beforeAll(async () => {
@@ -36,7 +37,8 @@ beforeAll(async () => {
     )
   `);
 
-  ({ DbTaskStore } = await import("./db-task-store"));
+  store_module = await import("./db-task-store");
+  ({ DbTaskStore } = store_module);
 });
 
 afterAll(() => {
@@ -154,5 +156,26 @@ describe("tasks that outlive the process that made them", () => {
       scope
     );
     expect(completedOnly.tasks).toHaveLength(0);
+  });
+});
+
+describe("deciding whether to use the database at all", () => {
+  it("is available once the table is there", async () => {
+    store_module.resetTaskPersistenceProbe();
+    expect(await store_module.taskPersistenceAvailable()).toBe(true);
+  });
+
+  it("falls back rather than failing every request when the table is missing", async () => {
+    const { db } = await import("@/db");
+    await db.run("ALTER TABLE a2a_tasks RENAME TO a2a_tasks_hidden");
+    store_module.resetTaskPersistenceProbe();
+
+    // Shipping this code before syncing the schema is the ordinary case, and
+    // it must cost the demo its memory between instances, not its ability to
+    // answer anything at all.
+    expect(await store_module.taskPersistenceAvailable()).toBe(false);
+
+    await db.run("ALTER TABLE a2a_tasks_hidden RENAME TO a2a_tasks");
+    store_module.resetTaskPersistenceProbe();
   });
 });

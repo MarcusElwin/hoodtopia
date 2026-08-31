@@ -63,7 +63,7 @@ if (!globalForStores.__hoodtopiaA2AStores) {
   globalForStores.__hoodtopiaA2AStores = stores;
 }
 
-function storesFor(def: AgentDefinition): AgentStores {
+async function storesFor(def: AgentDefinition): Promise<AgentStores> {
   const existing = stores.get(def.id);
   if (existing) return existing;
   const created: AgentStores = {
@@ -71,7 +71,7 @@ function storesFor(def: AgentDefinition): AgentStores {
     // where it does not. Neither choice changes what the agent does; it
     // changes whether the agent still knows about a task on the next request,
     // which on a single process is the same thing and on several is not.
-    tasks: taskPersistenceAvailable()
+    tasks: (await taskPersistenceAvailable())
       ? new DbTaskStore(def.id)
       : new BoundedTaskStore(),
     push: def.pushNotifications ? new InMemoryPushNotificationStore() : undefined,
@@ -91,7 +91,7 @@ function storesFor(def: AgentDefinition): AgentStores {
 const runtimes = new Map<string, Promise<AgentRuntime>>();
 
 async function buildRuntime(def: AgentDefinition): Promise<AgentRuntime> {
-  const { tasks, push } = storesFor(def);
+  const { tasks, push } = await storesFor(def);
   const pushSender = push ? new DefaultPushNotificationSender(push) : undefined;
 
   // Building the signer needs a key, which is async, so the runtime is async

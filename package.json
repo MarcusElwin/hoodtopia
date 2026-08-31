@@ -18,7 +18,9 @@
     "generate:accessories:test": "npx tsx src/scripts/generate-accessory-images.ts --test",
     "test": "vitest",
     "test:run": "vitest run",
-    "ci": "npm run lint && npm run typecheck && npm run test:run && npm run build"
+    "ci": "npm run lint && npm run typecheck && npm run test:run && npm run build",
+    "db:sync": "node scripts/db-sync.mjs",
+    "vercel-build": "npm run db:sync && next build"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.1.0",
