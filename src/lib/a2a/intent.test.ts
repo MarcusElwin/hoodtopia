@@ -60,6 +60,22 @@ describe("extractOrder", () => {
     expect(order.missing).toEqual(["destination"]);
   });
 
+  // The agent's own question is "we deliver to SE, GB, US, DE, JP", so the
+  // shortest correct answer to it is one of those codes and nothing else.
+  it.each(["SE", "SE please", "se", "  DE  ", "ship it to JP", "GB thanks"])(
+    "reads %j as an answer to which market",
+    (answer) => {
+      expect(extractOrder(answer).country).toBeTruthy();
+    }
+  );
+
+  it("does not read a two-letter word in prose as a market", () => {
+    // "us" is a market code and an ordinary English word; only one of those
+    // readings is a delivery destination.
+    expect(extractOrder("please send us the black hoodie").country).toBeUndefined();
+    expect(extractOrder("is it in stock").country).toBeUndefined();
+  });
+
   it("does not resolve a city it has no market for", () => {
     expect(extractOrder("a Classic hoodie to Reykjavik").country).toBeUndefined();
   });

@@ -38,7 +38,10 @@ const CITIES: Record<string, { city: string; country: string; postalCode: string
 const COUNTRY_NAMES: Record<string, string> = {
   sweden: "SE", swedish: "SE",
   "united kingdom": "GB", uk: "GB", britain: "GB", england: "GB",
-  "united states": "US", usa: "US", us: "US", america: "US",
+  // "us" is deliberately absent: it is a pronoun far more often than a
+  // market, and "please send us the hoodie" is not a US delivery. A standalone
+  // "US" still resolves, via the bare-code rule below.
+  "united states": "US", usa: "US", america: "US",
   germany: "DE", german: "DE",
   japan: "JP", japanese: "JP",
 };
@@ -91,6 +94,36 @@ function extractItems(text: string): Array<{ sku: string; quantity: number }> {
   return [...found].map(([sku, quantity]) => ({ sku, quantity }));
 }
 
+/**
+ * Words that carry no destination on their own, so a message made only of these
+ * plus a market code still counts as naming that market.
+ */
+const FILLER = new Set([
+  "please",
+  "thanks",
+  "thank",
+  "you",
+  "ship",
+  "shipping",
+  "send",
+  "deliver",
+  "delivery",
+  "it",
+  "to",
+  "in",
+  "for",
+  "the",
+  "a",
+  "is",
+  "im",
+  "i",
+  "am",
+  "we",
+  "my",
+  "address",
+  "country",
+]);
+
 /** A destination, only when the text actually names one. */
 function extractDestination(text: string): { address?: DemoAddress; country?: string } {
   const lower = text.toLowerCase();
@@ -113,9 +146,21 @@ function extractDestination(text: string): { address?: DemoAddress; country?: st
     if (new RegExp(`\\b${needle}\\b`).test(lower)) return { country: code };
   }
 
-  // A bare ISO code, e.g. "ship to SE".
-  const iso = lower.match(/\bto\s+([a-z]{2})\b/);
+  // A bare ISO code introduced by a preposition, e.g. "ship to SE".
+  const iso = lower.match(/\b(?:to|in|for)\s+([a-z]{2})\b/);
   if (iso && MARKETS[iso[1].toUpperCase()]) return { country: iso[1].toUpperCase() };
+
+  // The answer to "we deliver to SE, GB, US, DE, JP" is very often just one of
+  // them. Accepted only when the code is the whole message, filler aside: a
+  // loose two-letter match would read "send us the hoodie" as a US delivery.
+  const bare = lower
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word && !FILLER.has(word));
+  if (bare.length === 1) {
+    const code = bare[0]!.toUpperCase();
+    if (MARKETS[code]) return { country: code };
+  }
 
   return {};
 }

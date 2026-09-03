@@ -275,14 +275,40 @@ things in this demo assumed one process. Two are fixed in code:
 - **A chat turn** returns the hops it caused alongside the reply, rather than
   expecting the browser to open a second connection to the same instance.
 
-One cannot be: **task state lives in the agent's process**, which is what A2A
+The third was **task state living in the agent's process**, which is what A2A
 assumes and what an in-memory `TaskStore` gives you. A follow-up answer to an
-`input-required` question may land on an instance that never saw the task. The
-chat route flags that case (`taskLost`) instead of showing a shopper a task id,
-and the panel replays the question and the answer as one self-contained
-message. A deployment that needs this to be airtight wants a shared `TaskStore`
-— the repo already has libSQL/Turso wired up — or a single long-lived process
-(there is a `Dockerfile`).
+`input-required` question would land on an instance that had never seen the
+task and come back as `Task not found`.
+
+`DbTaskStore` (`src/lib/a2a/db-task-store.ts`) puts it in libSQL instead, and is
+selected when `TURSO_DATABASE_URL` is set **and** the `a2a_tasks` table exists —
+both are probed once at startup. Without either, the bounded in-memory store is
+used, which is correct on one long-lived process and lossy on several.
+
+The table check is not paranoia. A configured database with no table fails every
+`save` with `no such table`, which is every agent request rather than a quiet
+loss of memory between them, and shipping the code before syncing the schema is
+the ordinary way to get there. A deployment in that state logs a warning naming
+the fix and keeps answering.
+
+Rows hold the task as proto-JSON rather than a structured clone, because the
+in-memory shape carries tagged `oneof`s and raw bytes — the photo on a damage
+claim — and `JSON.stringify` turns a `Uint8Array` into an object of numbered
+keys that never comes back.
+
+Where no database is configured the chat route still flags a lost task
+(`taskLost`) and the panel replays the question and the answer as one
+self-contained message, so the fallback degrades rather than dead-ends.
+
+### Schema changes on deploy
+
+`npm run vercel-build` runs `db:sync` before `next build`, so a deploy applies
+pending schema changes to the database it is about to depend on. It is a no-op
+where no database is configured, so previews and fresh clones build as before.
+
+`db:sync` deliberately does not pass `--force`. Additive changes apply on their
+own; anything drizzle-kit judges destructive fails the build instead of
+truncating a column, and is applied by hand by someone who has read the diff.
 
 ## Layout
 
@@ -303,7 +329,8 @@ src/lib/a2a/
   runtime.ts         per-agent DefaultRequestHandler + JsonRpcTransportHandler
   scenario.ts        the scripted shopper agent
   status.ts          task lifecycle helpers
-  task-store.ts      bounded TaskStore
+  task-store.ts      bounded in-memory TaskStore
+  db-task-store.ts   libSQL TaskStore, used when a database is configured
   trace.ts           demo-only trace bus
 ```
 
